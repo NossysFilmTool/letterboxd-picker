@@ -1,13 +1,13 @@
 {
   "name": "nossy-letterboxd-picker",
   "private": true,
-  "version": "3.9.11",
+  "version": "4.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run smoke.test.jsx --environment jsdom"
+    "test": "vitest run smoke.test.jsx idb.test.jsx --environment jsdom"
   },
   "dependencies": {
     "jszip": "^3.10.1",
@@ -19,6 +19,7 @@
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^4.3.4",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
     "vite": "^5.4.11",
     "vite-plugin-singlefile": "^2.0.3",

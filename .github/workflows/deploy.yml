@@ -1,3 +1,5 @@
+# Bouwt en publiceert de tool naar GitHub Pages bij elke push naar main.
+# De tests draaien eerst: een kapotte versie komt nooit live.
 name: Deploy naar GitHub Pages
 
 on:
@@ -25,7 +27,7 @@ jobs:
           cache: npm
       - name: Dependencies installeren
         run: npm ci
-      - name: Tests draaien
+      - name: Tests draaien (74 stuks; falen = geen deploy)
         run: npm test
       - name: Bouwen
         run: npm run build
@@ -33,6 +35,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
   deploy:
     needs: build
     runs-on: ubuntu-latest

@@ -107,6 +107,7 @@ export default function Pick({ app }) {
             film={winner} meta={meta[winner.key]} context={context}
             seen={seenSet.has(winner.key)} onToggleSeen={() => app.toggleSeen(winner.key)}
             onSimilar={similar} onReroll={() => runPick(pool, null)}
+            onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
           />
         </div>
       )}

@@ -1,13 +1,14 @@
 import { useMemo, useRef, useState } from 'react';
 import Shell from './components/Shell.jsx';
+import ScoresPreview from './components/ScoresPreview.jsx';
 import Pick from './tabs/Pick.jsx';
 import Bieb from './tabs/Bieb.jsx';
 import Verken from './tabs/Verken.jsx';
 import Avond from './tabs/Avond.jsx';
 import Inzicht from './tabs/Inzicht.jsx';
 import Instellingen from './tabs/Instellingen.jsx';
-import { useLS, useStorageHealth } from './lib/storage.js';
-import { enrichAll, refreshProviders, resolveFilm, fetchDetailById, setRegion, DEFAULT_REGION } from './lib/tmdb.js';
+import { useLS, useStorageHealth, useMetaStore } from './lib/storage.js';
+import { enrichAll, refreshProviders, resolveFilm, fetchDetailById, setRegion, DEFAULT_REGION, effectiveTmdbKey } from './lib/tmdb.js';
 import { setNossyWeights } from './lib/pick.js';
 import { setThemeEmphasis } from './lib/taste.js';
 import { fetchExtRatings } from './lib/omdb.js';
@@ -24,13 +25,16 @@ export default function App() {
   const { t: tr } = useT();
   const storageBroken = useStorageHealth();
   const [settings, setSettings] = useLS('settings', { tmdbKey: '' });
+  // Eigen sleutel wint; zonder eigen sleutel loopt alles via de tool-proxy
+  // (zodra die geconfigureerd is). Guards en API-calls zien gewoon 'een sleutel'.
+  const tmdbKey = effectiveTmdbKey(settings.tmdbKey);
   const [watchlist, setWatchlist] = useLS('watchlist', []);
   const [watchedLb, setWatchedLb] = useLS('watchedLb', []);
   const [watchedFilms, setWatchedFilms] = useLS('watchedFilms', []); // met naam/jaar, voor de Bieb
   const [ratings, setRatings] = useLS('ratings', {});
   const [ratedFilms, setRatedFilms] = useLS('ratedFilms', []); // uit ratings.csv, incl. films buiten je watchlist
   const [seen, setSeen] = useLS('seen', []);
-  const [meta, setMeta] = useLS('meta', {});
+  const [meta, setMeta, metaReady] = useMetaStore();
   const [history, setHistory] = useLS('history', []);
   const [shortlist, setShortlist] = useLS('shortlist', []);
   const [skipped, setSkipped] = useLS('skipped', []);
@@ -56,7 +60,7 @@ export default function App() {
   const regionInitRef = useRef(true);
   useEffect(() => {
     if (regionInitRef.current) { regionInitRef.current = false; return undefined; }
-    const key = settings.tmdbKey;
+    const key = tmdbKey;
     if (!key) return undefined;
     const items = Object.entries(meta).filter(([, m]) => m && m.id);
     if (!items.length) return undefined;
@@ -116,8 +120,10 @@ export default function App() {
   };
 
   const startEnrich = async (films, force = false) => {
-    const key = settings.tmdbKey;
-    if (!key || enrich.running) return;
+    const key = tmdbKey;
+    // Nooit verrijken vóór de cache uit IndexedDB geladen is: anders lijkt
+    // alles 'ontbrekend' en halen we honderden films dubbel op.
+    if (!key || enrich.running || !metaReady) return;
     const todo = force ? films : films.filter((f) => !(f.key in meta));
     if (!todo.length) return;
     stopRef.current = false;
@@ -206,7 +212,7 @@ export default function App() {
   // als de data ouder is dan een dag.
   const freshenProviders = async (filmK) => {
     const m = metaRef.current[filmK];
-    const key = settings.tmdbKey;
+    const key = tmdbKey;
     if (!m || !key) return;
     if (m.at && Date.now() - m.at < 24 * 3600e3) return;
     try {
@@ -219,7 +225,7 @@ export default function App() {
   // regisseur, streaming) én OMDb-scores — zodat élke tab dezelfde rijke kaart
   // toont. Idempotent en gecachet: doet niks als alles er al is.
   const ensureDetail = async (film) => {
-    const key = settings.tmdbKey;
+    const key = tmdbKey;
     if (!key || !film?.key) return;
     const cur = metaRef.current[film.key];
     const heeftDetail = cur && cur.at != null && 'trailer' in cur;
@@ -246,7 +252,7 @@ export default function App() {
   // We halen de volledige detail + scores op en wissen de mismatch-vlag —
   // geen giswerk meer, jouw keuze is leidend.
   const pickMatch = async (filmKey, tmdbId) => {
-    const key = settings.tmdbKey;
+    const key = tmdbKey;
     if (!key) return;
     try {
       const d = await fetchDetailById(tmdbId, key);
@@ -263,8 +269,8 @@ export default function App() {
 
   // En op de achtergrond: per sessie de 80 oudste films stilletjes verversen
   useEffect(() => {
-    const key = settings.tmdbKey;
-    if (!key || !watchlist.length) return undefined;
+    const key = tmdbKey;
+    if (!key || !watchlist.length || !metaReady) return undefined;
     const WEEK = 7 * 24 * 3600e3;
     const stale = watchlist
       .filter((f) => meta[f.key] && (!meta[f.key].at || Date.now() - meta[f.key].at > WEEK))
@@ -283,9 +289,9 @@ export default function App() {
       }
     })();
     return () => { stop = true; };
-    // bewust alleen bij het opstarten van een sessie
+    // bewust één keer per sessie, zodra de cache geladen is
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [metaReady]);
 
   const app = {
     settings, setSettings,
@@ -306,7 +312,7 @@ export default function App() {
     smart, setSmart,
     demoMode, setDemoMode,
     resetLibrary,
-    enrich, startEnrich,
+    enrich, startEnrich, metaReady, tmdbKey, goSetup: () => setTab('instellingen'),
     extEnrich, startExtEnrich,
     freshenProviders,
     ensureDetail,
@@ -314,7 +320,7 @@ export default function App() {
     stopEnrich: () => { stopRef.current = true; },
   };
 
-  const needsKey = watchlist.length > 0 && !settings.tmdbKey;
+  const needsKey = watchlist.length > 0 && !tmdbKey;
 
   return (
     <Shell tab={tab} setTab={setTab}>
@@ -340,7 +346,10 @@ export default function App() {
       )}
       {!needsKey && watchlist.length > 0 && Object.keys(meta).length > 0 && !omdbKeys.length && !settings.omdbHintWeg && tab !== 'instellingen' && (
         <div className="notice" style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span>{tr('app.omdbNudge')}<a href="#setup" onClick={(e) => { e.preventDefault(); setTab('instellingen'); }}>{tr('app.omdbNudgeLink')}</a>.</span>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <ScoresPreview />
+            <span>{tr('app.omdbNudge')}<a href="#setup" onClick={(e) => { e.preventDefault(); setTab('instellingen'); }}>{tr('app.omdbNudgeLink')}</a>.</span>
+          </div>
           <button className="btn ghost" style={{ flexShrink: 0 }} onClick={() => setSettings((s) => ({ ...s, omdbHintWeg: true }))}>{tr('app.omdbNudgeDismiss')}</button>
         </div>
       )}

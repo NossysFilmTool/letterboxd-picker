@@ -50,13 +50,20 @@ the new one — including when you switch from a local file to the hosted site.
 ```bash
 npm install
 npm run dev     # dev server
-npm test        # 67 smoke tests (vitest + jsdom)
+npm test        # 74 tests (vitest + jsdom + fake-indexeddb)
 npm run build   # single-file build in dist/index.html
 ```
 
 The build is one self-contained HTML file (vite-plugin-singlefile) — you can
 host it anywhere or just double-click it. Pushes to `main` deploy to GitHub
 Pages automatically via Actions (tests must pass first).
+
+## TMDB proxy (optional)
+
+The `worker/` folder contains a Cloudflare Worker that proxies TMDB with a
+server-side key, so visitors need zero setup. See `worker/OPZETTEN.md` for
+the 10-minute deployment guide. Without it, the tool simply asks each user
+for their own free TMDB key, as before.
 
 ## Credits
 

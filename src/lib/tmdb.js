@@ -1,15 +1,27 @@
 const BASE = 'https://api.themoviedb.org/3';
 export const IMG = (path, size = 'w342') => (path ? `https://image.tmdb.org/t/p/${size}${path}` : null);
 
+// --- TMDB-toegang via de tool-proxy (Cloudflare Worker) --------------------
+// Vul hier de Worker-URL in zodra die live is (bijv.
+// 'https://nossy-tmdb.<account>.workers.dev'). Leeg = proxy uit: dan werkt
+// alles precies zoals voorheen, met uitsluitend eigen sleutels.
+export const PROXY_URL = '';
+// Interne sentinel: "gebruik de proxy". Gaat als sleutel door de bestaande
+// code zodat alle guards (`if (!key)`) ongewijzigd blijven werken.
+export const PROXY_KEY = '__nossy_proxy__';
+// Effectieve toegang: eigen sleutel wint (override), anders de proxy.
+export const effectiveTmdbKey = (ownKey) => ownKey || (PROXY_URL ? PROXY_KEY : '');
+
 async function get(path, key, params = {}) {
   // Alleen echte waarden meesturen: URLSearchParams maakt van undefined/null
   // anders letterlijk de string "undefined", wat TMDB als lege query afwijst.
-  const clean = { api_key: key };
+  const viaProxy = key === PROXY_KEY;
+  const clean = viaProxy ? {} : { api_key: key };
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== '') clean[k] = v;
   }
   const qs = new URLSearchParams(clean).toString();
-  const res = await fetch(`${BASE}${path}?${qs}`);
+  const res = await fetch(viaProxy ? `${PROXY_URL}${path}${qs ? `?${qs}` : ''}` : `${BASE}${path}?${qs}`);
   if (res.status === 401) throw new Error('KEY_INVALID');
   if (res.status === 429) {
     await new Promise((r) => setTimeout(r, 1200));
@@ -305,7 +317,7 @@ export async function enrichAll(films, key, onProgress, onResult, shouldStop) {
       onProgress({ done, total, errors });
     }
   };
-  await Promise.all(Array.from({ length: 4 }, worker));
+  await Promise.all(Array.from({ length: 8 }, worker));
   return { done, errors };
 }
 

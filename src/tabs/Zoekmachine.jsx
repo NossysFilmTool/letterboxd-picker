@@ -41,7 +41,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
     ['niet-en', tr('zoek.notEnglish')],
     ...LANG_CODES.map((code) => [code, langName(code)]).sort((a, b) => a[1].localeCompare(b[1], uiLang)),
   ]), [uiLang, langName, tr]);
-  const { settings } = app;
+  const { settings, tmdbKey } = app;
   const [tekst, setTekst] = useState('');
   const [genres, setGenres] = useState([]);
   const [excl, setExcl] = useState([]);
@@ -66,12 +66,12 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
 
   // Nossy-scores voor de zichtbare resultaten ophalen (kost OMDb-calls, dus opt-in)
   const laadScores = async () => {
-    if (!app.settings.tmdbKey || !app.omdbKeys.length || scoresLaden) return;
+    if (!app.tmdbKey || !app.omdbKeys.length || scoresLaden) return;
     setScoresLaden(true);
     const teDoen = lijst.filter((r) => !(r.id in scores)).slice(0, 20);
     for (const r of teDoen) {
       try {
-        const d = await fetchDetailById(r.id, app.settings.tmdbKey);
+        const d = await fetchDetailById(r.id, app.tmdbKey);
         let ext;
         for (const k of app.omdbKeys) {
           try { ext = await fetchExtRatings(d, { name: r.title, year: r.year }, k); if (ext) break; } catch { /* volgende */ }
@@ -116,21 +116,21 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
   };
 
   const zoek = async (targetPage = 1) => {
-    if (!settings.tmdbKey) { alert(tr('zoek.needKey')); return; }
+    if (!tmdbKey) { alert(tr('zoek.needKey')); return; }
     setLoading(true);
     setMaker(null);
     try {
       if (tekst.trim()) {
         // TMDB kan tekst + filters niet combineren: tekst → search, criteria als zeef
         const [films, ppl] = await Promise.all([
-          searchMovies(settings.tmdbKey, tekst.trim()),
-          targetPage === 1 ? searchPersons(settings.tmdbKey, tekst.trim()) : Promise.resolve(personen),
+          searchMovies(tmdbKey, tekst.trim()),
+          targetPage === 1 ? searchPersons(tmdbKey, tekst.trim()) : Promise.resolve(personen),
         ]);
         setRes({ films, totalResults: films.length, totalPages: 1, tekstZoek: true });
         setPersonen(ppl);
         setPage(1);
       } else {
-        const d = await discover(settings.tmdbKey, { ...criteria(), page: targetPage });
+        const d = await discover(tmdbKey, { ...criteria(), page: targetPage });
         setRes({ films: d.results, totalResults: d.totalResults, totalPages: d.totalPages, tekstZoek: false });
         setPersonen([]);
         setPage(targetPage);
@@ -142,7 +142,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
   const openMaker = async (p) => {
     setLoading(true);
     try {
-      const films = await personFilms(settings.tmdbKey, p.id);
+      const films = await personFilms(tmdbKey, p.id);
       setMaker({ naam: p.name, dept: p.dept, films });
       setRes(null); setPersonen([]);
     } catch (e) { alert(`Filmografie laden liep vast: ${e.message}`); }

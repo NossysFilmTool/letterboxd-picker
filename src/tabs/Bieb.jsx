@@ -126,6 +126,7 @@ export default function Bieb({ app }) {
             : tr('bieb.fromLibrary')}
           seen={seenSet.has(sel.key)}
           onToggleSeen={scope === 'watchlist' ? () => app.toggleSeen(sel.key) : undefined}
+          onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
         />
       </div>
     );

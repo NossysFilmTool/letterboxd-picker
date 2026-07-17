@@ -1,0 +1,15 @@
+{
+  "name": "Nossy's Letterboxd Watchlist Picker",
+  "short_name": "Nossy",
+  "description": "Laad je Letterboxd-watchlist en laat de tool kiezen wat je vanavond kijkt.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1115",
+  "theme_color": "#171d23",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

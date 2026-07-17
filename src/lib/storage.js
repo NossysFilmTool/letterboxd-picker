@@ -1,4 +1,5 @@
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
+import { idbAvailable, idbGetAll, idbApply, idbClear } from './idb.js';
 
 const PREFIX = 'nossyV2.';
 
@@ -22,26 +23,39 @@ export function useLS(key, defaultValue) {
   return [value, setValue];
 }
 
-export function exportAll() {
+export function exportAll(metaObj) {
   const out = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (k && k.startsWith(PREFIX)) out[k] = localStorage.getItem(k);
   }
+  // Op het IndexedDB-pad zit de filmcache niet in localStorage; voeg hem toe
+  // onder dezelfde sleutel als vroeger, zodat oude en nieuwe back-ups
+  // uitwisselbaar blijven in beide richtingen.
+  const metaKey = `${PREFIX}meta`;
+  if (metaObj && !(metaKey in out)) out[metaKey] = JSON.stringify(metaObj);
   return JSON.stringify({ app: 'nossy-picker', version: 2, data: out });
 }
 
-export function importAll(json) {
+export async function importAll(json) {
   const parsed = JSON.parse(json);
   if (!parsed || parsed.app !== 'nossy-picker' || !parsed.data) {
     throw new Error('INVALID_BACKUP');
   }
-  Object.entries(parsed.data).forEach(([k, v]) => {
-    if (k.startsWith(PREFIX)) localStorage.setItem(k, v);
-  });
+  const metaKey = `${PREFIX}meta`;
+  for (const [k, v] of Object.entries(parsed.data)) {
+    if (!k.startsWith(PREFIX)) continue;
+    if (k === metaKey && idbAvailable()) {
+      // Filmcache hoort in IndexedDB; de aanroeper herlaadt de app erna.
+      try { await idbClear(); await idbApply(JSON.parse(v), []); } catch { localStorage.setItem(k, v); }
+    } else {
+      localStorage.setItem(k, v);
+    }
+  }
 }
 
-export function clearAll() {
+export async function clearAll() {
+  if (idbAvailable()) { try { await idbClear(); } catch { /* dan alleen LS */ } }
   const keys = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
@@ -71,8 +85,9 @@ export function useStorageHealth() {
 
 // Ruwe schatting van het opslaggebruik van deze tool (in bytes; de browser-
 // limiet ligt rond de 5 MB aan UTF-16-eenheden — indicatie, geen exacte wet).
-export function storageUsage() {
+export function storageUsage(metaObj) {
   let units = 0;
+  if (metaObj && idbAvailable()) { try { units += JSON.stringify(metaObj).length; } catch { /* schatting */ } }
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -80,4 +95,82 @@ export function storageUsage() {
     }
   } catch { /* geblokkeerd: laat 0 zien */ }
   return units;
+}
+
+// --- Filmcache in IndexedDB -----------------------------------------------
+// Zelfde React-gebruik als useLS('meta'), andere persistentie: per film een
+// record in IndexedDB, weggeschreven als gebatchte diff (alleen wat wijzigde).
+// Zonder IndexedDB (oude browsers, sommige testomgevingen) valt de hook
+// terug op exact het oude localStorage-gedrag.
+export function useMetaStore() {
+  const hasIdb = idbAvailable();
+  const [meta, setMeta] = useState(() => {
+    if (hasIdb) return {};
+    try {
+      const raw = localStorage.getItem(`${PREFIX}meta`);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  const [ready, setReady] = useState(!hasIdb);
+  const prevRef = useRef(null); // null = IDB nog niet geladen; dan geen diffs schrijven
+  const pendRef = useRef({ puts: {}, dels: new Set(), timer: null });
+
+  // Boot (alleen IDB-pad): eerst eenmalige migratie van de oude
+  // localStorage-cache, dan alles laden. Migratie maakt meteen ~2 MB
+  // localStorage vrij — het oude plafond-probleem lost zichzelf op.
+  useEffect(() => {
+    if (!hasIdb) return undefined;
+    let alive = true;
+    (async () => {
+      try {
+        const oldRaw = localStorage.getItem(`${PREFIX}meta`);
+        if (oldRaw) {
+          try {
+            await idbApply(JSON.parse(oldRaw), []);
+            localStorage.removeItem(`${PREFIX}meta`);
+          } catch (e) { console.warn('Meta-migratie naar IndexedDB faalde', e); }
+        }
+        const all = await idbGetAll();
+        if (!alive) return;
+        prevRef.current = all;
+        setMeta(all);
+      } catch (e) { console.warn('IndexedDB laden faalde', e); prevRef.current = {}; }
+      if (alive) setReady(true);
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persistentie. IDB-pad: diff per filmsleutel (object-identiteit volstaat:
+  // elke wijziging maakt een nieuw object), gebatcht per 400 ms.
+  useEffect(() => {
+    if (!hasIdb) {
+      try {
+        localStorage.setItem(`${PREFIX}meta`, JSON.stringify(meta));
+      } catch (e) {
+        console.warn('Opslag vol of geblokkeerd voor meta', e);
+        reportStorageError();
+      }
+      return;
+    }
+    const prev = prevRef.current;
+    if (prev === null || prev === meta) return;
+    const pend = pendRef.current;
+    for (const k in meta) if (meta[k] !== prev[k]) { pend.puts[k] = meta[k]; pend.dels.delete(k); }
+    for (const k in prev) if (!(k in meta)) { pend.dels.add(k); delete pend.puts[k]; }
+    prevRef.current = meta;
+    if (!pend.timer) {
+      pend.timer = setTimeout(async () => {
+        const puts = pend.puts; const dels = [...pend.dels];
+        pend.puts = {}; pend.dels = new Set(); pend.timer = null;
+        try { await idbApply(puts, dels); } catch (e) {
+          console.warn('IndexedDB schrijven faalde', e);
+          reportStorageError();
+        }
+      }, 400);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta]);
+
+  return [meta, setMeta, ready];
 }

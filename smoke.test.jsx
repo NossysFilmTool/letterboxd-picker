@@ -987,6 +987,41 @@ describe('V2 smoke', () => {
     expect(screen.getAllByLabelText(/^Open /).length).toBe(60);
   });
 
+  it('scores-onboarding: wizard met activatiemail-waarschuwing als er geen OMDb-sleutels zijn', () => {
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+    expect(screen.getByText('Vier scores in plaats van één')).toBeTruthy();
+    expect(document.body.textContent).toContain('activatielink');
+    expect(document.querySelector('.scores-preview')).toBeTruthy();
+    // één invoerveld eerst; rotatie pas na de toggle
+    expect(screen.getByLabelText(/OMDb API-sleutels/).tagName).toBe('INPUT');
+    fireEvent.click(screen.getByText(/Meerdere sleutels/));
+    expect(screen.getByLabelText(/OMDb API-sleutels/).tagName).toBe('TEXTAREA');
+  });
+
+  it('scores-onboarding: status-modus bij actieve sleutels, met weg terug naar bewerken', () => {
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', omdbKeys: ['aaaa1111', 'bbbb2222'] }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+    expect(screen.getByText('OMDb actief · 2 sleutels')).toBeTruthy();
+    expect(screen.queryByText('Vier scores in plaats van één')).toBeNull();
+    fireEvent.click(screen.getByText('Wijzig sleutels'));
+    expect(screen.getByLabelText(/OMDb API-sleutels/).value).toContain('aaaa1111');
+  });
+
+  it('scores-onboarding: spook-chipje op de filmkaart linkt naar Setup', () => {
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: null, vote: 7.2, votes: 900, genres: ['Drama'], at: Date.now() } }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getByLabelText(/^Open A/));
+    const chip = screen.getByTitle(/Meer scores/);
+    expect(chip.textContent).toContain('IMDb');
+    fireEvent.click(chip);
+    expect(screen.getByText('Vier scores in plaats van één')).toBeTruthy(); // we staan in Setup
+  });
+
   it('setup toont sleutel en back-up', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);

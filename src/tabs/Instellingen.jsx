@@ -4,16 +4,21 @@ import { testKey } from '../lib/tmdb.js';
 import { testOmdbKey, checkOmdbKey } from '../lib/omdb.js';
 import { DEFAULT_NOSSY_WEIGHTS } from '../lib/pick.js';
 import { DEFAULT_THEME_EMPHASIS } from '../lib/taste.js';
-import { REGIONS, DEFAULT_REGION } from '../lib/tmdb.js';
+import { REGIONS, DEFAULT_REGION, PROXY_URL } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
 import { exportAll, importAll, clearAll, storageUsage } from '../lib/storage.js';
+import { idbAvailable } from '../lib/idb.js';
 import { downloadText } from '../lib/csv.js';
 import ImportPanel from '../components/ImportPanel.jsx';
+import ScoresPreview from '../components/ScoresPreview.jsx';
 import MatchPicker from '../components/MatchPicker.jsx';
 
 export default function Instellingen({ app }) {
   const { t: tr, lang } = useT();
+  const idbSetup = idbAvailable();
   const [keyInput, setKeyInput] = useState(app.settings.tmdbKey || '');
+  const [editKeys, setEditKeys] = useState(false);
+  const [multiKeys, setMultiKeys] = useState((app.omdbKeys?.length || 0) > 1);
   const [keyState, setKeyState] = useState('idle'); // idle | testing | ok | fail
   const [omdbInput, setOmdbInput] = useState((app.settings.omdbKeys || (app.settings.omdbKey ? [app.settings.omdbKey] : [])).join('\n'));
   const [omdbState, setOmdbState] = useState('idle');
@@ -35,9 +40,9 @@ export default function Instellingen({ app }) {
     }
   };
 
-  const wipe = () => {
+  const wipe = async () => {
     if (!confirm(tr('setup.confirmClearAll'))) return;
-    clearAll();
+    await clearAll();
     location.reload();
   };
 
@@ -63,7 +68,7 @@ export default function Instellingen({ app }) {
       <div className="card" style={{ marginBottom: 18 }}>
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.tmdbKeyLabel')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>
-          {tr('setup.tmdbIntro1')}<a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer">themoviedb.org/settings/api</a>{tr('setup.tmdbIntro2')}
+          {PROXY_URL ? tr('setup.tmdbViaProxy') : <>{tr('setup.tmdbIntro1')}<a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer">themoviedb.org/settings/api</a>{tr('setup.tmdbIntro2')}</>}
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
@@ -83,38 +88,69 @@ export default function Instellingen({ app }) {
 
       <div className="card" style={{ marginBottom: 18 }}>
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.omdbLabel')}</p>
-        <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>
-          {tr('setup.omdbIntro1')}<a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noreferrer">omdbapi.com/apikey.aspx</a>{tr('setup.omdbIntro1b')}{tr('setup.omdbIntro')}
-        </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <textarea
-            className="field" style={{ maxWidth: 420, minHeight: 66, resize: 'vertical', fontFamily: 'var(--font-ui)' }}
-            placeholder={tr('setup.omdbPlaceholder')} value={omdbInput}
-            onChange={(e) => { setOmdbInput(e.target.value); setOmdbState('idle'); }}
-            aria-label={tr('setup.omdbAria')}
-          />
-          <button className="btn primary" disabled={omdbState === 'testing' || !omdbInput.trim()} onClick={async () => {
-            const keys = omdbInput.split(/[\n,;\s]+/).map((k) => k.trim()).filter(Boolean);
-            if (!keys.length) return;
-            setOmdbState('testing');
-            // Elke sleutel apart diagnosticeren: werkend, daglimiet op, ongeldig of netwerk geblokkeerd
-            const statuses = await Promise.all(keys.map((k) => checkOmdbKey(k)));
-            const report = keys.map((k, i) => ({ key: k, status: statuses[i] }));
-            setKeyReport(report);
-            const bruikbaar = report.filter((r) => r.status !== 'invalid').map((r) => r.key);
-            const okNu = report.filter((r) => r.status === 'ok').map((r) => r.key);
-            if (!bruikbaar.length) { setOmdbState('fail'); return; }
-            // ok-sleutels vooraan, limit-sleutels erachter (morgen weer bruikbaar)
-            const geordend = [...okNu, ...bruikbaar.filter((k) => !okNu.includes(k))];
-            app.setSettings((s) => ({ ...s, omdbKeys: geordend, omdbKey: undefined }));
-            setOmdbState('ok');
-            if (okNu.length && app.watchlist.length) app.startExtEnrich(app.watchlist, geordend);
-          }}>
-            <KeyRound size={15} /> {omdbState === 'testing' ? tr('setup.testing') : tr('setup.saveTest')}
-          </button>
-        </div>
-        {omdbState === 'ok' && <p style={{ color: 'var(--dot-g)', fontSize: 13, marginTop: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> Opgeslagen{keyReport?.some((r) => r.status === 'ok') ? ' — scores worden opgehaald.' : ' — maar geen enkele sleutel heeft nú nog tegoed; morgen wordt automatisch verder geprobeerd.'}</p>}
+        {app.omdbKeys.length > 0 && !editKeys ? (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <p style={{ color: 'var(--dot-g)', fontSize: 13.5 }}>
+              <Check size={14} style={{ verticalAlign: -2 }} /> {tr('setup.omdbActive', { count: app.omdbKeys.length })}
+            </p>
+            <button className="btn ghost" onClick={() => { setOmdbInput(app.omdbKeys.join('\n')); setMultiKeys(app.omdbKeys.length > 1); setEditKeys(true); }}>{tr('setup.changeKeys')}</button>
+          </div>
+        ) : (
+          <>
+            <ScoresPreview />
+            <p style={{ color: 'var(--paper)', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{tr('setup.scoresPitch')}</p>
+            <ol style={{ color: 'var(--fog)', fontSize: 13.5, margin: '0 0 12px 18px', display: 'grid', gap: 6 }}>
+              <li>{tr('setup.wizStep1')}<a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noreferrer">omdbapi.com/apikey.aspx</a>{tr('setup.wizStep1b')}</li>
+              <li><strong style={{ color: 'var(--paper)' }}>{tr('setup.wizStep2')}</strong></li>
+              <li>{tr('setup.wizStep3')}</li>
+            </ol>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              {multiKeys ? (
+                <textarea
+                  className="field" style={{ maxWidth: 420, minHeight: 66, resize: 'vertical', fontFamily: 'var(--font-ui)' }}
+                  placeholder={tr('setup.omdbPlaceholder')} value={omdbInput}
+                  onChange={(e) => { setOmdbInput(e.target.value); setOmdbState('idle'); }}
+                  aria-label={tr('setup.omdbAria')}
+                />
+              ) : (
+                <input
+                  className="field" style={{ maxWidth: 260 }}
+                  placeholder={tr('setup.singlePlaceholder')} value={omdbInput}
+                  onChange={(e) => { setOmdbInput(e.target.value); setOmdbState('idle'); }}
+                  aria-label={tr('setup.omdbAria')}
+                />
+              )}
+              <button className="btn primary" disabled={omdbState === 'testing' || !omdbInput.trim()} onClick={async () => {
+                const keys = omdbInput.split(/[\n,;\s]+/).map((k) => k.trim()).filter(Boolean);
+                if (!keys.length) return;
+                setOmdbState('testing');
+                // Elke sleutel apart diagnosticeren: werkend, daglimiet op, ongeldig of netwerk geblokkeerd
+                const statuses = await Promise.all(keys.map((k) => checkOmdbKey(k)));
+                const report = keys.map((k, i) => ({ key: k, status: statuses[i] }));
+                setKeyReport(report);
+                const bruikbaar = report.filter((r) => r.status !== 'invalid').map((r) => r.key);
+                const okNu = report.filter((r) => r.status === 'ok').map((r) => r.key);
+                if (!bruikbaar.length) { setOmdbState('fail'); return; }
+                // ok-sleutels vooraan, limit-sleutels erachter (morgen weer bruikbaar)
+                const geordend = [...okNu, ...bruikbaar.filter((k) => !okNu.includes(k))];
+                app.setSettings((s) => ({ ...s, omdbKeys: geordend, omdbKey: undefined }));
+                setOmdbState('ok');
+                setEditKeys(false);
+                if (okNu.length && app.watchlist.length) app.startExtEnrich(app.watchlist, geordend);
+              }}>
+                <KeyRound size={15} /> {omdbState === 'testing' ? tr('setup.testing') : tr('setup.saveTest')}
+              </button>
+            </div>
+            {!multiKeys && (
+              <button type="button" className="btn ghost" style={{ marginTop: 8, fontSize: 12.5 }} onClick={() => setMultiKeys(true)}>{tr('setup.multiToggle')}</button>
+            )}
+          </>
+        )}
+        {omdbState === 'ok' && <p style={{ color: 'var(--dot-g)', fontSize: 13, marginTop: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> {keyReport?.some((r) => r.status === 'ok') ? tr('setup.savedFetching') : tr('setup.savedNoBudget')}</p>}
         {omdbState === 'fail' && <p style={{ color: 'var(--dot-o)', fontSize: 13, marginTop: 10 }}>{tr('setup.noUsableKeys')}</p>}
+        {keyReport?.some((r) => r.status === 'invalid') && (
+          <p style={{ color: 'var(--fog)', fontSize: 13, marginTop: 8 }}>{tr('setup.invalidHint')}</p>
+        )}
         {keyReport && (
           <div style={{ marginTop: 12, display: 'grid', gap: 4 }}>
             {keyReport.map((r) => (
@@ -157,12 +193,12 @@ export default function Instellingen({ app }) {
             <span style={{ color: 'var(--fog)', fontSize: 13 }}>
               {tr('setup.loaded', { watchlist: app.watchlist.length, seen: app.watchedLb.length, ratings: Object.keys(app.ratings).length, meta: Object.keys(app.meta).length, ext: Object.values(app.meta).filter((m) => m && m.ext).length })}
             </span>
-            {app.settings.tmdbKey && (
+            {app.tmdbKey && (
               <button className="btn" onClick={() => app.startEnrich(app.watchlist, true)} disabled={app.enrich.running}>
                 {app.enrich.running ? tr('setup.fetching') : tr('setup.fetchData')}
               </button>
             )}
-            {app.settings.tmdbKey && (() => {
+            {app.tmdbKey && (() => {
               const mismatches = app.watchlist.filter((f) => app.meta[f.key]?.yearMismatch);
               if (!mismatches.length) return null;
               return (

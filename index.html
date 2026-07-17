@@ -4,7 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0d1115" />
-  <title>Nossy's Letterboxd Picker V3.9</title>
+  <title>Nossy's Letterboxd Watchlist Picker</title>
+  <meta name="description" content="Laad je Letterboxd-watchlist en laat de tool kiezen wat je vanavond kijkt — op mood, met vrienden, of gewogen op jouw smaak. Draait volledig in je browser." />
+
+  <!-- Iconen & installeerbaarheid -->
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Link-preview (Open Graph / Twitter) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Nossy's Letterboxd Watchlist Picker" />
+  <meta property="og:description" content="Eén avond, één film. Laad je watchlist en laat de tool kiezen — op mood, met vrienden, of gewogen op jouw smaak. 100% in je browser." />
+  <meta property="og:url" content="https://nossysfilmtool.github.io/letterboxd-picker/" />
+  <meta property="og:image" content="https://nossysfilmtool.github.io/letterboxd-picker/social-card.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
@@ -12,5 +30,14 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
+  <script>
+    // Service worker alleen op http(s): de offline LAUNCHER (file://) en de
+    // dev-server hebben er niets aan en zouden er alleen fouten van krijgen.
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !location.hostname.includes('localhost')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => { /* geen SW is geen ramp */ });
+      });
+    }
+  </script>
 </body>
 </html>

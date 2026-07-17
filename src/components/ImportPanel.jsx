@@ -3,6 +3,7 @@ import { Upload, Sparkles, Download } from 'lucide-react';
 import { parseLetterboxdFiles } from '../lib/csv.js';
 import { demoWatchlist } from '../lib/extra.js';
 import { useT } from '../lib/i18n.js';
+import { PROXY_URL } from '../lib/tmdb.js';
 
 export default function ImportPanel({ app, hero }) {
   const { t: tr } = useT();
@@ -31,7 +32,7 @@ export default function ImportPanel({ app, hero }) {
         alert(tr('imp.noFiles'));
       } else {
         if (res.watchlist?.length) app.setDemoMode(false); // echte import vervangt de demo
-        if (res.watchlist?.length && app.settings.tmdbKey) app.startEnrich(res.watchlist);
+        if (res.watchlist?.length && app.tmdbKey) app.startEnrich(res.watchlist);
       }
     } catch (e) {
       alert(`Import mislukt: ${e.message}`);
@@ -43,7 +44,7 @@ export default function ImportPanel({ app, hero }) {
     const demo = demoWatchlist();
     app.setWatchlist(demo);
     app.setDemoMode(true);
-    if (app.settings.tmdbKey) app.startEnrich(demo);
+    if (app.tmdbKey) app.startEnrich(demo);
   };
 
   const inner = (
@@ -88,7 +89,7 @@ export default function ImportPanel({ app, hero }) {
       {inner}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, marginTop: 26 }}>
         <div className="step"><div className="n">1</div><p dangerouslySetInnerHTML={{ __html: tr('imp.step1') }} /></div>
-        <div className="step"><div className="n">2</div><p dangerouslySetInnerHTML={{ __html: tr('imp.step2') }} /></div>
+        <div className="step"><div className="n">2</div><p dangerouslySetInnerHTML={{ __html: tr(PROXY_URL ? 'imp.step2Proxy' : 'imp.step2') }} /></div>
         <div className="step"><div className="n">3</div><p dangerouslySetInnerHTML={{ __html: tr('imp.step3') }} /></div>
       </div>
     </div>

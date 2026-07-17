@@ -7,7 +7,7 @@ import { useT } from '../lib/i18n.js';
 
 const fmtVotes = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : n);
 
-export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist }) {
+export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onWantScores }) {
   const { t: tr } = useT();
   const [sharing, setSharing] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
@@ -73,6 +73,11 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
                     {meta?.ext?.rt != null && <span><b>{meta.ext.rt}%</b> 🍅</span>}
                     {meta?.ext?.mc != null && <span><b>{meta.ext.mc}</b> Meta</span>}
                     {meta?.vote != null && <span><b>{fmtScore(meta.vote)}</b> TMDB <span style={{ color: 'var(--fog-dim)' }}>({fmtVotes(meta.votes)})</span></span>}
+                    {!meta?.ext && onWantScores && (
+                      <button type="button" className="ghost-chip" title={tr('winner.moreScoresTitle')} onClick={onWantScores}>
+                        {tr('winner.moreScores')}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

@@ -15,7 +15,7 @@ import Winner from '../components/Winner.jsx';
 // Zonder ratings.csv: op basis van je watchlist zelf.
 export default function Verken({ app }) {
   const { t: tr, lang } = useT();
-  const { watchlist, meta, setMeta, ratings, ratedFilms, watchedLb, shortlist, setShortlist, skipped, setSkipped, settings, startEnrich, enrich } = app;
+  const { watchlist, meta, setMeta, ratings, ratedFilms, watchedLb, shortlist, setShortlist, skipped, setSkipped, settings, startEnrich, enrich, tmdbKey } = app;
   // Mengmotor-instroom: oeuvres van je favoriete regisseurs (blijvend gecachet),
   // profiel-discover (per sessie) en similar-lijsten (in meta gecachet)
   const [oeuvres, setOeuvres] = useLS('oeuvres', {});
@@ -31,7 +31,7 @@ export default function Verken({ app }) {
   // Live uit TMDB tappen: elke klik haalt 3 verse discover-pagina's op je
   // profiel op en giet ze in de mengmotor — de pool raakt nooit meer op
   const laadVers = async () => {
-    const key = settings.tmdbKey;
+    const key = tmdbKey;
     if (!key || versLaden) return;
     setVersLaden(true);
     try {
@@ -72,9 +72,9 @@ export default function Verken({ app }) {
   // (backdrop, regisseur, trailer, streamingaanbod) + on-demand OMDb-scores
   const openDetail = async (r) => {
     setOpenFilm({ light: r, detail: detailCache.current.get(r.id) || null });
-    if (detailCache.current.has(r.id) || !app.settings.tmdbKey) return;
+    if (detailCache.current.has(r.id) || !app.tmdbKey) return;
     try {
-      const d = await fetchDetailById(r.id, app.settings.tmdbKey);
+      const d = await fetchDetailById(r.id, app.tmdbKey);
       let ext;
       // Probeer alle sleutels tot er één scores geeft (daglimiet/rotatie)
       for (const k of (app.omdbKeys || [])) {
@@ -107,7 +107,7 @@ export default function Verken({ app }) {
 
   // De mengmotor vult de instroom bij: één keer per sessie, alles gecachet
   useEffect(() => {
-    const key = settings.tmdbKey;
+    const key = tmdbKey;
     // De mengmotor draait alleen voor 'Voor jou' — niet als je puur de
     // zoekmachine gebruikt. Zo blijft de Zoeken-tab instant.
     if (mode !== 'voorJou' || !key || blendRan.current || !seeds.length) return;
@@ -172,12 +172,12 @@ export default function Verken({ app }) {
     })();
     return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seeds.length, settings.tmdbKey, mode]);
+  }, [seeds.length, tmdbKey, mode]);
 
   // Thema-jacht (optioneel): haalt films op die jouw top-thema's delen. Draait
   // alleen als je 'm aanzet, en opnieuw als je top-thema's wezenlijk wijzigen.
   useEffect(() => {
-    const key = settings.tmdbKey;
+    const key = tmdbKey;
     if (!themeHunt || !key || mode !== 'voorJou') return undefined;
     const ids = (taste.topThemes || []).map((t) => t.id).slice(0, 5);
     if (!ids.length) return undefined;
@@ -298,7 +298,7 @@ export default function Verken({ app }) {
 
   // De zoekmachine draait op een TMDB-sleutel alleen — geen verrijkte bieb nodig.
   // Alleen als er écht niets is (geen sleutel én geen data) tonen we de uitleg.
-  if (!settings.tmdbKey && !Object.keys(meta).length) {
+  if (!tmdbKey && !Object.keys(meta).length) {
     return (
       <div>
         <h1 className="page-title">{tr('verken.title')}</h1>
@@ -327,6 +327,7 @@ export default function Verken({ app }) {
           film={{ key: `tmdb:${light.id}`, name: light.title, year: light.year, uri: '' }}
           meta={m} context={detail ? tr('verken.fromOutside') : tr('verken.detailsLoading')}
           onShortlist={() => addToShortlist({ ...light, seeds: [], count: 0 })} inShortlist={inShort}
+            onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
         />
       </div>
     );

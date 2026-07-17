@@ -1,0 +1,11 @@
+# Afhankelijkheden
+node_modules/
+
+# Build-output (GitHub Actions bouwt zelf; hoort niet in de repo)
+dist/
+
+# Systeem- en editorbestanden
+.DS_Store
+*.log
+.vscode/
+.idea/
