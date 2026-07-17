@@ -5,7 +5,7 @@ export const IMG = (path, size = 'w342') => (path ? `https://image.tmdb.org/t/p/
 // Vul hier de Worker-URL in zodra die live is (bijv.
 // 'https://nossy-tmdb.<account>.workers.dev'). Leeg = proxy uit: dan werkt
 // alles precies zoals voorheen, met uitsluitend eigen sleutels.
-export const PROXY_URL = '';
+export const PROXY_URL = 'https://nossy-tmdb.songason1-nossytool.workers.dev';
 // Interne sentinel: "gebruik de proxy". Gaat als sleutel door de bestaande
 // code zodat alle guards (`if (!key)`) ongewijzigd blijven werken.
 export const PROXY_KEY = '__nossy_proxy__';

@@ -1022,6 +1022,30 @@ describe('V2 smoke', () => {
     expect(screen.getByText('Vier scores in plaats van één')).toBeTruthy(); // we staan in Setup
   });
 
+  it('proxy: zonder eigen sleutel loopt TMDB-verkeer via de Worker, zonder api_key', async () => {
+    const { effectiveTmdbKey, PROXY_KEY, PROXY_URL, refreshProviders } = await import('./src/lib/tmdb.js');
+    expect(PROXY_URL).toContain('workers.dev');
+    expect(effectiveTmdbKey('')).toBe(PROXY_KEY);   // geen sleutel -> proxy
+    expect(effectiveTmdbKey('abc')).toBe('abc');     // eigen sleutel wint
+    let opgeroepen = '';
+    global.fetch = async (url) => { opgeroepen = String(url); return { ok: true, status: 200, json: async () => ({ results: {} }) }; };
+    await refreshProviders(42, PROXY_KEY);
+    expect(opgeroepen.startsWith(PROXY_URL)).toBe(true);
+    expect(opgeroepen).not.toContain('api_key');
+    delete global.fetch;
+  });
+
+  it('proxy: sleutelloze gebruiker ziet werkende tool, geen sleutel-schermen', () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    render(<App />);
+    fireEvent.click(screen.getAllByText('Verken')[0]);
+    expect(document.body.textContent).not.toContain('TMDB-sleutel nodig');
+    fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+    expect(document.body.textContent).toContain('de tool regelt TMDB voor je');
+  });
+
   it('setup toont sleutel en back-up', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);

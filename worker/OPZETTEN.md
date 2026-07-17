@@ -40,12 +40,12 @@ Open in je browser:
 Zie je JSON over Fight Club, dan leeft de proxy. Zie je een foutmelding
 over een ongeldige key, check dan de Secret-naam (exact `TMDB_KEY`).
 
-## Laatste stap: de tool aansluiten
+## Status: LIVE ✓
 
-Stuur mij (Claude) de Worker-URL. Ik vul hem in als `PROXY_URL` in
-`src/lib/tmdb.js`, pas de Setup-teksten aan en lever een nieuwe versie —
-vanaf dat moment werkt de site voor iedereen out-of-the-box, en blijft
-een eigen sleutel invullen mogelijk als override.
+De Worker draait op https://nossy-tmdb.songason1-nossytool.workers.dev
+en is sinds V4.0.1 ingevuld als `PROXY_URL` in `src/lib/tmdb.js`.
+De site werkt daarmee voor iedereen zonder sleutel; een eigen sleutel
+invullen blijft mogelijk als override.
 
 ## Goed om te weten
 
