@@ -11,7 +11,7 @@ iedereen zonder TMDB-sleutel.
    prima). Verifieer de mail.
 2. Log in → Settings → API → vraag een sleutel aan ("Developer").
    Vul bij de vragen gewoon eerlijk in: personal/hobby project, de URL van
-   je tool. Je krijgt direct de **API Key (v3 auth)** — dat korte ding heb
+   je tool. Je krijgt direct de **API Key (v3 auth)**. dat korte ding heb
    je zo nodig. Bewaar hem even in je notities.
 
 ## Cloudflare-account + Worker (±5 min)
@@ -21,12 +21,12 @@ iedereen zonder TMDB-sleutel.
    voegen). Verifieer de mail.
 2. In het dashboard, linkermenu: **Workers & Pages** → knop
    **Create** → **Create Worker**.
-3. Geef hem een naam, bijv. `nossy-tmdb` — die naam komt in je URL:
+3. Geef hem een naam, bijv. `nossy-tmdb`. Die naam komt in je URL:
    `https://nossy-tmdb.<jouw-account>.workers.dev`. Klik **Deploy**
-   (er staat nu een hello-world; dat gaan we vervangen).
+   (er staat nu een voorbeeldje, dat gaan we vervangen).
 4. Klik **Edit code**, gooi alle voorbeeldcode weg en plak de volledige
    inhoud van `worker.js` erin. Klik rechtsboven **Deploy**.
-5. Nu de geheime sleutel erin — dit is de kern: ga terug naar het
+5. Nu de geheime sleutel erin, dit is de kern. Ga terug naar het
    Worker-overzicht → tabblad **Settings** → **Variables and Secrets** →
    **Add** → type **Secret**, naam exact `TMDB_KEY`, waarde = je
    v3-sleutel van het tool-account. Opslaan (de Worker herstart vanzelf).
@@ -53,7 +53,7 @@ invullen blijft mogelijk als override.
   de browser. De repo mag dus gewoon publiek blijven.
 - De allowlist in `worker.js` staat op jouw site (nossysfilmtool.github.io)
   plus localhost. Verhuist de site ooit, pas dan die lijst aan.
-- Gratis tier: 100.000 verzoeken per dag — een verrijking van 1000 films
+- Gratis tier: 100.000 verzoeken per dag. Een verrijking van 1000 films
   kost er ±2000, dus dat zit ruim.
 - De offline LAUNCHER blijft met eigen sleutels werken en gebruikt de
   proxy niet.

@@ -120,7 +120,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
     render(<App />);
     fireEvent.click(screen.getByText('Probeer met demo-watchlist'));
-    expect(document.body.textContent).toContain('demo-watchlist — even proeven');
+    expect(document.body.textContent).toContain('demo-watchlist, met voorbeeldfilms');
     fireEvent.click(screen.getByText('Demo wissen en opnieuw beginnen'));
     expect(document.body.textContent).toContain('Wat kijken we vanavond?');
     expect(document.body.textContent).not.toContain('Demo wissen');
@@ -270,7 +270,7 @@ describe('V2 smoke', () => {
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
     fireEvent.change(screen.getByLabelText('OMDb API-sleutels, één per regel'), { target: { value: 'sleutel1\nsleutel2' } });
     fireEvent.click(screen.getAllByText('Opslaan en testen')[1]); // tweede knop = OMDb-kaart
-    expect(await screen.findByText(/Opgeslagen — scores worden opgehaald/)).toBeTruthy();
+    expect(await screen.findByText(/Opgeslagen. Scores worden opgehaald/)).toBeTruthy();
     // wachtrij (5 films zonder ext) laten leeglopen
     await new Promise((r) => setTimeout(r, 50));
     fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
@@ -417,7 +417,7 @@ describe('V2 smoke', () => {
     const junk = matchScore({ vote: 10, votes: 5, year: 2021, lang: 'en', genre_ids: [18] }, taste);
     const solide = matchScore({ vote: 7.6, votes: 3000, year: 2021, lang: 'en', genre_ids: [18] }, taste); // Nomadland-schaal
     expect(solide.score).toBeGreaterThan(junk.score + 10); // Bayes dempt de nep-10 hard
-    expect(junk.redenen.join(' ')).toContain('amper beoordeeld');
+    expect(junk.redenen.join(' ')).toContain('korrel zout');
     expect(solide.redenen.join(' ')).toContain('sterk beoordeeld');
   });
 
@@ -678,7 +678,7 @@ describe('V2 smoke', () => {
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
     fireEvent.click(screen.getByText(/mogelijk verkeerde film/));
     // de hint over tv-series verschijnt (mager resultaat)
-    expect(await screen.findByText(/mogelijk een tv-serie/i)).toBeTruthy();
+    expect(await screen.findByText(/Mogelijk is dit een tv-serie/i)).toBeTruthy();
     // negeer 'm
     fireEvent.click(screen.getAllByText('Hoort niet op mijn filmlijst')[0]);
     // de twijfelknop verdwijnt (geen mismatches meer) en het item staat als genegeerd
@@ -798,7 +798,7 @@ describe('V2 smoke', () => {
     setLang('en');
     expect(t('pick.poolCount', { count: 1 })).toBe('1 film in your pool');
     expect(t('zoek.emptyTextFiltered', { count: 1, filters: 'x' })).toContain('There was 1 title match');
-    expect(t('app.omdbStopLimit', { count: 1 })).toContain('1 film without scores');
+    expect(t('app.omdbStopLimit', { count: 1 })).toContain('1 film has no scores');
     setLang('nl'); // reset
   });
 
@@ -960,7 +960,7 @@ describe('V2 smoke', () => {
     act(() => { reportStorageError(); });
     const alertEl = document.querySelector('[role="alert"]');
     expect(alertEl).toBeTruthy();
-    expect(alertEl.textContent).toContain('niet meer bewaard');
+    expect(alertEl.textContent).toContain('niet meer opgeslagen');
   });
 
   it('opslag: Setup toont het gebruik in MB', () => {
