@@ -23,7 +23,31 @@ import { useT, esc } from '../lib/i18n.js';
 
 export default function Inzicht({ app }) {
   const { t: tr, lang } = useT();
-  const { watchlist, meta, ratings, ratedFilms, shortlist, skipped, history, seenSet } = app;
+  const { watchlist, meta, ratings, ratedFilms, shortlist, skipped, history, seenSet, diary } = app;
+
+  // Kijkritme uit het Letterboxd-dagboek: telling per maand, laatste 12 maanden.
+  const ritme = useMemo(() => {
+    if (!diary?.length) return null;
+    const nu = new Date();
+    const maanden = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(nu.getFullYear(), nu.getMonth() - i, 1);
+      maanden.push({ y: d.getFullYear(), m: d.getMonth(), count: 0 });
+    }
+    let herkijk = 0;
+    diary.forEach((e) => {
+      const d = new Date(e.watchedDate);
+      if (Number.isNaN(d.getTime())) return;
+      const slot = maanden.find((x) => x.y === d.getFullYear() && x.m === d.getMonth());
+      if (slot) { slot.count += 1; if (e.rewatch) herkijk += 1; }
+    });
+    const totaal = maanden.reduce((n, x) => n + x.count, 0);
+    if (!totaal) return null;
+    const piek = maanden.reduce((a, b) => (b.count > a.count ? b : a));
+    const maandNaam = (m, y) => { try { return new Intl.DateTimeFormat(lang, { month: 'long' }).format(new Date(y, m, 1)); } catch { return `${m + 1}`; } };
+    return { maanden, totaal, herkijk, piekNaam: maandNaam(piek.m, piek.y), max: Math.max(...maanden.map((x) => x.count)) };
+  }, [diary, lang]);
+
   const [sel, setSel] = useState(null);
 
   const openPick = (h) => {
@@ -104,6 +128,20 @@ export default function Inzicht({ app }) {
 
   return (
     <div>
+      {ritme && (
+        <div className="card" style={{ marginBottom: 18 }}>
+          <p className="label" style={{ marginBottom: 10 }}>{tr('inzicht.rhythm')}</p>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 56, marginBottom: 10 }} aria-hidden="true">
+            {ritme.maanden.map((x) => (
+              <div key={`${x.y}-${x.m}`} title={`${x.count}`} style={{ flex: 1, minWidth: 8, height: `${x.count ? Math.max(12, (x.count / ritme.max) * 100) : 4}%`, borderRadius: 3, background: x.count === ritme.max && x.count ? 'var(--dot-g)' : 'var(--line-strong)' }} />
+            ))}
+          </div>
+          <p style={{ color: 'var(--fog)', fontSize: 13.5 }}>
+            {tr('inzicht.rhythmLine', { count: ritme.totaal, month: ritme.piekNaam })}
+            {ritme.herkijk ? ` · ${tr('inzicht.rewatchLine', { count: ritme.herkijk })}` : ''}
+          </p>
+        </div>
+      )}
       <div className="toprow">
         <div>
           <h1 className="page-title">{tr('inzicht.title')}</h1>

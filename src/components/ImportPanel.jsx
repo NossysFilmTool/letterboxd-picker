@@ -4,11 +4,13 @@ import { parseLetterboxdFiles } from '../lib/csv.js';
 import { demoWatchlist } from '../lib/extra.js';
 import { useT } from '../lib/i18n.js';
 import { PROXY_URL } from '../lib/tmdb.js';
+import { importDiff } from '../lib/csv.js';
 
 export default function ImportPanel({ app, hero }) {
   const { t: tr } = useT();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState(null);
   const [dragOver, setDragOver] = useState(false);
 
   const handleFiles = async (files) => {
@@ -16,6 +18,8 @@ export default function ImportPanel({ app, hero }) {
     setBusy(true);
     try {
       const res = await parseLetterboxdFiles(Array.from(files));
+      // Diff t.o.v. de huidige staat, vóórdat we iets vervangen.
+      const diff = importDiff({ watchlist: app.watchlist, watchedLb: app.watchedLb, ratings: app.lbRatings }, res);
       const found = [];
       if (res.watchlist?.length) { app.setWatchlist(res.watchlist); found.push(`${res.watchlist.length} watchlist-films`); }
       if (res.watched?.length) {
@@ -26,13 +30,19 @@ export default function ImportPanel({ app, hero }) {
       if (res.ratings && Object.keys(res.ratings.map).length) {
         app.setRatings(res.ratings.map);
         app.setRatedFilms(res.ratings.films);
+        // Eigen sterren opruimen voor films die Letterboxd nu zelf kent:
+        // vanaf hier is de export de bron van waarheid voor die films.
+        app.setOwnRatings((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => !(k in res.ratings.map))));
         found.push(`${Object.keys(res.ratings.map).length} ratings`);
       }
       if (!found.length) {
         alert(tr('imp.noFiles'));
       } else {
         if (res.watchlist?.length) app.setDemoMode(false); // echte import vervangt de demo
+        if (res.diary?.length) app.setDiary(res.diary);
+        if (res.lists?.length) app.setLbLists(res.lists);
         if (res.watchlist?.length && app.tmdbKey) app.startEnrich(res.watchlist);
+        setReport({ ...diff, lijsten: res.lists?.length || 0 });
       }
     } catch (e) {
       alert(`Import mislukt: ${e.message}`);
@@ -60,6 +70,22 @@ export default function ImportPanel({ app, hero }) {
       <p style={{ color: 'var(--fog)', fontSize: 13, marginTop: 4 }}>
         {tr('imp.dropSub')}
       </p>
+      {report && (
+        <p role="status" style={{ color: 'var(--dot-g)', fontSize: 13.5, marginTop: 12 }}>
+          {report.eerste
+            ? tr('imp.repFirst', { count: report.totaal })
+            : (() => {
+              const delen = [
+                report.nieuwOpWl ? tr('imp.repNewWl', { count: report.nieuwOpWl }) : null,
+                report.vanWlAf ? tr('imp.repGone', { count: report.vanWlAf }) : null,
+                report.nieuweRatings ? tr('imp.repNewRatings', { count: report.nieuweRatings }) : null,
+                report.nieuwGezien ? tr('imp.repNewSeen', { count: report.nieuwGezien }) : null,
+                report.lijsten ? tr('imp.repLists', { count: report.lijsten }) : null,
+              ].filter(Boolean);
+              return delen.length ? tr('imp.repUpdated') + delen.join(' · ') : tr('imp.repNothingNew');
+            })()}
+        </p>
+      )}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
         <button className="btn primary" onClick={() => inputRef.current?.click()} disabled={busy}>
           <Upload size={15} /> {busy ? tr('imp.busy') : tr('imp.chooseFiles')}

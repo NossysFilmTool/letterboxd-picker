@@ -1046,6 +1046,122 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('de tool regelt TMDB voor je');
   });
 
+  it('opvolging: gisteren gepickt vraagt om sterren en voedt het profiel', () => {
+    localStorage.clear();
+    const gisteren = new Date(Date.now() - 20 * 3600e3).toISOString();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022 }]));
+    localStorage.setItem('nossyV2.history', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022, date: gisteren, context: 'x' }]));
+    render(<App />);
+    expect(screen.getByText(/Aftersun \(2022\) — Gekeken\?/)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Geef 4 sterren'));
+    // kaart weg, antwoord + rating bewaard
+    expect(screen.queryByText(/Gekeken\?/)).toBeNull();
+    const own = JSON.parse(localStorage.getItem('nossyV2.ownRatings'));
+    expect(own['aftersun|2022'].rating).toBe(4);
+    const fu = JSON.parse(localStorage.getItem('nossyV2.followups'));
+    expect(fu[gisteren]).toBe('rated');
+    // en de film staat nu bij gezien, met jouw ster zichtbaar in de Bieb
+    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getByText(/^Gezien \(/));
+    expect(document.body.textContent).toContain('Aftersun');
+  });
+
+  it('opvolging: "Niet gekeken" ruimt op zonder rating, en verse picks vragen niks', () => {
+    localStorage.clear();
+    const gisteren = new Date(Date.now() - 20 * 3600e3).toISOString();
+    const netNu = new Date(Date.now() - 3600e3).toISOString();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    localStorage.setItem('nossyV2.history', JSON.stringify([
+      { key: 'vers|2024', name: 'Vers', year: 2024, date: netNu, context: 'x' },
+      { key: 'oud|2019', name: 'Oud', year: 2019, date: gisteren, context: 'x' },
+    ]));
+    render(<App />);
+    // de verse pick (1 uur) wordt overgeslagen; de oudere komt aan bod
+    expect(screen.getByText(/Oud \(2019\)/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Niet gekeken'));
+    expect(screen.queryByText(/Gekeken\?/)).toBeNull();
+    expect(localStorage.getItem('nossyV2.ownRatings') || '{}').not.toContain('oud');
+  });
+
+  it('her-import: de diff vertelt precies wat er veranderde', async () => {
+    const { importDiff } = await import('./src/lib/csv.js');
+    // eerste import
+    const eerste = importDiff({ watchlist: [], watchedLb: [], ratings: {} }, { watchlist: [{ key: 'a|1' }, { key: 'b|2' }] });
+    expect(eerste.eerste).toBe(true);
+    expect(eerste.totaal).toBe(2);
+    // her-import: b bleef, c kwam erbij, a ging eraf; 1 nieuwe rating, 1 nieuw gezien
+    const diff = importDiff(
+      { watchlist: [{ key: 'a|1' }, { key: 'b|2' }], watchedLb: ['x|9'], ratings: { 'b|2': 4 } },
+      { watchlist: [{ key: 'b|2' }, { key: 'c|3' }], watched: [{ key: 'x|9' }, { key: 'a|1' }], ratings: { map: { 'b|2': 4, 'a|1': 3.5 } } },
+    );
+    expect(diff.eerste).toBe(false);
+    expect(diff.nieuwOpWl).toBe(1);
+    expect(diff.vanWlAf).toBe(1);
+    expect(diff.nieuweRatings).toBe(1);
+    expect(diff.nieuwGezien).toBe(1);
+    // niets veranderd
+    const stil = importDiff(
+      { watchlist: [{ key: 'a|1' }], watchedLb: [], ratings: {} },
+      { watchlist: [{ key: 'a|1' }], watched: [], ratings: { map: {} } },
+    );
+    expect(stil.nieuwOpWl + stil.vanWlAf + stil.nieuweRatings + stil.nieuwGezien).toBe(0);
+  });
+
+  it('zip-schatten: diary en eigen lijsten worden uit de export gevist', async () => {
+    const { parseLetterboxdFiles } = await import('./src/lib/csv.js');
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    zip.file('watchlist.csv', 'Date,Name,Year,Letterboxd URI\n2024-01-01,Aftersun,2022,https://x');
+    zip.file('diary.csv', 'Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date\n2026-06-02,Aftersun,2022,https://x,4.5,,,2026-06-01\n2026-06-10,Stalker,1979,https://y,5,Yes,,2026-06-09');
+    zip.file('lists/spooky-season.csv', 'Letterboxd list export v7\nDate,Name,Tags,URL,Description\n2026-05-01,Spooky Season,,https://l,Mijn octoberlijst\n\nPosition,Name,Year,URL,Description\n1,The Wailing,2016,https://a,\n2,Lake Mungo,2008,https://b,');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const file = new File([blob], 'letterboxd-export.zip');
+    const res = await parseLetterboxdFiles([file]);
+    expect(res.diary.length).toBe(2);
+    expect(res.diary[1].rewatch).toBe(true);
+    expect(res.diary[0].watchedDate).toBe('2026-06-01');
+    expect(res.lists.length).toBe(1);
+    expect(res.lists[0].naam).toBe('Spooky Season'); // uit de metadata, niet de bestandsnaam
+    expect(res.lists[0].films.map((f) => f.name)).toEqual(['The Wailing', 'Lake Mungo']);
+  });
+
+  it('pick-bron: kiezen uit een eigen lijst verandert de pool', () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 }, { key: 'c|2022', name: 'C', year: 2022 },
+    ]));
+    localStorage.setItem('nossyV2.lbLists', JSON.stringify([
+      { naam: 'Spooky Season', films: [{ key: 'w|2016', name: 'The Wailing', year: 2016 }, { key: 'l|2008', name: 'Lake Mungo', year: 2008 }] },
+    ]));
+    render(<App />);
+    expect(document.body.textContent).toContain('3 films in je pool');
+    fireEvent.change(screen.getByLabelText('Pick uit'), { target: { value: 'Spooky Season' } });
+    expect(document.body.textContent).toContain('2 films in je pool');
+  });
+
+  it('kijkritme: het dagboek levert een ritme-kaart met piekmaand', () => {
+    localStorage.clear();
+    const m = (d) => d.toISOString().slice(0, 10);
+    const nu = new Date();
+    const dezeMaand = m(new Date(nu.getFullYear(), nu.getMonth(), 2));
+    const vorigeMaand = m(new Date(nu.getFullYear(), nu.getMonth() - 1, 2));
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    localStorage.setItem('nossyV2.diary', JSON.stringify([
+      { key: 'x|1', name: 'X', year: 2020, watchedDate: dezeMaand, rewatch: false },
+      { key: 'y|2', name: 'Y', year: 2021, watchedDate: dezeMaand, rewatch: true },
+      { key: 'z|3', name: 'Z', year: 2019, watchedDate: vorigeMaand, rewatch: false },
+    ]));
+    render(<App />);
+    fireEvent.click(screen.getAllByText('Inzicht')[0]);
+    expect(document.body.textContent).toContain('Jouw kijkritme');
+    expect(document.body.textContent).toContain('3 films gekeken');
+    expect(document.body.textContent).toContain('waarvan 1 herkijk');
+  });
+
   it('setup toont sleutel en back-up', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);

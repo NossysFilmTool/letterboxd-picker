@@ -1,3 +1,4 @@
+import { IMG } from '../lib/tmdb.js';
 import { useMemo, useState } from 'react';
 import { SlidersHorizontal, Brain, Dice5, ChevronDown, ChevronUp } from 'lucide-react';
 import { MOODS, moodTest, applyFilters, pickWinner, similarPool } from '../lib/pick.js';
@@ -15,12 +16,25 @@ export default function Pick({ app }) {
   const [winner, setWinner] = useState(null);
   const [context, setContext] = useState(null);
 
-  const { watchlist, meta, seenSet, smart, setSmart, history, setHistory } = app;
-  const { t: tr } = useT();
+  const { watchlist, meta, seenSet, smart, setSmart, history, setHistory, ratings, followups, answerFollowup, lbLists, startEnrich } = app;
+  const { t: tr, lang } = useT();
 
+  // Bron van de pool: je watchlist, of één van je eigen Letterboxd-lijsten.
+  const [bron, setBron] = useState('watchlist');
+  const bronLijst = bron === 'watchlist' ? null : lbLists.find((l) => l.naam === bron);
+  const basePool = bronLijst ? bronLijst.films : watchlist;
+  const kiesBron = (naam) => {
+    setBron(naam);
+    // Lijstfilms buiten je watchlist hebben mogelijk nog geen filmdata.
+    const lijst = lbLists.find((l) => l.naam === naam);
+    if (lijst) {
+      const missend = lijst.films.filter((f) => !(f.key in meta));
+      if (missend.length) startEnrich(missend);
+    }
+  };
   const pool = useMemo(
-    () => applyFilters(watchlist, meta, { ...filters, minYear: +filters.minYear || 0, maxYear: +filters.maxYear || 0, maxRuntime: +filters.maxRuntime || 0, minVote: +filters.minVote || 0 }, seenSet),
-    [watchlist, meta, filters, seenSet],
+    () => applyFilters(basePool, meta, { ...filters, minYear: +filters.minYear || 0, maxYear: +filters.maxYear || 0, maxRuntime: +filters.maxRuntime || 0, minVote: +filters.minVote || 0 }, seenSet),
+    [basePool, meta, filters, seenSet],
   );
 
   const moodCounts = useMemo(() => {
@@ -76,6 +90,23 @@ export default function Pick({ app }) {
 
   if (!watchlist.length) return <ImportPanel app={app} hero />;
 
+  // Post-pick-opvolging: de meest recente pick van 6 uur tot 14 dagen terug
+  // waar nog geen antwoord of rating voor is. Eén vraag, nooit een stapel.
+  const NU = Date.now();
+  const followupPick = history.find((h) => {
+    const t = new Date(h.date).getTime();
+    if (NU - t < 6 * 3600e3 || NU - t > 14 * 24 * 3600e3) return false;
+    if (followups[h.date]) return false;
+    if (ratings[h.key] != null) return false;
+    return true;
+  });
+  const relTijd = (iso) => {
+    try {
+      const dagen = Math.round((new Date(iso).getTime() - NU) / (24 * 3600e3));
+      return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(dagen, 'day');
+    } catch { return ''; }
+  };
+
   const toggleIn = (arrKey, val) => setFilters((f) => ({
     ...f,
     [arrKey]: f[arrKey].includes(val) ? f[arrKey].filter((x) => x !== val) : [...f[arrKey], val],
@@ -112,7 +143,40 @@ export default function Pick({ app }) {
         </div>
       )}
 
+      {followupPick && (
+        <div className="card followup-card rise-in" style={{ marginBottom: 18 }}>
+          {meta[followupPick.key]?.poster
+            ? <img className="fu-poster" src={IMG(meta[followupPick.key].poster, 'w154')} alt="" />
+            : <div className="fu-poster" aria-hidden="true" />}
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <p className="label" style={{ marginBottom: 2 }}>{tr('pick.followupTitle')} · {relTijd(followupPick.date)}</p>
+            <p style={{ color: 'var(--paper)', fontSize: 15.5, fontWeight: 600 }}>{followupPick.name}{followupPick.year ? ` (${followupPick.year})` : ''} — {tr('pick.followupQ')}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="fu-stars" role="group" aria-label={tr('pick.followupQ')}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button key={n} type="button" className="fu-star" aria-label={tr('pick.rateAria', { n })}
+                  onClick={() => answerFollowup(followupPick, 'rated', n)}>★</button>
+              ))}
+            </span>
+            <button className="btn ghost" onClick={() => answerFollowup(followupPick, 'seen')}>{tr('pick.seenNoStars')}</button>
+            <button className="btn ghost" onClick={() => answerFollowup(followupPick, 'no')}>{tr('pick.notWatched')}</button>
+          </div>
+        </div>
+      )}
+
       <div className="card" style={{ marginBottom: 18 }}>
+        {lbLists.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+            <span className="label">{tr('pick.source')}</span>
+            <select className="field" style={{ width: 'auto' }} value={bron} onChange={(e) => kiesBron(e.target.value)} aria-label={tr('pick.source')}>
+              <option value="watchlist">{tr('pick.sourceWatchlist')} {tr('pick.sourceCount', { count: watchlist.length })}</option>
+              {lbLists.map((l) => (
+                <option key={l.naam} value={l.naam}>{l.naam} {tr('pick.sourceCount', { count: l.films.length })}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <p className="label" style={{ marginBottom: 10 }}>{tr('pick.mood')}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {MOODS.map((m) => (

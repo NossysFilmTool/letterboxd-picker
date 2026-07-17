@@ -36,6 +36,15 @@ export default function App() {
   const [seen, setSeen] = useLS('seen', []);
   const [meta, setMeta, metaReady] = useMetaStore();
   const [history, setHistory] = useLS('history', []);
+  // Eigen sterren (uit de pick-opvolging), los van de Letterboxd-import zodat
+  // een her-import ze nooit wegvaagt. Vorm: { key: { rating, name, year, at } }
+  const [ownRatings, setOwnRatings] = useLS('ownRatings', {});
+  // Uit dezelfde Letterboxd-export, voorheen genegeerd: het kijk-dagboek
+  // (datums, herkijken) en je eigen thematische lijsten.
+  const [diary, setDiary] = useLS('diary', []);
+  const [lbLists, setLbLists] = useLS('lbLists', []);
+  // Antwoorden op "gekeken?"-vragen, per pick-datum: 'rated' | 'seen' | 'no'
+  const [followups, setFollowups] = useLS('followups', {});
   const [shortlist, setShortlist] = useLS('shortlist', []);
   const [skipped, setSkipped] = useLS('skipped', []);
   const [ignored, setIgnored] = useLS('ignored', []); // keys van items die geen film zijn (bijv. tv-series)
@@ -90,6 +99,10 @@ export default function App() {
     setWatchedFilms([]);
     setRatings({});
     setRatedFilms([]);
+    setOwnRatings({});
+    setFollowups({});
+    setDiary([]);
+    setLbLists([]);
     setSeen([]);
     setMeta({});
     setHistory([]);
@@ -101,6 +114,26 @@ export default function App() {
   };
 
   const seenSet = useMemo(() => new Set([...watchedLb, ...seen]), [watchedLb, seen]);
+  // Eigen sterren mengen met de Letterboxd-ratings: het smaakprofiel en alle
+  // tabs zien één geheel en leren dus direct van een pick-beoordeling.
+  const mergedRatings = useMemo(() => ({
+    ...ratings,
+    ...Object.fromEntries(Object.entries(ownRatings).map(([k, v]) => [k, v.rating])),
+  }), [ratings, ownRatings]);
+  const mergedRatedFilms = useMemo(() => ([
+    ...ratedFilms.filter((f) => !(f.key in ownRatings)),
+    ...Object.entries(ownRatings).map(([key, v]) => ({ key, name: v.name, year: v.year, rating: v.rating })),
+  ]), [ratedFilms, ownRatings]);
+
+  // Eén antwoord per gepickte avond verwerken.
+  const answerFollowup = (entry, antwoord, sterren) => {
+    if (antwoord === 'rated' && sterren) {
+      setOwnRatings((prev) => ({ ...prev, [entry.key]: { rating: sterren, name: entry.name, year: entry.year, at: Date.now() } }));
+      setSeen((s) => (s.includes(entry.key) ? s : [...s, entry.key]));
+    }
+    if (antwoord === 'seen') setSeen((s) => (s.includes(entry.key) ? s : [...s, entry.key]));
+    setFollowups((f) => ({ ...f, [entry.date]: antwoord }));
+  };
   const ignoredSet = useMemo(() => new Set(ignored), [ignored]);
   // Markeer een lijst-item als 'geen film' (bijv. een tv-serie die Letterboxd
   // meesmokkelde): het verdwijnt uit aanbevelingen, Avond en de mismatch-lijst.
@@ -301,8 +334,10 @@ export default function App() {
     watchedLb, setWatchedLb,
     watchedFilms, setWatchedFilms,
     omdbKeys,
-    ratings, setRatings,
-    ratedFilms, setRatedFilms,
+    ratings: mergedRatings, setRatings, lbRatings: ratings,
+    ratedFilms: mergedRatedFilms, setRatedFilms,
+    ownRatings, setOwnRatings, followups, answerFollowup,
+    diary, setDiary, lbLists, setLbLists,
     seen, seenSet, toggleSeen,
     meta, setMeta,
     history, setHistory,

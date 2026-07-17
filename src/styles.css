@@ -382,3 +382,13 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 /* Spook-chipje op de scorerij: subtiele uitnodiging, nooit een popup */
 .ghost-chip { border: 1px dashed var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--fog-dim); cursor: pointer; background: none; transition: color 0.15s ease, border-color 0.15s ease; }
 .ghost-chip:hover { color: var(--fog); border-color: var(--fog-dim); }
+
+/* Post-pick-opvolging: "gisteren gepickt — gekeken?" */
+.followup-card { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.followup-card .fu-poster { width: 46px; height: 69px; border-radius: 6px; object-fit: cover; background: var(--ink); flex-shrink: 0; }
+.followup-card .fu-stars { display: inline-flex; gap: 2px; }
+.followup-card .fu-star { background: none; border: none; cursor: pointer; font-size: 21px; line-height: 1; color: var(--fog-dim); padding: 2px; transition: color 0.12s ease, transform 0.12s ease; }
+.followup-card .fu-star:hover, .followup-card .fu-star.lit { color: var(--dot-o); }
+.followup-card .fu-star:hover { transform: scale(1.15); }
+.followup-card .fu-star:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { .followup-card .fu-star:hover { transform: none; } }

@@ -32,7 +32,41 @@ function rowsToRatings(rows) {
   return { map, films };
 }
 
-// result: { watchlist?, watched?, ratings? } — alleen aanwezig wat gevonden is
+// diary.csv: kijkdatums, herkijken en ratings per kijkbeurt
+function rowsToDiary(rows) {
+  const out = [];
+  rows.forEach((r) => {
+    if (!r.Name || !r['Watched Date']) return;
+    out.push({
+      key: filmKey(r.Name, parseInt(r.Year) || ''),
+      name: r.Name.trim(),
+      year: parseInt(r.Year) || null,
+      watchedDate: r['Watched Date'],
+      rewatch: (r.Rewatch || '').trim() === 'Yes',
+      rating: r.Rating ? parseFloat(r.Rating) : null,
+    });
+  });
+  return out;
+}
+
+// Lijst-exports (lists/*.csv) hebben metadata-regels bóven de echte kolomkop
+// (export-versie, lijstnaam, beschrijving). Eerst de kop opsporen dus.
+function parseListCsv(text, fallbackNaam) {
+  const regels = text.split(/\r?\n/);
+  const hIdx = regels.findIndex((r) => r.startsWith('Position,'));
+  if (hIdx === -1) return null;
+  let naam = fallbackNaam;
+  if (hIdx >= 3) {
+    try {
+      const metaRows = parseCsvText(regels.slice(1, 3).join('\n'));
+      if (metaRows[0]?.Name) naam = metaRows[0].Name;
+    } catch { /* bestandsnaam als vangnet */ }
+  }
+  const films = rowsToFilms(parseCsvText(regels.slice(hIdx).join('\n')));
+  return films.length ? { naam, films } : null;
+}
+
+// result: { watchlist?, watched?, ratings?, diary?, lists? } — alleen aanwezig wat gevonden is
 export async function parseLetterboxdFiles(fileList) {
   const result = {};
   for (const file of fileList) {
@@ -45,6 +79,11 @@ export async function parseLetterboxdFiles(fileList) {
         if (base === 'watchlist.csv') result.watchlist = rowsToFilms(parseCsvText(await entry.async('text')));
         else if (base === 'watched.csv') result.watched = rowsToFilms(parseCsvText(await entry.async('text')));
         else if (base === 'ratings.csv') result.ratings = rowsToRatings(parseCsvText(await entry.async('text')));
+        else if (base === 'diary.csv') result.diary = rowsToDiary(parseCsvText(await entry.async('text')));
+        else if (path.toLowerCase().includes('lists/') && base.endsWith('.csv')) {
+          const lijst = parseListCsv(await entry.async('text'), base.replace('.csv', '').replace(/-/g, ' '));
+          if (lijst) (result.lists = result.lists || []).push(lijst);
+        }
       }
     } else if (lower.endsWith('.csv')) {
       const text = await file.text();
@@ -77,4 +116,22 @@ export function downloadText(filename, text, mime = 'text/csv') {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Verschil tussen de huidige staat en een verse Letterboxd-export, zodat een
+// her-import kan vertellen wát er veranderde in plaats van stil te vervangen.
+export function importDiff(oud, res) {
+  const oudWl = new Set((oud.watchlist || []).map((f) => f.key));
+  const nieuwWl = new Set((res.watchlist || []).map((f) => f.key));
+  const oudSeen = new Set(oud.watchedLb || []);
+  const oudRatings = oud.ratings || {};
+  const nieuweRatings = res.ratings?.map || {};
+  return {
+    eerste: oudWl.size === 0,
+    totaal: nieuwWl.size,
+    nieuwOpWl: [...nieuwWl].filter((k) => !oudWl.has(k)).length,
+    vanWlAf: [...oudWl].filter((k) => !nieuwWl.has(k)).length,
+    nieuweRatings: Object.keys(nieuweRatings).filter((k) => !(k in oudRatings)).length,
+    nieuwGezien: (res.watched || []).filter((f) => !oudSeen.has(f.key)).length,
+  };
 }
