@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import Shell from './components/Shell.jsx';
 import ScoresPreview from './components/ScoresPreview.jsx';
+import RemoteVote from './components/RemoteVote.jsx';
 import Pick from './tabs/Pick.jsx';
 import Bieb from './tabs/Bieb.jsx';
 import Verken from './tabs/Verken.jsx';
@@ -24,6 +25,9 @@ export default function App() {
   const [tab, setTab] = useState('pick');
   const { t: tr } = useT();
   const storageBroken = useStorageHealth();
+  // Binnengekomen via een deellink? Dan is dit apparaat een stemmer, geen
+  // volwaardige tool-sessie. Werkt ook zonder watchlist of sleutel.
+  const avondCode = new URLSearchParams(location.search).get('avond');
   const [settings, setSettings] = useLS('settings', { tmdbKey: '' });
   // Eigen sleutel wint; zonder eigen sleutel loopt alles via de tool-proxy
   // (zodra die geconfigureerd is). Guards en API-calls zien gewoon 'een sleutel'.
@@ -356,6 +360,8 @@ export default function App() {
   };
 
   const needsKey = watchlist.length > 0 && !tmdbKey;
+
+  if (avondCode) return <RemoteVote code={avondCode} />;
 
   return (
     <Shell tab={tab} setTab={setTab}>

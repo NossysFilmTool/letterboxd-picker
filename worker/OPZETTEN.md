@@ -47,6 +47,22 @@ en is sinds V4.0.1 ingevuld als `PROXY_URL` in `src/lib/tmdb.js`.
 De site werkt daarmee voor iedereen zonder sleutel; een eigen sleutel
 invullen blijft mogelijk als override.
 
+## Stemrondes aanzetten (Filmavond op afstand)
+
+De Worker bewaart stemrondes in Cloudflare KV. Dat is een gratis
+opslaglaag die je eenmalig aanzet:
+
+1. Dashboard, linkermenu: Storage & databases, dan KV.
+2. Create namespace, naam: `nossy-sessies`. Aanmaken.
+3. Naar je Worker: Settings, Variables and Secrets (of Bindings),
+   Add binding, type KV namespace. Variable name exact `SESSIONS`,
+   namespace `nossy-sessies`. Opslaan.
+4. Plak de nieuwste worker.js opnieuw in Edit code en Deploy.
+
+Testen: start in de tool bij Avond een stemronde. Krijg je de melding
+dat de Worker nog geen stemrondes kent, check dan de binding-naam
+(exact SESSIONS). Sessies verlopen na 24 uur vanzelf.
+
 ## Goed om te weten
 
 - De sleutel staat alléén als Secret bij Cloudflare, nooit in de code of

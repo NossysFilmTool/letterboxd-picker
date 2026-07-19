@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { useT } from '../lib/i18n.js';
-import { Users, Swords, Ban, Clapperboard, RotateCcw, Upload, Info, ArrowLeft, X } from 'lucide-react';
+import { remoteAvailable, createSession, getSession, closeSession, computeWinner } from '../lib/session.js';
+import { Users, Swords, Ban, Clapperboard, RotateCcw, Upload, Info, ArrowLeft, X, Send } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { sample, nossyScore } from '../lib/pick.js';
 import { parseLetterboxdFiles } from '../lib/csv.js';
@@ -34,6 +35,12 @@ export default function Avond({ app }) {
   const [playerCount, setPlayerCount] = useState(2);
   const [useOverlap, setUseOverlap] = useState(false);
   const [friends, setFriends] = useState([]); // [{name, keys:Set}]
+  const [remote, setRemote] = useState(null); // {code, films}
+  const [remoteVotes, setRemoteVotes] = useState({});
+  const [remoteWinner, setRemoteWinner] = useState(null);
+  const [remoteBusy, setRemoteBusy] = useState(false);
+  const [remoteMsg, setRemoteMsg] = useState('');
+  const [copied, setCopied] = useState(false);
   const friendRef = useRef(null);
 
   // veto state
@@ -78,6 +85,37 @@ export default function Avond({ app }) {
     watchlist.forEach((f) => { if (f.year) s.add(Math.floor(f.year / 10) * 10); });
     return [...s].sort((a, b) => b - a);
   }, [watchlist]);
+
+  // --- Op afstand: gastheer ------------------------------------------------
+  useEffect(() => {
+    if (!remote || remoteWinner) return undefined;
+    const t = setInterval(async () => {
+      try { const s = await getSession(remote.code); setRemoteVotes(s.votes || {}); } catch { /* volgende poll */ }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [remote, remoteWinner]);
+
+  const startRemote = async () => {
+    setRemoteMsg('');
+    setRemoteBusy(true);
+    try {
+      const kandidaten = [...basePool].sort(() => Math.random() - 0.5).slice(0, 12)
+        .map((f) => ({ key: f.key, name: f.name, year: f.year, poster: meta[f.key]?.poster || null }));
+      const { code } = await createSession(kandidaten, 'Nossy');
+      setRemote({ code, films: kandidaten });
+      setRemoteVotes({});
+      setRemoteWinner(null);
+    } catch (e) {
+      setRemoteMsg(e.message === 'NO_KV' ? tr('avond.kvMissing') : tr('avond.remoteFailed', { msg: e.message }));
+    }
+    setRemoteBusy(false);
+  };
+
+  const sluitRemote = async () => {
+    const { winner } = computeWinner(remote.films, remoteVotes, (f) => nossyScore(meta[f.key]));
+    try { await closeSession(remote.code, winner.key); } catch { /* uitslag blijft lokaal geldig */ }
+    setRemoteWinner(winner);
+  };
 
   const filtersActief = fGenres.length || fMaxRuntime || fMinScore || fJaarVan !== '' || fJaarTot !== '' || fStreamOnly;
   const wisFilters = () => { setFGenres([]); setFMaxRuntime(''); setFMinScore(0); setFJaarVan(''); setFJaarTot(''); setFStreamOnly(false); };
@@ -247,7 +285,7 @@ export default function Avond({ app }) {
       <div className="toprow">
         <div>
           <h1 className="page-title">{tr('avond.title')}</h1>
-          <p className="page-sub">Samen kiezen zonder discussie: {basePool.length} kandidaten in de pot.</p>
+          <p className="page-sub">{tr('avond.pageSub', { count: basePool.length })}</p>
         </div>
       </div>
 
@@ -320,10 +358,62 @@ export default function Avond({ app }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+        {remoteAvailable() && (
+          <div className="card">
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 400 }}><Send size={18} style={{ verticalAlign: -3, color: 'var(--dot-b)' }} /> {tr('avond.remoteTitle')}</h2>
+            {!remote && (
+              <>
+                <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('avond.remoteExplain')}</p>
+                <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className="btn primary" onClick={startRemote} disabled={remoteBusy || basePool.length < 2}>
+                    <Send size={15} /> {tr('avond.startRemote')}
+                  </button>
+                  {remoteMsg && <span style={{ color: 'var(--dot-o)', fontSize: 13 }}>{remoteMsg}</span>}
+                </div>
+              </>
+            )}
+            {remote && !remoteWinner && (() => {
+              const link = `${location.origin}${location.pathname}?avond=${remote.code}`;
+              const stemmers = Object.keys(remoteVotes);
+              const telling = {};
+              Object.values(remoteVotes).forEach((picks) => (picks || []).forEach((k) => { telling[k] = (telling[k] || 0) + 1; }));
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <p style={{ fontSize: 20, fontWeight: 600, letterSpacing: '0.15em', color: 'var(--paper)' }}>{tr('avond.remoteCode', { code: remote.code })}</p>
+                  <button className="btn" style={{ marginTop: 8 }} onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+                    {copied ? tr('avond.copied') : tr('avond.copyLink')}
+                  </button>
+                  <p style={{ color: 'var(--fog)', fontSize: 13, marginTop: 12 }}>
+                    {stemmers.length ? tr('avond.votesIn', { count: stemmers.length, names: stemmers.join(', ') }) : tr('avond.noVotesYet')}
+                  </p>
+                  {stemmers.length > 0 && (
+                    <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--fog)', fontSize: 13 }}>
+                      {remote.films.filter((f) => telling[f.key]).sort((a, b) => telling[b.key] - telling[a.key]).map((f) => (
+                        <li key={f.key}>{f.name}: {tr('avond.remoteVoteCount', { count: telling[f.key] })}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                    <button className="btn primary" onClick={sluitRemote} disabled={!stemmers.length}>{tr('avond.closeRound')}</button>
+                    <button className="btn ghost" onClick={() => { setRemote(null); setRemoteVotes({}); }}>{tr('avond.stopRound')}</button>
+                  </div>
+                </div>
+              );
+            })()}
+            {remoteWinner && (
+              <div style={{ marginTop: 12, textAlign: 'center' }}>
+                <p className="label" style={{ marginBottom: 8 }}>{tr('remote.winnerIs')}</p>
+                {meta[remoteWinner.key]?.poster && <img src={IMG(meta[remoteWinner.key].poster, 'w342')} alt="" style={{ width: 130, borderRadius: 10, marginBottom: 8 }} />}
+                <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--paper)' }}>{remoteWinner.name}{remoteWinner.year ? ` (${remoteWinner.year})` : ''}</p>
+                <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => { setRemote(null); setRemoteWinner(null); setRemoteVotes({}); }}>{tr('avond.stopRound')}</button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="card">
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 400 }}><Ban size={18} style={{ verticalAlign: -3, color: 'var(--dot-o)' }} /> Veto-rondes</h2>
           <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
-            {Math.min(8, basePool.length)} films op tafel. Om de beurt streept iedereen er één weg — wat overblijft, kijken jullie. Telefoon doorgeven en klaar.
+            {tr('avond.vetoExplain', { count: Math.min(8, basePool.length) })}
           </p>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
             <label style={{ fontSize: 13, color: 'var(--fog)' }}>{tr('avond.players')}</label>

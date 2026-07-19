@@ -42,9 +42,9 @@ export default {
     const cors = corsHeaders(origin);
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    if (request.method !== 'GET') return new Response('Alleen GET', { status: 405, headers: cors });
-
     const url = new URL(request.url);
+    if (request.method !== 'GET' && !(request.method === 'POST' && url.pathname.startsWith('/session'))) return new Response('Alleen GET of sessie-POST', { status: 405, headers: cors });
+
     if (!url.pathname.startsWith('/3/')) {
       return new Response(JSON.stringify({ error: 'Alleen TMDB v3-paden' }), {
         status: 404, headers: { ...cors, 'Content-Type': 'application/json' },
@@ -61,6 +61,79 @@ export default {
       return new Response(JSON.stringify({ error: 'Rustig aan' }), {
         status: 429, headers: { ...cors, 'Content-Type': 'application/json', 'Retry-After': '30' },
       });
+    }
+
+    // --- Stemrondes (Filmavond op afstand) --------------------------------
+    // Vereist een KV-namespace gebonden als SESSIONS (zie OPZETTEN.md).
+    // Sessies verlopen na 24 uur. Elke speler schrijft naar een eigen sleutel,
+    // dus gelijktijdig stemmen kan elkaar nooit overschrijven.
+    if (url.pathname.startsWith('/session')) {
+      if (!env.SESSIONS) {
+        return new Response(JSON.stringify({ error: 'NO_KV' }), {
+          status: 501, headers: { ...cors, 'Content-Type': 'application/json' },
+        });
+      }
+      const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
+        status, headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+      const TTL = { expirationTtl: 86400 };
+
+      if (url.pathname === '/session/new' && request.method === 'POST') {
+        let body;
+        try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
+        const films = (body.films || []).slice(0, 20).map((f) => ({
+          key: String(f.key || '').slice(0, 120),
+          name: String(f.name || '').slice(0, 120),
+          year: parseInt(f.year) || null,
+          poster: typeof f.poster === 'string' ? f.poster.slice(0, 60) : null,
+        })).filter((f) => f.key && f.name);
+        const host = String(body.host || '').slice(0, 24) || 'host';
+        if (films.length < 2) return json({ error: 'TOO_FEW_FILMS' }, 400);
+        const alfabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        const rnd = crypto.getRandomValues(new Uint8Array(6));
+        const code = [...rnd].map((b) => alfabet[b % alfabet.length]).join('');
+        await env.SESSIONS.put(`s:${code}`, JSON.stringify({ films, host, at: Date.now(), winner: null }), TTL);
+        return json({ code });
+      }
+
+      const m = url.pathname.match(/^\/session\/([A-Z2-9]{6})(\/vote|\/close)?$/);
+      if (!m) return json({ error: 'NOT_FOUND' }, 404);
+      const code = m[1];
+      const raw = await env.SESSIONS.get(`s:${code}`);
+      if (!raw) return json({ error: 'NOT_FOUND' }, 404);
+      const sessie = JSON.parse(raw);
+
+      if (!m[2] && request.method === 'GET') {
+        const votes = {};
+        const lijst = await env.SESSIONS.list({ prefix: `s:${code}:v:` });
+        for (const k of lijst.keys.slice(0, 12)) {
+          const naam = k.name.slice(`s:${code}:v:`.length);
+          const v = await env.SESSIONS.get(k.name);
+          if (v) { try { votes[naam] = JSON.parse(v); } catch { /* overslaan */ } }
+        }
+        return json({ ...sessie, votes });
+      }
+
+      if (m[2] === '/vote' && request.method === 'POST') {
+        let body;
+        try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
+        const speler = String(body.player || '').slice(0, 24).trim();
+        if (!speler) return json({ error: 'NO_PLAYER' }, 400);
+        const geldig = new Set(sessie.films.map((f) => f.key));
+        const picks = (body.picks || []).filter((k) => geldig.has(k)).slice(0, 20);
+        if (!picks.length) return json({ error: 'NO_PICKS' }, 400);
+        await env.SESSIONS.put(`s:${code}:v:${speler}`, JSON.stringify(picks), TTL);
+        return json({ ok: true });
+      }
+
+      if (m[2] === '/close' && request.method === 'POST') {
+        let body;
+        try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
+        sessie.winner = String(body.winner || '').slice(0, 120) || null;
+        await env.SESSIONS.put(`s:${code}`, JSON.stringify(sessie), TTL);
+        return json({ ok: true });
+      }
+      return json({ error: 'NOT_FOUND' }, 404);
     }
 
     // Doorsturen naar TMDB met de geheime sleutel; een eventueel meegestuurde

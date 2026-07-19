@@ -1162,6 +1162,95 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('waarvan 1 herkijk');
   });
 
+  it('op afstand: computeWinner telt stemmen, gelijkspel valt op score', async () => {
+    const { computeWinner } = await import('./src/lib/session.js');
+    const films = [{ key: 'a' }, { key: 'b' }, { key: 'c' }];
+    const r1 = computeWinner(films, { pim: ['a', 'b'], eef: ['a'] });
+    expect(r1.winner.key).toBe('a');
+    expect(r1.counts).toEqual({ a: 2, b: 1, c: 0 });
+    const r2 = computeWinner(films, { pim: ['a'], eef: ['b'] }, (f) => (f.key === 'b' ? 8 : 6));
+    expect(r2.winner.key).toBe('b');
+  });
+
+  it('op afstand: deellink toont het stemscherm en verstuurt een stem', async () => {
+    history.pushState({}, '', '?avond=ABC234');
+    const calls = [];
+    global.fetch = async (url, opts) => {
+      calls.push({ url: String(url), body: opts?.body });
+      if (String(url).endsWith('/session/ABC234')) {
+        return { ok: true, status: 200, json: async () => ({ host: 'Nossy', winner: null, votes: {}, films: [
+          { key: 'w|2016', name: 'The Wailing', year: 2016, poster: null },
+          { key: 'l|2008', name: 'Lake Mungo', year: 2008, poster: null },
+        ] }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    };
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+      render(<App />);
+      expect(await screen.findByText('Nossy wil samen een film kiezen')).toBeTruthy();
+      fireEvent.click(screen.getByLabelText('The Wailing (2016)'));
+      fireEvent.change(screen.getByLabelText('Je naam'), { target: { value: 'Pim' } });
+      fireEvent.click(screen.getByText('Verstuur je stem'));
+      expect(await screen.findByText('Stem verstuurd')).toBeTruthy();
+      const votePost = calls.find((c) => c.url.includes('/vote'));
+      expect(JSON.parse(votePost.body)).toEqual({ player: 'Pim', picks: ['w|2016'] });
+    } finally {
+      delete global.fetch;
+      history.pushState({}, '', '/');
+    }
+  });
+
+  it('op afstand: gastheer start een ronde, ziet stemmen en sluit af', async () => {
+    const calls = [];
+    global.fetch = async (url, opts) => {
+      const u = String(url);
+      calls.push({ url: u, body: opts?.body });
+      if (u.endsWith('/session/new')) return { ok: true, status: 200, json: async () => ({ code: 'QQQ777' }) };
+      if (u.endsWith('/session/QQQ777')) return { ok: true, status: 200, json: async () => ({ host: 'Nossy', winner: null, films: [], votes: { Pim: ['a|2020'], Eef: ['a|2020', 'b|2021'] } }) };
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    };
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+      localStorage.setItem('nossyV2.watchlist', JSON.stringify([
+        { key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 }, { key: 'c|2022', name: 'C', year: 2022 },
+      ]));
+      render(<App />);
+      fireEvent.click(screen.getAllByText('Avond')[0]);
+      fireEvent.click(screen.getByText('Start stemronde op afstand'));
+      expect(await screen.findByText('Code: QQQ777')).toBeTruthy();
+      expect(screen.getByText('Kopieer deellink')).toBeTruthy();
+      // de poll (5s) brengt de stemmen binnen
+      expect(await screen.findByText(/2 stemmen binnen: Pim, Eef/, {}, { timeout: 8000 })).toBeTruthy();
+      fireEvent.click(screen.getByText('Sluit af en kies de winnaar'));
+      expect(await screen.findByText(/Het wordt:/)).toBeTruthy();
+      expect(document.body.textContent).toContain('A (2020)');
+      const closePost = calls.find((c) => c.url.includes('/close'));
+      expect(JSON.parse(closePost.body).winner).toBe('a|2020');
+    } finally {
+      delete global.fetch;
+    }
+  }, 15000);
+
+  it('op afstand: zonder KV-opslag verschijnt een duidelijke melding', async () => {
+    global.fetch = async () => ({ ok: false, status: 501, json: async () => ({ error: 'NO_KV' }) });
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+      localStorage.setItem('nossyV2.watchlist', JSON.stringify([
+        { key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 },
+      ]));
+      render(<App />);
+      fireEvent.click(screen.getAllByText('Avond')[0]);
+      fireEvent.click(screen.getByText('Start stemronde op afstand'));
+      expect(await screen.findByText(/kent nog geen stemrondes/)).toBeTruthy();
+    } finally {
+      delete global.fetch;
+    }
+  });
+
   it('setup toont sleutel en back-up', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
