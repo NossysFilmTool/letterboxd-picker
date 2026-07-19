@@ -22,7 +22,7 @@ const ALLOWED_ORIGINS = [
 
 // Ruim genoeg voor een volledige verrijking (8 parallelle ophalers),
 // krap genoeg om bulk-scrapen onaantrekkelijk te maken.
-const RATE_LIMIT = 700; // verzoeken per minuut per IP
+const RATE_LIMIT = 2000; // verzoeken per minuut per IP: ruim voor een verrijking, krap voor scrapers
 const hits = new Map(); // ip -> { count, windowStart }
 
 function corsHeaders(origin) {

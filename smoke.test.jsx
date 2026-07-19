@@ -792,7 +792,7 @@ describe('V2 smoke', () => {
     expect(t('pick.poolCount', { count: 1 })).toBe('1 film in je pool');
     expect(t('pick.poolCount', { count: 6 })).toBe('6 films in je pool');
     expect(t('zoek.resCount', { count: 1 })).toBe('1 resultaat');
-    expect(t('avond.overlapCount', { count: 1 })).toBe('1 film staat op allebei jullie lijsten');
+    expect(t('avond.overlapCount', { count: 1 })).toBe('1 film staat op al jullie lijsten');
     expect(t('match.votesShort', { count: 1, n: 1 })).toBe('1 stem');
     expect(t('setup.wrongFilms', { count: 2 })).toContain('verkeerde films');
     setLang('en');
@@ -1030,7 +1030,7 @@ describe('V2 smoke', () => {
     let opgeroepen = '';
     global.fetch = async (url) => { opgeroepen = String(url); return { ok: true, status: 200, json: async () => ({ results: {} }) }; };
     await refreshProviders(42, PROXY_KEY);
-    expect(opgeroepen.startsWith(PROXY_URL)).toBe(true);
+    expect(opgeroepen.startsWith(`${PROXY_URL}/3/movie/42`)).toBe(true); // het VOLLEDIGE pad, incl. /3
     expect(opgeroepen).not.toContain('api_key');
     delete global.fetch;
   });

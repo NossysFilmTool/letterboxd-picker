@@ -8,7 +8,7 @@ import { useT } from '../lib/i18n.js';
 const fmtVotes = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : n);
 
 export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onWantScores }) {
-  const { t: tr } = useT();
+  const { t: tr, lang } = useT();
   const [sharing, setSharing] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
   useEffect(() => { setPlotOpen(false); }, [film?.key]);
@@ -43,7 +43,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
           <p className="eyebrow">{context || tr('winner.eyebrow')}</p>
           <h2 className="wtitle">{film.name}</h2>
           <p className="wmeta">
-            {[film.year, meta?.runtime ? `${meta.runtime} min` : null, meta?.genres?.slice(0, 3).join(', '), meta?.director ? `${tr('winner.regie')} ${meta.director}` : null]
+            {[film.year, meta?.runtime ? `${meta.runtime} min` : null, meta?.runtime ? tr('winner.endTime', { t: new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(new Date(Date.now() + meta.runtime * 60000)) }) : null, meta?.genres?.slice(0, 3).join(', '), meta?.director ? `${tr('winner.regie')} ${meta.director}` : null]
               .filter(Boolean).join(' · ')}
           </p>
           {meta?.yearMismatch && (

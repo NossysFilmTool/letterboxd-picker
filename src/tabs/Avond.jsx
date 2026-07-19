@@ -33,7 +33,7 @@ export default function Avond({ app }) {
   const [mode, setMode] = useState(null); // null | veto | bracket
   const [playerCount, setPlayerCount] = useState(2);
   const [useOverlap, setUseOverlap] = useState(false);
-  const [friend, setFriend] = useState(null); // {name, keys:Set}
+  const [friends, setFriends] = useState([]); // [{name, keys:Set}]
   const friendRef = useRef(null);
 
   // veto state
@@ -57,7 +57,7 @@ export default function Avond({ app }) {
 
   const basePool = useMemo(() => {
     let p = watchlist.filter((f) => !seenSet.has(f.key));
-    if (useOverlap && friend) p = p.filter((f) => friend.keys.has(f.key));
+    if (useOverlap && friends.length) p = p.filter((f) => friends.every((fr) => fr.keys.has(f.key)));
     if (fGenres.length) p = p.filter((f) => meta[f.key]?.genres?.some((g) => fGenres.includes(g)));
     if (fMaxRuntime) p = p.filter((f) => meta[f.key]?.runtime && meta[f.key].runtime <= fMaxRuntime);
     if (fMinScore) p = p.filter((f) => (nossyScore(meta[f.key]) ?? 0) >= fMinScore);
@@ -65,7 +65,7 @@ export default function Avond({ app }) {
     if (fJaarTot !== '') p = p.filter((f) => f.year && f.year <= +fJaarTot);
     if (fStreamOnly) p = p.filter((f) => meta[f.key]?.flat?.length);
     return p;
-  }, [watchlist, seenSet, useOverlap, friend, meta, fGenres, fMaxRuntime, fMinScore, fJaarVan, fJaarTot, fStreamOnly]);
+  }, [watchlist, seenSet, useOverlap, friends, meta, fGenres, fMaxRuntime, fMinScore, fJaarVan, fJaarTot, fStreamOnly]);
 
   const genresAvail = useMemo(() => {
     const count = {};
@@ -87,7 +87,8 @@ export default function Avond({ app }) {
     try {
       const res = await parseLetterboxdFiles(Array.from(files));
       if (!res.watchlist?.length) { alert(tr('avond.noWatchlistInFile')); return; }
-      setFriend({ name: files[0].name.replace(/\.(zip|csv)$/i, ''), keys: new Set(res.watchlist.map((f) => f.key)) });
+      const naam = files[0].name.replace(/\.(zip|csv)$/i, '');
+      setFriends((prev) => [...prev.filter((fr) => fr.name !== naam), { name: naam, keys: new Set(res.watchlist.map((f) => f.key)) }]);
       setUseOverlap(true);
     } catch (e) { alert(`Laden mislukt: ${e.message}`); }
   };
@@ -254,13 +255,19 @@ export default function Avond({ app }) {
         <p className="label" style={{ marginBottom: 10 }}>{tr('avond.pot')}</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className={`chip ${!useOverlap ? 'on-g' : ''}`} onClick={() => setUseOverlap(false)}>{tr('avond.myWatchlist')}</button>
-          <button className={`chip ${useOverlap ? 'on-g' : ''}`} onClick={() => friend ? setUseOverlap(true) : friendRef.current?.click()} disabled={!friend && !basePool.length}>
-            Overlap met een vriend {friend ? `(${friend.name})` : ''}
+          <button className={`chip ${useOverlap ? 'on-g' : ''}`} onClick={() => (friends.length ? setUseOverlap(true) : friendRef.current?.click())} disabled={!friends.length && !basePool.length}>
+            {friends.length ? tr('avond.overlapChip', { names: friends.map((fr) => fr.name).join(' + ') }) : tr('avond.overlapChipEmpty')}
           </button>
-          <button className="btn ghost" onClick={() => friendRef.current?.click()}><Upload size={14} /> {friend ? tr('avond.loadOtherFriend') : tr('avond.loadFriendWatchlist')}</button>
+          {friends.map((fr) => (
+            <button key={fr.name} className="chip" aria-label={tr('avond.removeFriendAria', { name: fr.name })}
+              onClick={() => setFriends((prev) => { const next = prev.filter((x) => x.name !== fr.name); if (!next.length) setUseOverlap(false); return next; })}>
+              {fr.name} ✕
+            </button>
+          ))}
+          <button className="btn ghost" onClick={() => friendRef.current?.click()}><Upload size={14} /> {friends.length ? tr('avond.loadOtherFriend') : tr('avond.loadFriendWatchlist')}</button>
           <input ref={friendRef} type="file" accept=".zip,.csv" hidden onChange={(e) => { loadFriend(e.target.files); e.target.value = ''; }} />
         </div>
-        {useOverlap && friend && (
+        {useOverlap && friends.length > 0 && (
           <p style={{ color: 'var(--fog)', fontSize: 13, marginTop: 10 }}>
             {tr('avond.overlapCount', { count: basePool.length })}{basePool.length < 4 ? tr('avond.overlapTooFew') : ''}.
           </p>

@@ -21,7 +21,7 @@ async function get(path, key, params = {}) {
     if (v !== undefined && v !== null && v !== '') clean[k] = v;
   }
   const qs = new URLSearchParams(clean).toString();
-  const res = await fetch(viaProxy ? `${PROXY_URL}${path}${qs ? `?${qs}` : ''}` : `${BASE}${path}?${qs}`);
+  const res = await fetch(viaProxy ? `${PROXY_URL}/3${path}${qs ? `?${qs}` : ''}` : `${BASE}${path}?${qs}`);
   if (res.status === 401) throw new Error('KEY_INVALID');
   if (res.status === 429) {
     await new Promise((r) => setTimeout(r, 1200));
