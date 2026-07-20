@@ -22,6 +22,7 @@ export default {
     both: 'dubbel aangeraden door TMDB',
     onList: 'op je watchlist',
     none: 'Hier vindt de tool weinig bij. Probeer een andere film als vertrekpunt.',
+    back: 'Terug naar de suggesties', viaRecommender: 'Via de slimme aanrader',
     close: 'Sluiten',
   },
   remote: {

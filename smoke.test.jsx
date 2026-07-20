@@ -1365,6 +1365,13 @@ describe('V2 smoke', () => {
       if (u.includes('/recommendations')) return json({ results: [raw(301, 'Aftersun', 2022)] });
       if (u.includes('/similar')) return json({ results: [] });
       if (u.includes('/301/keywords')) return json({ keywords: [{ id: 1, name: 'grief' }] });
+      if (u.includes('/movie/301')) return json({
+        id: 301, title: 'Aftersun', release_date: '2022-05-20', poster_path: null, vote_average: 7.9, vote_count: 8000,
+        runtime: 101, genres: [{ id: 18, name: 'Drama' }], original_language: 'en', overview: 'Zomer.',
+        imdb_id: 'tt19770238', credits: { crew: [{ job: 'Director', name: 'Charlotte Wells' }], cast: [] },
+        videos: { results: [] }, 'watch/providers': { results: {} }, keywords: { keywords: [{ id: 1, name: 'grief' }] },
+        recommendations: { results: [] },
+      });
       return json({ results: [], keywords: [] });
     };
     try {
@@ -1376,6 +1383,13 @@ describe('V2 smoke', () => {
       expect(await screen.findByText(/Aftersun \(2022\)/)).toBeTruthy();
       expect(document.body.textContent).toContain('deelt grief');
       expect(document.body.textContent).toContain('op je watchlist');
+      // doorklikken op een suggestie opent de volwaardige filmkaart
+      fireEvent.click(screen.getByLabelText('Open Aftersun'));
+      expect(await screen.findByText('Via de slimme aanrader')).toBeTruthy();
+      expect(await screen.findByText(/Charlotte Wells/)).toBeTruthy(); // detail is echt opgehaald
+      // en de terugknop brengt je bij de suggesties terug
+      fireEvent.click(screen.getByText('Terug naar de suggesties'));
+      expect(screen.getByText(/deelt grief/)).toBeTruthy();
       fireEvent.keyDown(window, { key: 'Escape' });
       expect(screen.queryByText('Meer zoals A')).toBeNull();
     } finally {

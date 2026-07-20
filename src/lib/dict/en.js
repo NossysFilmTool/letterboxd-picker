@@ -22,6 +22,7 @@ export default {
     both: 'doubly recommended by TMDB',
     onList: 'on your watchlist',
     none: 'The tool finds little here. Try another film as a starting point.',
+    back: 'Back to the suggestions', viaRecommender: 'Via the smart recommender',
     close: 'Close',
   },
   remote: {
