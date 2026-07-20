@@ -23,6 +23,8 @@ Everything runs locally in your browser. Nothing is uploaded.
   your watching rhythm, and how obscure you really are.
 - The tool follows up on picks ("Did you watch it? Give it stars") and feeds
   your answers straight into the taste profile.
+- Multiple profiles on one device: housemates each get their own
+  watchlist, history and taste profile.
 - Fully bilingual (Dutch/English), streaming region selectable, installable
   as an app, JSON backup and restore.
 

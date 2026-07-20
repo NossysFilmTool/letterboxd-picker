@@ -45,12 +45,6 @@ export default {
     const url = new URL(request.url);
     if (request.method !== 'GET' && !(request.method === 'POST' && url.pathname.startsWith('/session'))) return new Response('Alleen GET of sessie-POST', { status: 405, headers: cors });
 
-    if (!url.pathname.startsWith('/3/')) {
-      return new Response(JSON.stringify({ error: 'Alleen TMDB v3-paden' }), {
-        status: 404, headers: { ...cors, 'Content-Type': 'application/json' },
-      });
-    }
-
     // Rate-drempel per IP (glijdend venster van 1 minuut)
     const ip = request.headers.get('CF-Connecting-IP') || 'onbekend';
     const now = Date.now();
@@ -135,6 +129,13 @@ export default {
       }
       return json({ error: 'NOT_FOUND' }, 404);
     }
+
+    if (!url.pathname.startsWith('/3/')) {
+      return new Response(JSON.stringify({ error: 'Alleen TMDB v3-paden' }), {
+        status: 404, headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
+
 
     // Doorsturen naar TMDB met de geheime sleutel; een eventueel meegestuurde
     // api_key wordt genegeerd (de Worker bepaalt de sleutel, niemand anders).

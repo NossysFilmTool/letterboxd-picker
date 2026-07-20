@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Play, RefreshCw, Eye, EyeOff, Share2, ExternalLink, Clapperboard, Plus, Check } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
+import { imdbLink, jwLink } from '../lib/links.js';
 import { nossyScore, fmtScore, getNossyWeights } from '../lib/pick.js';
 import { renderShareCard, shareOrDownload } from '../lib/extra.js';
 import { useT } from '../lib/i18n.js';
@@ -136,6 +137,8 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
             {lbUrl && (
               <a className="btn ghost" href={lbUrl} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Letterboxd</a>
             )}
+            <a className="btn ghost" href={imdbLink(meta, film)} target="_blank" rel="noreferrer"><ExternalLink size={15} /> IMDb</a>
+            <a className="btn ghost" href={jwLink(meta, film)} target="_blank" rel="noreferrer"><ExternalLink size={15} /> JustWatch</a>
           </div>
           {onReroll && (
             <div style={{ marginTop: 18 }}>

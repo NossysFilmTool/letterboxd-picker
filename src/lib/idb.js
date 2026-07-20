@@ -3,7 +3,10 @@
 // honderden MB's. Instellingen en lijsten blijven in localStorage (klein en
 // synchroon is daar juist prettig); alleen de zware meta-cache verhuist.
 
-const DB_NAME = 'nossyV2';
+const profiel = (() => {
+  try { return localStorage.getItem('nossyV2.activeProfile') || ''; } catch { return ''; }
+})();
+const DB_NAME = profiel ? `nossyV2-p-${profiel}` : 'nossyV2';
 const STORE = 'meta';
 
 export const idbAvailable = () => typeof indexedDB !== 'undefined';

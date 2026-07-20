@@ -207,6 +207,7 @@ export default function Avond({ app }) {
           film={champion} meta={meta[champion.key]}
           context={mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')}
           seen={seenSet.has(champion.key)} onToggleSeen={() => app.toggleSeen(champion.key)}
+          onSimilar={() => app.openSimilar(champion, meta[champion.key])}
         />
       </div>
     );
@@ -364,6 +365,11 @@ export default function Avond({ app }) {
             {!remote && (
               <>
                 <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('avond.remoteExplain')}</p>
+                <ol style={{ color: 'var(--fog)', fontSize: 13, margin: '10px 0 0 18px', display: 'grid', gap: 5 }}>
+                  <li>{tr('avond.remoteHow1')}</li>
+                  <li>{tr('avond.remoteHow2')}</li>
+                  <li>{tr('avond.remoteHow3')}</li>
+                </ol>
                 <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button className="btn primary" onClick={startRemote} disabled={remoteBusy || basePool.length < 2}>
                     <Send size={15} /> {tr('avond.startRemote')}
@@ -386,6 +392,7 @@ export default function Avond({ app }) {
                   <p style={{ color: 'var(--fog)', fontSize: 13, marginTop: 12 }}>
                     {stemmers.length ? tr('avond.votesIn', { count: stemmers.length, names: stemmers.join(', ') }) : tr('avond.noVotesYet')}
                   </p>
+                  <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginTop: 6 }}>{tr('avond.remoteWaitHint')} {tr('avond.remoteValidity')}</p>
                   {stemmers.length > 0 && (
                     <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--fog)', fontSize: 13 }}>
                       {remote.films.filter((f) => telling[f.key]).sort((a, b) => telling[b.key] - telling[a.key]).map((f) => (

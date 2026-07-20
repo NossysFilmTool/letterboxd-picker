@@ -16,7 +16,7 @@ const SORTS = [
 
 export default function Bieb({ app }) {
   const { t: tr } = useT();
-  const { watchlist, watchedFilms, ratedFilms, ratings, meta, setMeta, seenSet, settings, freshenProviders } = app;
+  const { watchlist, watchedFilms, ratedFilms, ratings, meta, setMeta, seenSet, settings, freshenProviders, tmdbKey } = app;
   const [scope, setScope] = useState('watchlist'); // watchlist | gezien
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('titel');
@@ -90,7 +90,7 @@ export default function Bieb({ app }) {
   const open = async (f) => {
     setSel(f);
     // Volledige kaart + OMDb-scores garanderen, net als in Verken
-    if (settings.tmdbKey && !(meta[f.key]?.at != null && meta[f.key]?.ext)) {
+    if (tmdbKey && !(meta[f.key]?.at != null && meta[f.key]?.ext)) {
       setBusyKey(f.key);
       await app.ensureDetail(f);
       setBusyKey(null);
@@ -126,6 +126,7 @@ export default function Bieb({ app }) {
             : tr('bieb.fromLibrary')}
           seen={seenSet.has(sel.key)}
           onToggleSeen={scope === 'watchlist' ? () => app.toggleSeen(sel.key) : undefined}
+          onSimilar={() => app.openSimilar(sel, meta[sel.key])}
           onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
         />
       </div>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useRef, useEffect } from 'react';
-import { Plus, X, Download, Copy, Clapperboard, Star, RotateCcw, ArrowLeft } from 'lucide-react';
+import { Plus, X, Download, Copy, Clapperboard, Star, RotateCcw, ArrowLeft, Sparkles } from 'lucide-react';
 import { IMG, GENRES, genreLabelById, fetchDetailById, searchPersons, personFilms, fetchSimilar, discoverGems, discoverByKeywords } from '../lib/tmdb.js';
 import { useLS } from '../lib/storage.js';
 import { buildTaste, matchScore } from '../lib/taste.js';
@@ -10,6 +10,7 @@ import { useT } from '../lib/i18n.js';
 import { filmKey } from '../lib/storage.js';
 import Zoekmachine from './Zoekmachine.jsx';
 import Winner from '../components/Winner.jsx';
+import { lbLink, imdbLink, jwLink } from '../lib/links.js';
 
 // Aanbevelingen buiten je watchlist, op basis van je hoogst gewaardeerde films.
 // Zonder ratings.csv: op basis van je watchlist zelf.
@@ -199,7 +200,7 @@ export default function Verken({ app }) {
     })();
     return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeHunt, settings.tmdbKey, mode, (taste.topThemes || []).map((t) => t.id).join(',')]);
+  }, [themeHunt, tmdbKey, mode, (taste.topThemes || []).map((t) => t.id).join(',')]);
 
   const { recs, seededOnRatings } = useMemo(() => {
     const ownKeys = new Set([...watchlist.map((f) => f.key), ...watchedLb, ...ratedFilms.map((f) => f.key)]);
@@ -327,6 +328,7 @@ export default function Verken({ app }) {
           film={{ key: `tmdb:${light.id}`, name: light.title, year: light.year, uri: '' }}
           meta={m} context={detail ? tr('verken.fromOutside') : tr('verken.detailsLoading')}
           onShortlist={() => addToShortlist({ ...light, seeds: [], count: 0 })} inShortlist={inShort}
+          onSimilar={() => app.openSimilar({ key: `tmdb:${light.id}`, name: light.title, year: light.year }, { id: light.id, genres: (light.genre_ids || []).map(genreLabelById), lang: light.lang, keywords: detail?.keywords || [] })}
             onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
         />
       </div>
@@ -420,7 +422,7 @@ export default function Verken({ app }) {
         <div className="empty card">
           <p className="big">{tr('verken.forNowEmpty')}</p>
           <p>{tr('verken.allRatedEmpty')}</p>
-          {settings.tmdbKey && (
+          {tmdbKey && (
             <button className="btn primary" style={{ marginTop: 14 }} onClick={laadVers} disabled={versLaden}>
               {versLaden ? tr('verken.tapping') : tr('verken.loadFresh')}
             </button>
@@ -478,9 +480,15 @@ export default function Verken({ app }) {
                     return extra.length ? ` · ${extra.slice(0, 2).join(' · ')}` : '';
                   })()}
                 </p>
-                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="btn green" onClick={() => addToShortlist(r)}><Plus size={14} /> {tr('common.shortlist')}</button>
                   <button className="btn ghost" onClick={() => skip(r)}><X size={14} /> {tr('verken.notForMe')}</button>
+                  <button className="btn ghost" onClick={() => app.openSimilar({ key: `tmdb:${r.id}`, name: r.title, year: r.year }, { id: r.id, genres: (r.genre_ids || []).map(genreLabelById), lang: r.lang, keywords: detailCache.current.get(r.id)?.keywords || [] })}><Sparkles size={14} /> {tr('winner.moreLikeThis')}</button>
+                  <span style={{ display: 'inline-flex', gap: 12, marginLeft: 4, fontSize: 12.5 }}>
+                    <a href={lbLink({ name: r.title }, r.id)} target="_blank" rel="noreferrer">Letterboxd</a>
+                    <a href={imdbLink(detailCache.current.get(r.id), { name: r.title, year: r.year })} target="_blank" rel="noreferrer">IMDb</a>
+                    <a href={jwLink(detailCache.current.get(r.id), { name: r.title })} target="_blank" rel="noreferrer">JustWatch</a>
+                  </span>
                 </div>
               </div>
             </div>
@@ -488,7 +496,7 @@ export default function Verken({ app }) {
           {gesorteerd.length > shown && (
             <button className="btn" style={{ justifyContent: 'center' }} onClick={() => setShown(shown + 12)}>{tr('verken.showMore', { count: gesorteerd.length - shown })}</button>
           )}
-          {settings.tmdbKey && gesorteerd.length - shown < 12 && (
+          {tmdbKey && gesorteerd.length - shown < 12 && (
             <button className="btn" style={{ justifyContent: 'center' }} onClick={laadVers} disabled={versLaden}>
               {versLaden ? tr('verken.tappingTmdb') : tr('verken.loadFreshMore')}
             </button>

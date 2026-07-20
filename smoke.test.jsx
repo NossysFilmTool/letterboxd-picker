@@ -1251,6 +1251,146 @@ describe('V2 smoke', () => {
     }
   });
 
+  it('profielen: aanmaken, boekhouding en verwijderen ruimt alles op', async () => {
+    const { listProfiles, addProfile, deleteProfile, currentProfile, switchProfile } = await import('./src/lib/storage.js');
+    localStorage.clear();
+    expect(currentProfile()).toBe('');
+    expect(addProfile('Eef')).toBe(true);
+    expect(addProfile('Eef')).toBe(false); // dubbele naam
+    expect(addProfile('raar.punt')).toBe(false); // punt is ons scheidingsteken
+    expect(addProfile('')).toBe(false);
+    expect(listProfiles()).toEqual(['Eef']);
+    // wisselen zet de globale sleutel (de herlaad wordt in jsdom gevangen)
+    switchProfile('Eef');
+    expect(localStorage.getItem('nossyV2.activeProfile')).toBe('Eef');
+    switchProfile('');
+    // data van Eef simuleren; verwijderen ruimt sleutels en boekhouding op
+    localStorage.setItem('nossyV2.p.Eef.watchlist', '[]');
+    localStorage.setItem('nossyV2.p.Eef.settings', '{}');
+    deleteProfile('Eef');
+    expect(listProfiles()).toEqual([]);
+    expect(localStorage.getItem('nossyV2.p.Eef.watchlist')).toBeNull();
+    expect(localStorage.getItem('nossyV2.p.Eef.settings')).toBeNull();
+  });
+
+  it('profielen: een back-up van Standaard bevat geen andere profielen of globale sleutels', async () => {
+    const { exportAll } = await import('./src/lib/storage.js');
+    localStorage.clear();
+    localStorage.setItem('nossyV2.watchlist', '[{"key":"a|1"}]');
+    localStorage.setItem('nossyV2.p.Eef.watchlist', '[{"key":"x|9"}]');
+    localStorage.setItem('nossyV2.activeProfile', '');
+    localStorage.setItem('nossyV2.profiles', '["Eef"]');
+    const dump = JSON.parse(exportAll({}));
+    const keys = Object.keys(dump.data);
+    expect(keys).toContain('nossyV2.watchlist');
+    expect(keys.some((k) => k.includes('.p.'))).toBe(false);
+    expect(keys).not.toContain('nossyV2.activeProfile');
+    expect(keys).not.toContain('nossyV2.profiles');
+  });
+
+  it('omdb-kaart: status telt de missende scores en biedt de ophaal-knop', () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', omdbKeys: ['aaaa1111'] }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 },
+    ]));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, vote: 7, votes: 100, genres: [], at: Date.now(), ext: { imdb: 7.5 } },
+      'b|2021': { id: 2, vote: 6, votes: 50, genres: [], at: Date.now() },
+    }));
+    // de automatische ophaalronde strandt (geen netwerk), waarna de kaart
+    // status en knop moet tonen: precies de situatie uit de klacht
+    global.fetch = async () => { throw new Error('offline'); };
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+      return screen.findByText('Haal ze op', {}, { timeout: 5000 }).then((knop) => {
+        expect(document.body.textContent).toContain('Scores compleet voor 1 van je 2 films.');
+        expect(document.body.textContent).toContain('1 film mist nog OMDb-scores.');
+        fireEvent.click(knop);
+        expect(document.body.textContent).toContain('Scores ophalen: 0 van 1');
+        // en de profielen-kaart staat er, met Standaard actief
+        expect(screen.getByText('Profielen')).toBeTruthy();
+        const profChip = screen.getAllByText('Standaard').find((el) => el.className.includes('chip'));
+        expect(profChip.className).toContain('on-g');
+      });
+    } finally {
+      delete global.fetch;
+    }
+  }, 10000);
+
+  it('slimme aanrader: dubbele bron wint, gezien valt af, thema-overlap geeft de reden', async () => {
+    const { smartSimilar } = await import('./src/lib/similar.js');
+    const raw = (id, title, jaar, extra = {}) => ({ id, title, release_date: `${jaar}-01-01`, poster_path: null, vote_average: 7.5, vote_count: 5000, original_language: 'en', genre_ids: [18], ...extra });
+    global.fetch = async (url) => {
+      const u = String(url);
+      const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+      if (u.includes('/101/recommendations')) return json({ results: [raw(201, 'Dubbel', 2021), raw(202, 'AlleenRec', 2020), raw(203, 'Gezien', 2019)] });
+      if (u.includes('/101/similar')) return json({ results: [raw(201, 'Dubbel', 2021), raw(204, 'AlleenSim', 2018)] });
+      if (u.includes('/201/keywords')) return json({ keywords: [{ id: 1, name: 'grief' }, { id: 2, name: 'coming of age' }] });
+      if (u.includes('/keywords')) return json({ keywords: [] });
+      return json({ results: [] });
+    };
+    try {
+      const { results } = await smartSimilar(
+        { key: 'seed|2022', name: 'Seed' },
+        { id: 101, genres: ['Drama'], lang: 'en', keywords: [{ id: 1, name: 'grief' }, { id: 2, name: 'coming of age' }] },
+        { tmdbKey: 'x', seenKeys: new Set(['gezien|2019']), watchlistKeys: new Set(['alleenrec|2020']) },
+      );
+      const titels = results.map((r) => r.title);
+      expect(titels).not.toContain('Gezien');
+      expect(titels[0]).toBe('Dubbel'); // recs + similar + thema-overlap
+      const dubbel = results.find((r) => r.title === 'Dubbel');
+      expect(dubbel.dubbeleBron).toBe(true);
+      expect(dubbel.redenen[0]).toEqual({ type: 'themes', themes: ['grief', 'coming of age'] });
+      expect(results.find((r) => r.title === 'AlleenRec').opWatchlist).toBe(true);
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('slimme aanrader: overlay vanaf de bieb-kaart, met reden en watchlist-badge', async () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020 }, { key: 'aftersun|2022', name: 'Aftersun', year: 2022 },
+    ]));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 101, poster: null, vote: 7.2, votes: 900, genres: ['Drama'], lang: 'en', at: Date.now(), keywords: [{ id: 1, name: 'grief' }] },
+    }));
+    const raw = (id, title, jaar) => ({ id, title, release_date: `${jaar}-01-01`, poster_path: null, vote_average: 7.9, vote_count: 8000, original_language: 'en', genre_ids: [18] });
+    global.fetch = async (url) => {
+      const u = String(url);
+      const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+      if (u.includes('/recommendations')) return json({ results: [raw(301, 'Aftersun', 2022)] });
+      if (u.includes('/similar')) return json({ results: [] });
+      if (u.includes('/301/keywords')) return json({ keywords: [{ id: 1, name: 'grief' }] });
+      return json({ results: [], keywords: [] });
+    };
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+      fireEvent.click(screen.getByLabelText('Open A (2020)'));
+      fireEvent.click(screen.getByText('Meer zoals deze'));
+      expect(await screen.findByText('Meer zoals A')).toBeTruthy();
+      expect(await screen.findByText(/Aftersun \(2022\)/)).toBeTruthy();
+      expect(document.body.textContent).toContain('deelt grief');
+      expect(document.body.textContent).toContain('op je watchlist');
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByText('Meer zoals A')).toBeNull();
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('filmkaarten linken naar IMDb en JustWatch, ook zonder gecachte ids', async () => {
+    const { imdbLink, jwLink } = await import('./src/lib/links.js');
+    expect(imdbLink({ imdbId: 'tt1234567' }, { name: 'X' })).toBe('https://www.imdb.com/title/tt1234567/');
+    expect(imdbLink(null, { name: 'Aftersun', year: 2022 })).toContain('imdb.com/find/?q=Aftersun%202022');
+    expect(jwLink({ jwLink: 'https://www.justwatch.com/nl/film/aftersun' }, { name: 'Aftersun' })).toContain('/nl/film/aftersun');
+    expect(jwLink(null, { name: 'Aftersun' })).toContain('justwatch.com/nl/search?q=Aftersun');
+  });
+
   it('setup toont sleutel en back-up', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);

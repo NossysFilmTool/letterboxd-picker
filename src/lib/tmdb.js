@@ -203,9 +203,19 @@ export async function searchMovies(key, query) {
 
 // Similar: TMDB's metadata-algoritme (genres/keywords) — belicht een andere
 // hoek dan recommendations (kijkgedrag) en is minder mainstream-bevooroordeeld
+export async function fetchRecommendations(id, key) {
+  const d = await get(`/movie/${id}/recommendations`, key);
+  return (d.results || []).slice(0, 20).map(lightMovie);
+}
+
+export async function fetchKeywords(id, key) {
+  const d = await get(`/movie/${id}/keywords`, key);
+  return (d.keywords || []).map((k) => ({ id: k.id, name: k.name }));
+}
+
 export async function fetchSimilar(id, key) {
   const d = await get(`/movie/${id}/similar`, key);
-  return (d.results || []).slice(0, 10).map(lightMovie);
+  return (d.results || []).slice(0, 20).map(lightMovie);
 }
 
 // Zoeken op maker: regisseurs, acteurs, schrijvers.

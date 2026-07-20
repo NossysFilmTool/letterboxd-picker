@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import Shell from './components/Shell.jsx';
 import ScoresPreview from './components/ScoresPreview.jsx';
 import RemoteVote from './components/RemoteVote.jsx';
+import SimilarOverlay from './components/SimilarOverlay.jsx';
+import { buildTaste } from './lib/taste.js';
 import Pick from './tabs/Pick.jsx';
 import Bieb from './tabs/Bieb.jsx';
 import Verken from './tabs/Verken.jsx';
@@ -128,6 +130,13 @@ export default function App() {
     ...ratedFilms.filter((f) => !(f.key in ownRatings)),
     ...Object.entries(ownRatings).map(([key, v]) => ({ key, name: v.name, year: v.year, rating: v.rating })),
   ]), [ratedFilms, ownRatings]);
+
+  // De slimme aanrader: vanaf elke filmkaart, dus centraal in de app.
+  const [similarSeed, setSimilarSeed] = useState(null); // {film, meta}
+  const taste = useMemo(
+    () => buildTaste({ watchlist, ratedFilms: mergedRatedFilms, meta, shortlist, skipped }),
+    [watchlist, mergedRatedFilms, meta, shortlist, skipped],
+  );
 
   // Eén antwoord per gepickte avond verwerken.
   const answerFollowup = (entry, antwoord, sterren) => {
@@ -352,6 +361,7 @@ export default function App() {
     demoMode, setDemoMode,
     resetLibrary,
     enrich, startEnrich, metaReady, tmdbKey, goSetup: () => setTab('instellingen'),
+    taste, openSimilar: (film, m) => setSimilarSeed({ film, meta: m }),
     extEnrich, startExtEnrich,
     freshenProviders,
     ensureDetail,
@@ -364,6 +374,11 @@ export default function App() {
   if (avondCode) return <RemoteVote code={avondCode} />;
 
   return (
+    <>
+    {similarSeed && (
+      <SimilarOverlay seed={similarSeed.film} seedMeta={similarSeed.meta || meta[similarSeed.film.key] || {}}
+        app={app} onClose={() => setSimilarSeed(null)} />
+    )}
     <Shell tab={tab} setTab={setTab}>
       {storageBroken && (
         <div className="notice" role="alert" style={{ marginBottom: 18, borderLeftColor: 'var(--dot-o)' }}>
@@ -417,5 +432,6 @@ export default function App() {
         {tab === 'instellingen' && <Instellingen app={app} />}
       </div>
     </Shell>
+    </>
   );
 }

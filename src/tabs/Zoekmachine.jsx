@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useT } from '../lib/i18n.js';
+import { lbLink, imdbLink, jwLink } from '../lib/links.js';
 import { Search, Clapperboard, Plus, Gem, Wand2, X, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { IMG, GENRES, genreLabelById, genreLabel, discover, searchMovies, searchPersons, personFilms } from '../lib/tmdb.js';
 import { matchScore } from '../lib/taste.js';
@@ -363,6 +364,11 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                 <button className="btn ghost" onClick={() => openDetail(r)}>{tr('verken.viewCard')}</button>
                 {!r.bekend && !shortIds.has(r.id) && <button className="btn green" onClick={() => addToShortlist({ ...r, seeds: [], count: 0 })}><Plus size={14} /> Shortlist</button>}
+                <span style={{ display: 'inline-flex', gap: 12, marginLeft: 4, fontSize: 12.5 }}>
+                  <a href={lbLink({ name: r.title }, r.id)} target="_blank" rel="noreferrer">Letterboxd</a>
+                  <a href={imdbLink(null, { name: r.title, year: r.year })} target="_blank" rel="noreferrer">IMDb</a>
+                  <a href={jwLink(null, { name: r.title })} target="_blank" rel="noreferrer">JustWatch</a>
+                </span>
               </div>
             </div>
           </div>

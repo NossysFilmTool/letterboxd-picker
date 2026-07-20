@@ -1,7 +1,23 @@
 import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import { idbAvailable, idbGetAll, idbApply, idbClear } from './idb.js';
 
-const PREFIX = 'nossyV2.';
+const ROOT = 'nossyV2.';
+// Profielen: het klassieke, ongeprefixte gegevensbestand is het profiel
+// "Standaard"; extra profielen (huisgenoten) krijgen een eigen voorvoegsel
+// en een eigen IndexedDB. Wisselen is een herlaad; twee globale sleutels
+// (activeProfile, profiles) staan buiten elk profiel.
+const GLOBALS = [`${ROOT}activeProfile`, `${ROOT}profiles`];
+function activeProfileName() {
+  try { return localStorage.getItem(`${ROOT}activeProfile`) || ''; } catch { return ''; }
+}
+const PROFILE = activeProfileName();
+const PREFIX = PROFILE ? `${ROOT}p.${PROFILE}.` : ROOT;
+// Hoort deze sleutel bij het actieve profiel? Op Standaard sluit dat de
+// p.-profielen en de globale sleutels expliciet uit.
+const isOwnKey = (k) => k.startsWith(PREFIX)
+  && (PROFILE ? true : (!k.startsWith(`${ROOT}p.`) && !GLOBALS.includes(k)));
+// Kale naam (zonder welk profiel-voorvoegsel dan ook), voor back-ups.
+const bareKey = (k) => k.replace(/^nossyV2\.(p\.[^.]+\.)?/, '');
 
 export function useLS(key, defaultValue) {
   const [value, setValue] = useState(() => {
@@ -27,7 +43,7 @@ export function exportAll(metaObj) {
   const out = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && k.startsWith(PREFIX)) out[k] = localStorage.getItem(k);
+    if (k && isOwnKey(k)) out[`${ROOT}${bareKey(k)}`] = localStorage.getItem(k);
   }
   // Op het IndexedDB-pad zit de filmcache niet in localStorage; voeg hem toe
   // onder dezelfde sleutel als vroeger, zodat oude en nieuwe back-ups
@@ -42,14 +58,15 @@ export async function importAll(json) {
   if (!parsed || parsed.app !== 'nossy-picker' || !parsed.data) {
     throw new Error('INVALID_BACKUP');
   }
-  const metaKey = `${PREFIX}meta`;
   for (const [k, v] of Object.entries(parsed.data)) {
-    if (!k.startsWith(PREFIX)) continue;
-    if (k === metaKey && idbAvailable()) {
+    if (!k.startsWith(ROOT)) continue;
+    const kaal = bareKey(k);
+    if (!kaal || kaal === 'activeProfile' || kaal === 'profiles') continue;
+    if (kaal === 'meta' && idbAvailable()) {
       // Filmcache hoort in IndexedDB; de aanroeper herlaadt de app erna.
       try { await idbClear(); await idbApply(JSON.parse(v), []); } catch { localStorage.setItem(k, v); }
     } else {
-      localStorage.setItem(k, v);
+      localStorage.setItem(`${PREFIX}${kaal}`, v);
     }
   }
 }
@@ -91,7 +108,7 @@ export function storageUsage(metaObj) {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(PREFIX)) units += k.length + (localStorage.getItem(k)?.length || 0);
+      if (k && isOwnKey(k)) units += k.length + (localStorage.getItem(k)?.length || 0);
     }
   } catch { /* geblokkeerd: laat 0 zien */ }
   return units;
@@ -173,4 +190,39 @@ export function useMetaStore() {
   }, [meta]);
 
   return [meta, setMeta, ready];
+}
+
+// --- Profielen -------------------------------------------------------------
+export const currentProfile = () => PROFILE;
+
+export function listProfiles() {
+  try { return JSON.parse(localStorage.getItem(`${ROOT}profiles`) || '[]'); } catch { return []; }
+}
+
+// Namen zonder punten of vreemde tekens: de punt is ons scheidingsteken.
+export function addProfile(naam) {
+  const n = String(naam || '').trim().slice(0, 24);
+  if (!n || !/^[\w\- \u00c0-\u024f]+$/.test(n)) return false;
+  const lijst = listProfiles();
+  if (lijst.includes(n)) return false;
+  localStorage.setItem(`${ROOT}profiles`, JSON.stringify([...lijst, n]));
+  return true;
+}
+
+export function switchProfile(naam) {
+  localStorage.setItem(`${ROOT}activeProfile`, naam || '');
+  try { location.reload(); } catch { /* testomgeving */ }
+}
+
+export function deleteProfile(naam) {
+  const pfx = `${ROOT}p.${naam}.`;
+  const dood = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(pfx)) dood.push(k);
+  }
+  dood.forEach((k) => localStorage.removeItem(k));
+  localStorage.setItem(`${ROOT}profiles`, JSON.stringify(listProfiles().filter((x) => x !== naam)));
+  try { indexedDB.deleteDatabase(`nossyV2-p-${naam}`); } catch { /* geen IDB */ }
+  if (PROFILE === naam) switchProfile('');
 }

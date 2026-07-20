@@ -6,7 +6,7 @@ import { DEFAULT_NOSSY_WEIGHTS } from '../lib/pick.js';
 import { DEFAULT_THEME_EMPHASIS } from '../lib/taste.js';
 import { REGIONS, DEFAULT_REGION, PROXY_URL } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
-import { exportAll, importAll, clearAll, storageUsage } from '../lib/storage.js';
+import { exportAll, importAll, clearAll, storageUsage, currentProfile, listProfiles, addProfile, switchProfile, deleteProfile } from '../lib/storage.js';
 import { idbAvailable } from '../lib/idb.js';
 import { downloadText } from '../lib/csv.js';
 import ImportPanel from '../components/ImportPanel.jsx';
@@ -19,6 +19,7 @@ export default function Instellingen({ app }) {
   const [keyInput, setKeyInput] = useState(app.settings.tmdbKey || '');
   const [editKeys, setEditKeys] = useState(false);
   const [multiKeys, setMultiKeys] = useState((app.omdbKeys?.length || 0) > 1);
+  const [profielNaam, setProfielNaam] = useState('');
   const [keyState, setKeyState] = useState('idle'); // idle | testing | ok | fail
   const [omdbInput, setOmdbInput] = useState((app.settings.omdbKeys || (app.settings.omdbKey ? [app.settings.omdbKey] : [])).join('\n'));
   const [omdbState, setOmdbState] = useState('idle');
@@ -89,12 +90,42 @@ export default function Instellingen({ app }) {
       <div className="card" style={{ marginBottom: 18 }}>
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.omdbLabel')}</p>
         {app.omdbKeys.length > 0 && !editKeys ? (
+          <>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <p style={{ color: 'var(--dot-g)', fontSize: 13.5 }}>
               <Check size={14} style={{ verticalAlign: -2 }} /> {tr('setup.omdbActive', { count: app.omdbKeys.length })}
             </p>
             <button className="btn ghost" onClick={() => { setOmdbInput(app.omdbKeys.join('\n')); setMultiKeys(app.omdbKeys.length > 1); setEditKeys(true); }}>{tr('setup.changeKeys')}</button>
           </div>
+          {app.watchlist.length > 0 && (() => {
+          const metFilmdata = app.watchlist.filter((f) => app.meta[f.key]);
+          const heeft = metFilmdata.filter((f) => app.meta[f.key].ext).length;
+          const mist = metFilmdata.length - heeft;
+          const wachtOpTmdb = app.watchlist.length - metFilmdata.length;
+          return (
+            <div style={{ marginTop: 12 }}>
+              {app.extEnrich.running ? (
+                <p style={{ color: 'var(--fog)', fontSize: 13.5 }}>
+                  <span className="livedot" aria-hidden="true" style={{ marginRight: 6 }} />
+                  {tr('setup.scoresFetching', { done: app.extEnrich.done, total: app.extEnrich.total })}
+                </p>
+              ) : mist > 0 ? (
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <p style={{ color: 'var(--fog)', fontSize: 13.5 }}>
+                    {tr('setup.scoresStatus', { have: heeft, total: metFilmdata.length })} {tr('setup.scoresMissing', { count: mist })}
+                  </p>
+                  <button className="btn primary" onClick={() => app.startExtEnrich(app.watchlist)}>{tr('setup.fetchScoresNow')}</button>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--dot-g)', fontSize: 13.5 }}><Check size={13} style={{ verticalAlign: -2 }} /> {tr('setup.scoresAllDone')}</p>
+              )}
+              {wachtOpTmdb > 0 && !app.extEnrich.running && (
+                <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginTop: 6 }}>{tr('setup.scoresAwaitTmdb')}</p>
+              )}
+            </div>
+          );
+          })()}
+          </>
         ) : (
           <>
             <ScoresPreview />
@@ -303,6 +334,29 @@ export default function Instellingen({ app }) {
           <span style={{ fontSize: 14, color: 'var(--paper)', minWidth: 128 }}>
             {(() => { const v = app.settings.themeEmphasis ?? DEFAULT_THEME_EMPHASIS; return v === 0 ? 'Uit — geen thema\u2019s' : v <= 0.5 ? 'Licht accent' : v <= 1 ? 'Standaard' : v <= 1.5 ? 'Nadrukkelijk' : 'Sterk themagedreven'; })()}
           </span>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <p className="label" style={{ marginBottom: 10 }}>{tr('setup.profiles')}</p>
+        <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('setup.profilesHint')}</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+          <button className={`chip ${currentProfile() === '' ? 'on-g' : ''}`} onClick={() => currentProfile() !== '' && switchProfile('')}>
+            {tr('setup.profileDefault')}
+          </button>
+          {listProfiles().map((naam) => (
+            <span key={naam} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+              <button className={`chip ${currentProfile() === naam ? 'on-g' : ''}`} onClick={() => currentProfile() !== naam && switchProfile(naam)}>{naam}</button>
+              <button className="btn ghost" style={{ padding: '2px 7px', fontSize: 12 }} aria-label={tr('setup.deleteProfileAria', { name: naam })}
+                onClick={() => { if (confirm(tr('setup.deleteProfileConfirm', { name: naam }))) { deleteProfile(naam); if (currentProfile() !== naam) location.reload(); } }}>✕</button>
+            </span>
+          ))}
+          <input className="field" style={{ maxWidth: 140 }} placeholder={tr('setup.profileNamePlaceholder')} value={profielNaam}
+            onChange={(e) => setProfielNaam(e.target.value)} aria-label={tr('setup.profiles')} />
+          <button className="btn" onClick={() => {
+            if (!addProfile(profielNaam)) { alert(tr('setup.profileNameInvalid')); return; }
+            switchProfile(profielNaam.trim());
+          }}>{tr('setup.addProfile')}</button>
         </div>
       </div>
 
