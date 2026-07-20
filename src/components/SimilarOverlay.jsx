@@ -4,7 +4,8 @@ import { useT } from '../lib/i18n.js';
 import { IMG, fetchDetailById } from '../lib/tmdb.js';
 import Winner from './Winner.jsx';
 import { smartSimilar } from '../lib/similar.js';
-import { lbLink, imdbLink, jwLink } from '../lib/links.js';
+import { lbLink, jwLink } from '../lib/links.js';
+import ImdbA from './ImdbA.jsx';
 import { fmtScore } from '../lib/pick.js';
 
 // De slimme aanrader als overlay: vertrekt vanaf één film en legt per
@@ -109,7 +110,7 @@ export default function SimilarOverlay({ seed, seedMeta, app, onClose }) {
                 </p>
                 <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center', fontSize: 12 }}>
                   <a href={lbLink({ name: f.title }, f.id)} target="_blank" rel="noreferrer">Letterboxd</a>
-                  <a href={imdbLink(null, { name: f.title, year: f.year })} target="_blank" rel="noreferrer">IMDb</a>
+                  <ImdbA tmdbId={f.id} tmdbKey={app.tmdbKey} film={{ name: f.title, year: f.year }} />
                   <a href={jwLink(null, { name: f.title })} target="_blank" rel="noreferrer">JustWatch</a>
                   {!f.opWatchlist && !shortIds.has(f.id) && (
                     <button className="btn ghost" style={{ marginLeft: 'auto', padding: '3px 9px', fontSize: 12 }}

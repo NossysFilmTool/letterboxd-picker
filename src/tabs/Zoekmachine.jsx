@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useT } from '../lib/i18n.js';
-import { lbLink, imdbLink, jwLink } from '../lib/links.js';
+import { lbLink, jwLink } from '../lib/links.js';
+import ImdbA from '../components/ImdbA.jsx';
 import { Search, Clapperboard, Plus, Gem, Wand2, X, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { IMG, GENRES, genreLabelById, genreLabel, discover, searchMovies, searchPersons, personFilms } from '../lib/tmdb.js';
 import { matchScore } from '../lib/taste.js';
@@ -30,7 +31,7 @@ const FAME_PRESETS = [
   ['breed', 'breed', 10000, ''],
 ];
 
-export default function Zoekmachine({ app, taste, openDetail, addToShortlist, shortIds, ownIdsAll, ownKeysAll }) {
+export default function Zoekmachine({ app, taste, openDetail, addToShortlist, shortIds, ownIdsAll, ownKeysAll, seenIds }) {
   const { t: tr, lang: uiLang } = useT();
   // Taalnamen in de UI-taal via de browser (Intl); geen woordenboek nodig.
   const langName = useMemo(() => {
@@ -173,7 +174,9 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
       const ext = scores[r.id] || (app.meta && Object.values(app.meta).find((m) => m && m.id === r.id)?.ext);
       const withExt = ext ? { ...r, ext } : r;
       const ns = nossyScore(withExt);
-      return { ...withExt, ...matchScore(r, taste), nossy: ns, bekend: ownIdsAll.has(r.id) || ownKeysAll.has(filmKey(r.title, r.year)) };
+      const key = filmKey(r.title, r.year);
+      const gezien = app.seenSet.has(key) || seenIds.has(r.id);
+      return { ...withExt, ...matchScore(r, taste), nossy: ns, bekend: ownIdsAll.has(r.id) || ownKeysAll.has(key), gezien, jouwScore: gezien ? app.ratings[key] : null };
     });
     if (res?.tekstZoek) {
       list = list.filter((r) => {
@@ -358,7 +361,11 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
                 {r.votes != null && <span style={{ color: 'var(--fog-dim)' }}> ({r.votes >= 1000 ? `${Math.round(r.votes / 1000)}k` : r.votes})</span>}
                 {r.nossy != null && <span style={{ marginLeft: 8, color: 'var(--dot-o)' }} title="Nossy-score (IMDb/Metacritic/TMDB)">◆ {fmtScore(r.nossy)}</span>}
                 {taste.sterk && !r.bekend && <span className="chip on-b" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>{tr('zoek.matchPct', { pct: r.score })}</span>}
-                {r.bekend && <span className="chip on-g" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>{tr('zoek.inCollection')}</span>}
+                {r.bekend && (
+                  <span className="chip on-g" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>
+                    {r.gezien ? (r.jouwScore ? tr('zoek.seenGave', { score: fmtScore(r.jouwScore) }) : tr('zoek.seenBadge')) : tr('zoek.inCollection')}
+                  </span>
+                )}
               </p>
               {r.redenen?.length > 0 && !r.bekend && <p className="why" style={{ marginTop: 6 }}>{r.redenen.slice(0, 2).join(' · ')}</p>}
               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
@@ -366,7 +373,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
                 {!r.bekend && !shortIds.has(r.id) && <button className="btn green" onClick={() => addToShortlist({ ...r, seeds: [], count: 0 })}><Plus size={14} /> Shortlist</button>}
                 <span style={{ display: 'inline-flex', gap: 12, marginLeft: 4, fontSize: 12.5 }}>
                   <a href={lbLink({ name: r.title }, r.id)} target="_blank" rel="noreferrer">Letterboxd</a>
-                  <a href={imdbLink(null, { name: r.title, year: r.year })} target="_blank" rel="noreferrer">IMDb</a>
+                  <ImdbA tmdbId={r.id} tmdbKey={tmdbKey} film={{ name: r.title, year: r.year }} />
                   <a href={jwLink(null, { name: r.title })} target="_blank" rel="noreferrer">JustWatch</a>
                 </span>
               </div>

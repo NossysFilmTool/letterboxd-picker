@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, fireEvent, screen, cleanup, within, waitFor, act } from '@testing-library/react';
 import App from './src/App.jsx';
 
@@ -1403,6 +1403,56 @@ describe('V2 smoke', () => {
     expect(imdbLink(null, { name: 'Aftersun', year: 2022 })).toContain('imdb.com/find/?q=Aftersun%202022');
     expect(jwLink({ jwLink: 'https://www.justwatch.com/nl/film/aftersun' }, { name: 'Aftersun' })).toContain('/nl/film/aftersun');
     expect(jwLink(null, { name: 'Aftersun' })).toContain('justwatch.com/nl/search?q=Aftersun');
+  });
+
+  it('zoeken: een gezien-en-gelogde film zegt "Al gezien" met jouw sterren, niet "in je collectie"', async () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    // handmatig gezien via de tool (dus n\u00edet in watchedLb) + eigen rating
+    localStorage.setItem('nossyV2.seen', JSON.stringify(['aftersun|2022']));
+    localStorage.setItem('nossyV2.ownRatings', JSON.stringify({ 'aftersun|2022': { rating: 4, name: 'Aftersun', year: 2022, at: 1 } }));
+    global.fetch = async () => ({
+      ok: true, status: 200,
+      json: async () => ({
+        total_pages: 1, total_results: 1,
+        results: [{ id: 9002, title: 'Aftersun', release_date: '2022-05-20', poster_path: null, vote_average: 7.9, vote_count: 8000, original_language: 'en', overview: 'Zomer.', genre_ids: [18] }],
+      }),
+    });
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.change(screen.getByPlaceholderText(/Zoek op titel of maker/), { target: { value: 'aftersun' } });
+      fireEvent.click(screen.getByText('Zoek'));
+      expect(await screen.findByText(/Al gezien · jij gaf 4,0 ★/)).toBeTruthy();
+      expect(document.body.textContent).not.toContain('Al in je collectie');
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('imdb-link uit een lijst gaat na de klik direct naar de titelpagina', async () => {
+    const { default: ImdbA } = await import('./src/components/ImdbA.jsx');
+    const venster = { location: '', opener: 'x' };
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(venster);
+    const calls = [];
+    global.fetch = async (url) => {
+      calls.push(String(url));
+      return { ok: true, status: 200, json: async () => ({ imdb_id: 'tt19770238' }) };
+    };
+    try {
+      render(<ImdbA tmdbId={301} tmdbKey="x" film={{ name: 'Aftersun', year: 2022 }} />);
+      const link = screen.getByText('IMDb');
+      // zonder bekend id valt de href terug op zoeken, maar de klik lost het op
+      expect(link.getAttribute('href')).toContain('/find/');
+      fireEvent.click(link);
+      await waitFor(() => expect(String(venster.location)).toBe('https://www.imdb.com/title/tt19770238/'));
+      expect(venster.opener).toBeNull();
+      expect(calls.some((u) => u.includes('/301/external_ids'))).toBe(true);
+    } finally {
+      openSpy.mockRestore();
+      delete global.fetch;
+    }
   });
 
   it('setup toont sleutel en back-up', () => {

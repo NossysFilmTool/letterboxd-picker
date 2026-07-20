@@ -208,6 +208,11 @@ export async function fetchRecommendations(id, key) {
   return (d.results || []).slice(0, 20).map(lightMovie);
 }
 
+export async function fetchExternalIds(id, key) {
+  const d = await get(`/movie/${id}/external_ids`, key);
+  return d.imdb_id || null;
+}
+
 export async function fetchKeywords(id, key) {
   const d = await get(`/movie/${id}/keywords`, key);
   return (d.keywords || []).map((k) => ({ id: k.id, name: k.name }));

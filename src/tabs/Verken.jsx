@@ -10,13 +10,14 @@ import { useT } from '../lib/i18n.js';
 import { filmKey } from '../lib/storage.js';
 import Zoekmachine from './Zoekmachine.jsx';
 import Winner from '../components/Winner.jsx';
-import { lbLink, imdbLink, jwLink } from '../lib/links.js';
+import { lbLink, jwLink } from '../lib/links.js';
+import ImdbA from '../components/ImdbA.jsx';
 
 // Aanbevelingen buiten je watchlist, op basis van je hoogst gewaardeerde films.
 // Zonder ratings.csv: op basis van je watchlist zelf.
 export default function Verken({ app }) {
   const { t: tr, lang } = useT();
-  const { watchlist, meta, setMeta, ratings, ratedFilms, watchedLb, shortlist, setShortlist, skipped, setSkipped, settings, startEnrich, enrich, tmdbKey } = app;
+  const { watchlist, meta, setMeta, ratings, ratedFilms, watchedLb, shortlist, setShortlist, skipped, setSkipped, settings, startEnrich, enrich, tmdbKey, seenSet } = app;
   // Mengmotor-instroom: oeuvres van je favoriete regisseurs (blijvend gecachet),
   // profiel-discover (per sessie) en similar-lijsten (in meta gecachet)
   const [oeuvres, setOeuvres] = useLS('oeuvres', {});
@@ -203,7 +204,7 @@ export default function Verken({ app }) {
   }, [themeHunt, tmdbKey, mode, (taste.topThemes || []).map((t) => t.id).join(',')]);
 
   const { recs, seededOnRatings } = useMemo(() => {
-    const ownKeys = new Set([...watchlist.map((f) => f.key), ...watchedLb, ...ratedFilms.map((f) => f.key)]);
+    const ownKeys = new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]);
     const ownIds = new Set(Object.values(meta).filter(Boolean).map((m) => m.id));
     const skippedSet = new Set(skipped.map((s) => (typeof s === 'object' ? s.id : s)));
     const shortIds = new Set(shortlist.map((s) => s.id));
@@ -252,7 +253,7 @@ export default function Verken({ app }) {
       return { ...r, match: m.score, redenen };
     });
     return { recs: list, seededOnRatings: onRatings };
-  }, [watchlist, meta, ratings, ratedFilms, watchedLb, shortlist, skipped, seeds, oeuvres, profielCands, themeCands, lang]);
+  }, [watchlist, meta, ratings, ratedFilms, seenSet, shortlist, skipped, seeds, oeuvres, profielCands, themeCands, lang]);
 
   const genreNaam = (ids) => (ids || []).map((id) => genreLabelById(id)).filter(Boolean)[0];
   const addToShortlist = (r) => {
@@ -285,8 +286,14 @@ export default function Verken({ app }) {
   const applyLightFilters = (list) => list;
   const ownIdsAll = useMemo(() => new Set(Object.values(meta).filter(Boolean).map((m) => m.id)), [meta]);
   const ownKeysAll = useMemo(
-    () => new Set([...watchlist.map((f) => f.key), ...watchedLb, ...ratedFilms.map((f) => f.key)]),
-    [watchlist, watchedLb, ratedFilms],
+    () => new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]),
+    [watchlist, seenSet, ratedFilms],
+  );
+  // Gezien-status apart: op key én op TMDB-id (vangt titelverschillen tussen
+  // Letterboxd en TMDB zodra de film in de cache zit).
+  const seenIds = useMemo(
+    () => new Set([...seenSet].map((k) => meta[k]?.id).filter(Boolean)),
+    [seenSet, meta],
   );
   const shortIds = useMemo(() => new Set(shortlist.map((s) => s.id)), [shortlist]);
   const skippedSet = useMemo(() => new Set(skipped.map((s) => (typeof s === 'object' ? s.id : s))), [skipped]);
@@ -359,7 +366,7 @@ export default function Verken({ app }) {
         <Zoekmachine
           app={app} taste={taste} openDetail={openDetail}
           addToShortlist={addToShortlist} shortIds={shortIds}
-          ownIdsAll={ownIdsAll} ownKeysAll={ownKeysAll}
+          ownIdsAll={ownIdsAll} ownKeysAll={ownKeysAll} seenIds={seenIds}
         />
       )}
 
@@ -396,9 +403,9 @@ export default function Verken({ app }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <p className="label" style={{ color: 'var(--dot-b)' }}>Shortlist ({shortlist.length})</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn" onClick={copyList}><Copy size={14} /> Kopieer</button>
+              <button className="btn" onClick={copyList}><Copy size={14} /> {tr('zoek.copyBtn')}</button>
               <button className="btn" onClick={() => downloadText('letterboxd-import.csv', shortlistToCsv(shortlist))}>
-                <Download size={14} /> Exporteer voor Letterboxd
+                <Download size={14} /> {tr('zoek.exportLbBtn')}
               </button>
             </div>
           </div>
@@ -413,7 +420,7 @@ export default function Verken({ app }) {
             ))}
           </div>
           <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginTop: 10 }}>
-            De export-CSV importeer je zo weer bij Letterboxd (met tmdbID, dus foutloze matching): letterboxd.com → Settings → Import.
+            {tr('zoek.lbImportHint')}
           </p>
         </div>
       )}
@@ -486,7 +493,7 @@ export default function Verken({ app }) {
                   <button className="btn ghost" onClick={() => app.openSimilar({ key: `tmdb:${r.id}`, name: r.title, year: r.year }, { id: r.id, genres: (r.genre_ids || []).map(genreLabelById), lang: r.lang, keywords: detailCache.current.get(r.id)?.keywords || [] })}><Sparkles size={14} /> {tr('winner.moreLikeThis')}</button>
                   <span style={{ display: 'inline-flex', gap: 12, marginLeft: 4, fontSize: 12.5 }}>
                     <a href={lbLink({ name: r.title }, r.id)} target="_blank" rel="noreferrer">Letterboxd</a>
-                    <a href={imdbLink(detailCache.current.get(r.id), { name: r.title, year: r.year })} target="_blank" rel="noreferrer">IMDb</a>
+                    <ImdbA meta={detailCache.current.get(r.id)} tmdbId={r.id} tmdbKey={tmdbKey} film={{ name: r.title, year: r.year }} />
                     <a href={jwLink(detailCache.current.get(r.id), { name: r.title })} target="_blank" rel="noreferrer">JustWatch</a>
                   </span>
                 </div>
