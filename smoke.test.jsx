@@ -74,6 +74,78 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('Meer zoals deze');
   });
 
+  it('rijen: vensterVan wrapt netjes rond en voegNieuweToe dedupliceert', async () => {
+    const { vensterVan, voegNieuweToe } = await import('./src/lib/rows.js');
+    const films = Array.from({ length: 20 }, (_, i) => ({ id: i + 1 }));
+    // eerste venster: 1..12
+    expect(vensterVan(films, 0).map((f) => f.id)).toEqual([1,2,3,4,5,6,7,8,9,10,11,12]);
+    // offset 12: 13..20 + wrap 1..4
+    expect(vensterVan(films, 12).map((f) => f.id)).toEqual([13,14,15,16,17,18,19,20,1,2,3,4]);
+    // kleine poel: alles, geen wrap-gedoe
+    expect(vensterVan(films.slice(0, 5), 12).map((f) => f.id)).toEqual([1,2,3,4,5]);
+    // dedup op id
+    expect(voegNieuweToe([{ id: 1 }, { id: 2 }], [{ id: 2 }, { id: 3 }]).map((f) => f.id)).toEqual([1, 2, 3]);
+  });
+
+  it('rijen: elke rij heeft een wissel-knop en wisselen verbergt de rij', () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const oeuvreFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms } }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now() } }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getByText('Voor jou'));
+    expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
+    fireEvent.click(screen.getByText('Wissel om'));
+    expect(screen.queryByText('Meer van Testregisseur')).toBeNull();
+  });
+
+  it('rijen: "andere films" op een seed-rij haalt echt pagina 2 op en toont de vondst', async () => {
+    const calls = [];
+    global.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+      if (u.includes('page=2') && (u.includes('/similar') || u.includes('/recommendations'))) {
+        return json({ results: [{ id: 699, title: 'Diepere Vondst', release_date: '2012-05-01', poster_path: '/d.jpg', vote_average: 7.7, vote_count: 3000, original_language: 'en', overview: 'dieper', genre_ids: [18] }] });
+      }
+      return json({ results: [] });
+    };
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const recFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 600 + n, title: `Seed Film ${n}`, year: 2005 + n, poster: `/s${n}.jpg`, vote: 7.2, votes: 2500, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now(), recs: recFilms },
+      'b|2019': { id: 2, poster: '/b.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now() },
+      'c|2018': { id: 3, poster: '/c.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now() },
+      'd|2017': { id: 4, poster: '/d.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now() },
+    }));
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getByText('Voor jou'));
+      expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
+      fireEvent.click(screen.getByText('Andere films'));
+      // de diepere pagina is echt opgevraagd én de nieuwe film staat in de rij
+      expect(await screen.findByText('Diepere Vondst')).toBeTruthy();
+      expect(calls.some((u) => u.includes('page=2') && u.includes('/1/similar'))).toBe(true);
+      expect(calls.some((u) => u.includes('page=2') && u.includes('/1/recommendations'))).toBe(true);
+    } finally {
+      delete global.fetch;
+    }
+  });
+
   it('verken: een al geziene film komt niet terug als aanbeveling (op TMDB-id)', () => {
     localStorage.clear();
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));

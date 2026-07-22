@@ -215,8 +215,8 @@ export async function searchMovies(key, query) {
 
 // Similar: TMDB's metadata-algoritme (genres/keywords) — belicht een andere
 // hoek dan recommendations (kijkgedrag) en is minder mainstream-bevooroordeeld
-export async function fetchRecommendations(id, key) {
-  const d = await get(`/movie/${id}/recommendations`, key);
+export async function fetchRecommendations(id, key, page = 1) {
+  const d = await get(`/movie/${id}/recommendations`, key, { page });
   return (d.results || []).slice(0, 20).map(lightMovie);
 }
 
@@ -230,8 +230,8 @@ export async function fetchKeywords(id, key) {
   return (d.keywords || []).map((k) => ({ id: k.id, name: k.name }));
 }
 
-export async function fetchSimilar(id, key) {
-  const d = await get(`/movie/${id}/similar`, key);
+export async function fetchSimilar(id, key, page = 1) {
+  const d = await get(`/movie/${id}/similar`, key, { page });
   return (d.results || []).slice(0, 20).map(lightMovie);
 }
 

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useRef, useEffect } from 'react';
 import { Plus, X, Download, Copy, Clapperboard, Star, RotateCcw, ArrowLeft, Sparkles } from 'lucide-react';
-import { IMG, GENRES, genreLabelById, fetchDetailById, searchPersons, personFilms, fetchSimilar, discoverGems, discoverByKeywords } from '../lib/tmdb.js';
+import { IMG, GENRES, genreLabelById, fetchDetailById, searchPersons, personFilms, fetchSimilar, fetchRecommendations, discoverGems, discoverByKeywords } from '../lib/tmdb.js';
 import { useLS } from '../lib/storage.js';
 import { buildTaste, matchScore } from '../lib/taste.js';
 import { MOODS, applyMoods, filterMoods } from '../lib/moods.js';
+import { vensterVan, voegNieuweToe } from '../lib/rows.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { shortlistToCsv, downloadText } from '../lib/csv.js';
 import { useT } from '../lib/i18n.js';
@@ -55,13 +56,9 @@ export default function Verken({ app }) {
         return [...prev, ...extra];
       });
       setProfielPage(nieuwePage);
-      // Verse films binnengehaald: schuif meteen álle rijen door, zodat je een
-      // merkbaar ander overzicht krijgt in plaats van dezelfde koppen.
-      setRowOffsets((o) => {
-        const next = {};
-        Object.keys(o).forEach((k) => { next[k] = (o[k] || 0) + 12; });
-        return next;
-      });
+      // Verse films binnengehaald: schuif ALLE rijen tegelijk door (ook rijen
+      // die nog nooit aangeraakt zijn), zodat het overzicht echt verandert.
+      setVerseShift((s) => s + 12);
     } catch { /* volgende klik probeert opnieuw */ }
     setVersLaden(false);
   };
@@ -81,13 +78,61 @@ export default function Verken({ app }) {
   const [moods, setMoods] = useState([]); // actieve stemmingen
   const [focusGenre, setFocusGenre] = useState(''); // optioneel genre om op te focussen
   const toggleMood = (id) => setMoods((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
-  // Per rij: hoeveel films we al "weggeschoven" hebben (venster van 12).
+  // Per rij: hoeveel films we al "weggeschoven" hebben (venster van 12; de
+  // wrap-around zit in vensterVan). verseShift schuift ALLE rijen tegelijk
+  // (de "Vers uit TMDB"-knop), dismissed verbergt omgewisselde rijen, en
+  // rowBusy toont per rij of er nieuwe films onderweg zijn.
   const [rowOffsets, setRowOffsets] = useState({});
-  const schuifRij = (rijId, poolLengte) => setRowOffsets((o) => {
-    const stap = 12;
-    const volgende = (o[rijId] || 0) + stap;
-    return { ...o, [rijId]: volgende >= poolLengte ? 0 : volgende }; // rondje om
-  });
+  const [verseShift, setVerseShift] = useState(0);
+  const [dismissed, setDismissed] = useState([]);
+  const [rowBusy, setRowBusy] = useState({});
+  const [themaPage, setThemaPage] = useState(2); // pagina 1-2 laadt de instroom al
+  const schuifRij = (rijId) => setRowOffsets((o) => ({ ...o, [rijId]: (o[rijId] || 0) + 12 }));
+
+  // "Andere films": schuif de rij door en haal er waar mogelijk écht nieuwe
+  // films bij. Seeds kunnen dieper in similar/recommendations (volgende
+  // pagina's), thema's dieper in discover; een oeuvre is eindig, dus daar
+  // is doorschuiven alles wat er is.
+  const haalMeerVoorRij = async (rij) => {
+    if (rowBusy[rij.id]) return;
+    setRowBusy((b) => ({ ...b, [rij.id]: true }));
+    try {
+      if (rij.type === 'seed' && tmdbKey) {
+        const seedKey = rij.id.slice(5);
+        const m = meta[seedKey];
+        if (m?.id) {
+          const page = (m.dieptePage || 1) + 1;
+          const [sims2, recs2] = await Promise.all([
+            fetchSimilar(m.id, tmdbKey, page).catch(() => []),
+            fetchRecommendations(m.id, tmdbKey, page).catch(() => []),
+          ]);
+          setMeta((prev) => ({
+            ...prev,
+            [seedKey]: {
+              ...prev[seedKey],
+              sims: voegNieuweToe(prev[seedKey]?.sims || [], sims2),
+              recs: voegNieuweToe(prev[seedKey]?.recs || [], recs2),
+              dieptePage: page,
+            },
+          }));
+        }
+      } else if (rij.type === 'thema' && tmdbKey) {
+        const kwIds = (taste.topThemes || []).map((t) => t.id);
+        if (kwIds.length) {
+          const page = themaPage + 1;
+          const d = await discoverByKeywords(tmdbKey, kwIds, { minVotes: 40, page }).catch(() => ({ results: [] }));
+          const merk = (r) => ({ ...r, viaTheme: (taste.topThemes || []).slice(0, 3).map((t) => t.name) });
+          setThemeCands((prev) => voegNieuweToe(prev, (d.results || []).map(merk)));
+          setThemaPage(page);
+        }
+      } else if (rij.type === 'profiel') {
+        await laadVers();
+      }
+    } finally {
+      setRowBusy((b) => ({ ...b, [rij.id]: false }));
+      schuifRij(rij.id);
+    }
+  };
 
   // Detailkaart voor elke film van buiten je lijst: volledige TMDB-data
   // (backdrop, regisseur, trailer, streamingaanbod) + on-demand OMDb-scores
@@ -303,7 +348,7 @@ export default function Verken({ app }) {
       rijen.push({ id: 'thema', type: 'thema', themas: topThemas, films: themaRij });
     }
     // 3. Omdat je een specifieke film hoog gaf (sterkste seeds eerst)
-    const seedNamen = [...gewogenSeeds].filter((s) => (s.rating || 0) >= 4.5).slice(0, 4);
+    const seedNamen = [...gewogenSeeds].filter((s) => (s.rating || 0) >= 4.5).slice(0, 10);
     seedNamen.forEach((seed) => {
       const films = list.filter((r) => r.seeds.includes(seed.name));
       const rij = neem(films);
@@ -557,10 +602,8 @@ export default function Verken({ app }) {
 
           {rowsView && sortRecs === 'match' && moodRijen.length >= 1 ? (
             <div className="rec-rows">
-              {moodRijen.map((rij) => {
-                const off = rowOffsets[rij.id] || 0;
-                const venster = rij.films.slice(off, off + 12);
-                const zichtbaar = venster.length ? venster : rij.films.slice(0, 12);
+              {moodRijen.filter((rij) => !dismissed.includes(rij.id)).slice(0, 7).map((rij) => {
+                const zichtbaar = vensterVan(rij.films, (rowOffsets[rij.id] || 0) + verseShift, 12);
                 return (
                 <section key={rij.id}>
                   <div className="rec-row-head">
@@ -571,11 +614,14 @@ export default function Verken({ app }) {
                       {rij.type === 'profiel' && tr('verken.rowProfile')}
                     </h3>
                     <span className="cnt">{rij.films.length}</span>
-                    {rij.films.length > 12 && (
-                      <button className="row-more" onClick={() => schuifRij(rij.id, rij.films.length)} aria-label={tr('verken.rowMoreAria')} title={tr('verken.rowMore')}>
-                        <RotateCcw size={13} /> {tr('verken.rowMore')}
+                    {(rij.films.length > 12 || rij.type !== 'oeuvre') && (
+                      <button className="row-more" onClick={() => (rij.type === 'oeuvre' ? schuifRij(rij.id) : haalMeerVoorRij(rij))} disabled={!!rowBusy[rij.id]} aria-label={tr('verken.rowMoreAria')} title={tr('verken.rowMoreAria')}>
+                        <RotateCcw size={13} /> {rowBusy[rij.id] ? tr('verken.rowFetching') : tr('verken.rowMore')}
                       </button>
                     )}
+                    <button className="row-more" style={{ marginLeft: rij.films.length > 12 || rij.type !== 'oeuvre' ? 6 : 'auto' }} onClick={() => setDismissed((d) => [...d, rij.id])} aria-label={tr('verken.rowSwapAria')} title={tr('verken.rowSwapAria')}>
+                      <X size={13} /> {tr('verken.rowSwap')}
+                    </button>
                   </div>
                   <div className="rec-strip">
                     {zichtbaar.map((r, i) => (
