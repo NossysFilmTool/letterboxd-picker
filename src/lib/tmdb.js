@@ -138,17 +138,18 @@ export async function resolveFilm(film, key) {
 
   if (!hit) return null;
   const meta = await fetchDetail(hit.id, key);
-  // Markeer twijfelgevallen zodat de matchcontrole in Setup ze oppikt. We
-  // kijken breder dan alleen het jaar, want een verkeerde match heeft vaak
-  // wél het goede jaar (remake, gelijknamige film, korte versie):
-  //  - jaar wijkt meer dan 1 af van wat de watchlist zei
-  //  - titel matcht niet exact (na normalisatie)
-  //  - verdacht korte looptijd terwijl je een speelfilm verwacht (<45 min)
+  // Markeer twijfelgevallen zodat de matchcontrole in Setup ze oppikt. Twee
+  // betrouwbare signalen, want de film is al op titel gezocht en gekozen:
+  //  - jaar wijkt meer dan 1 af van wat de watchlist zei (remake/gelijknamig)
+  //  - verdacht korte looptijd terwijl je een speelfilm verwacht (<45 min),
+  //    typisch een tv-aflevering of korte film die per ongeluk matchte
+  // Een titelvergelijking doen we bewust NIET: TMDB levert vaak een net
+  // andere schrijfwijze (ondertitel, leesteken) voor dezelfde film, wat
+  // massa's valse twijfelgevallen oplevert.
   if (meta) {
-    const titelAf = wantTitle && norm(meta.title || '') !== wantTitle;
     const jaarAf = want && meta.year && Math.abs(meta.year - want) > 1;
     const kort = meta.runtime != null && meta.runtime > 0 && meta.runtime < 45;
-    if (jaarAf || titelAf || kort) meta.yearMismatch = want || meta.year || true;
+    if (jaarAf || kort) meta.yearMismatch = want || meta.year || true;
   }
   return meta;
 }

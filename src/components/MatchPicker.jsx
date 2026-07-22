@@ -20,12 +20,12 @@ export default function MatchPicker({ films, app, onClose }) {
     let stop = false;
     setLaden(true);
     setKandidaten([]);
-    searchMovies(app.settings.tmdbKey, film.name)
+    searchMovies(app.tmdbKey, film.name)
       .then((r) => { if (!stop) setKandidaten(r); })
       .catch(() => { if (!stop) setKandidaten([]); })
       .finally(() => { if (!stop) setLaden(false); });
     return () => { stop = true; };
-  }, [idx, film, app.settings.tmdbKey]);
+  }, [idx, film, app.tmdbKey]);
 
   const volgende = () => {
     if (idx + 1 < films.length) setIdx(idx + 1);

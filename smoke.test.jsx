@@ -502,22 +502,23 @@ describe('V2 smoke', () => {
     delete global.fetch;
   });
 
-  it('matchcontrole: een verkeerde film met kloppend jaar wordt nu wél gevlagd (titel wijkt af)', async () => {
-    // De bug: vóór deze fix vlagde de tool alleen jaarafwijkingen, dus een
-    // mismatch met het juiste jaar maar de verkeerde titel glipte erdoor.
+  it('matchcontrole: een correcte match met kloppend jaar wordt NIET gevlagd (ook bij net andere titel)', async () => {
+    // Regressie V4.4.3: een exacte-titel-check vlagde massa's goede matches
+    // omdat TMDB vaak een net andere schrijfwijze teruggeeft. Een film met
+    // kloppend jaar en normale looptijd hoort géén twijfelgeval te zijn.
     global.fetch = async (url) => {
       const u = String(url);
       if (u.includes('/search/movie')) {
         return { ok: true, status: 200, json: async () => ({ results: [
-          { id: 501, title: 'Under the Skin', release_date: '2013-09-05', vote_count: 3000 },
+          { id: 502, title: 'Eddie the Eagle', release_date: '2015-12-26', vote_count: 3000 },
         ] }) };
       }
-      return { ok: true, status: 200, json: async () => ({ id: 501, title: 'Under the Skin', release_date: '2013-09-05', runtime: 108, genres: [], vote_average: 7, vote_count: 3000, credits: { crew: [] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } }) };
+      return { ok: true, status: 200, json: async () => ({ id: 502, title: "Eddie 'The Eagle'", release_date: '2015-12-26', runtime: 106, genres: [], vote_average: 7, vote_count: 3000, credits: { crew: [] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } }) };
     };
     const { resolveFilm } = await import('./src/lib/tmdb.js');
-    // de watchlist vroeg om een ándere film uit hetzelfde jaar
-    const meta = await resolveFilm({ name: 'The Skin I Live In', year: 2013, key: 'the-skin-i-live-in|2013' }, 'k');
-    expect(meta.yearMismatch).toBe(2013); // gevlagd ondanks kloppend jaar
+    const meta = await resolveFilm({ name: 'Eddie the Eagle', year: 2015, key: 'eddie-the-eagle|2015' }, 'k');
+    expect(meta.year).toBe(2015);
+    expect(meta.yearMismatch).toBeUndefined(); // kloppend jaar + normale duur = geen twijfel
     delete global.fetch;
   });
 
@@ -692,6 +693,35 @@ describe('V2 smoke', () => {
     const zonder = matchScore({ vote: 7.2, votes: 3000, year: 2021, lang: 'en', genre_ids: [18], keywords: [{ id: 99, name: 'x' }] }, taste);
     expect(metThema.score).toBe(zonder.score); // thema telt niet mee
     setThemeEmphasis(1); // reset voor andere tests
+  });
+
+  it('matchkiezer: vindt alternatieven via de proxy, óók zonder eigen sleutel', async () => {
+    // Regressie: de kiezer gebruikte app.settings.tmdbKey (leeg bij proxy-
+    // gebruikers) i.p.v. de effectieve sleutel, dus zei hij altijd "geen film
+    // gevonden". Hier bewijzen we dat hij mét lege eigen sleutel wél zoekt.
+    const calls = [];
+    global.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      if (u.includes('/search/movie')) return { ok: true, status: 200, json: async () => ({ results: [
+        { id: 888, title: 'Eddie the Eagle', release_date: '2015-12-26', poster_path: '/e.jpg', vote_average: 7, vote_count: 3000, original_language: 'en', overview: 'ski' },
+      ] }) };
+      return { ok: true, status: 200, json: async () => ({ results: [] }) };
+    };
+    localStorage.clear();
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'eddie|2015', name: 'Eddie the Eagle', year: 2015, uri: '' }]));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'eddie|2015': { id: 222, year: 1989, poster: '/x.jpg', yearMismatch: 2015, at: Date.now() } }));
+    // géén tmdbKey in settings: dit apparaat draait op de proxy
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+    fireEvent.click(screen.getByText(/mogelijk verkeerde film/));
+    // het alternatief uit de zoekopdracht verschijnt: de kiezer werkt
+    expect(await screen.findByText(/Eddie the Eagle/)).toBeTruthy();
+    // en de zoekopdracht liep echt via de proxy-URL, niet met een lege sleutel
+    expect(calls.some((u) => u.includes('workers.dev') && u.includes('/search/movie'))).toBe(true);
+    expect(calls.some((u) => u.includes('api_key=&') || u.includes('api_key=&query'))).toBe(false);
+    delete global.fetch;
   });
 
   it('setup: tv-serie negeren haalt uit twijfellijst en aanbevelingen', async () => {
