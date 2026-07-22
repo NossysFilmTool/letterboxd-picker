@@ -74,6 +74,52 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('Meer zoals deze');
   });
 
+  it('stemmingen: applyMoods herweegt op licht/donker, kort, gewaardeerd en focus', async () => {
+    const { applyMoods } = await import('./src/lib/moods.js');
+    const komedie = { id: 1, match: 60, genre_ids: [35], vote: 6.5, runtime: 95 };
+    const horror = { id: 2, match: 60, genre_ids: [27], vote: 8, runtime: 130 };
+    // "iets luchtigs" tilt de komedie boven de horror
+    let r = applyMoods([komedie, horror], { active: ['light'] }).sort((a, b) => b.moodScore - a.moodScore);
+    expect(r[0].id).toBe(1);
+    // "iets duisters" draait het om
+    r = applyMoods([komedie, horror], { active: ['dark'] }).sort((a, b) => b.moodScore - a.moodScore);
+    expect(r[0].id).toBe(2);
+    // "korter" beloont de 95-minuten film boven de 130-minuten film
+    r = applyMoods([horror, komedie], { active: ['short'] }).sort((a, b) => b.moodScore - a.moodScore);
+    expect(r[0].id).toBe(1);
+    // "hoog gewaardeerd" beloont de 8.0 boven de 6.5
+    r = applyMoods([komedie, horror], { active: ['acclaimed'] }).sort((a, b) => b.moodScore - a.moodScore);
+    expect(r[0].id).toBe(2);
+    // focus op genre 27 (horror) duwt de komedie omlaag
+    r = applyMoods([komedie, horror], { focusGenres: [27] }).sort((a, b) => b.moodScore - a.moodScore);
+    expect(r[0].id).toBe(2);
+    // zonder stemming verandert de volgorde niet t.o.v. match
+    r = applyMoods([komedie, horror], {});
+    expect(r.every((f) => typeof f.moodScore === 'number')).toBe(true);
+  });
+
+  it('stemmingen: de balk staat in Verken en "Wis" verschijnt na een keuze', () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const oeuvreFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms } }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now() } }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getByText('Voor jou'));
+    expect(screen.getByText('Waar zoek je nu naar?')).toBeTruthy();
+    expect(screen.queryByText('Wis')).toBeNull();
+    fireEvent.click(screen.getByText(/Iets luchtigs/));
+    expect(screen.getByText('Wis')).toBeTruthy();
+    fireEvent.click(screen.getByText('Wis'));
+    expect(screen.queryByText('Wis')).toBeNull();
+  });
+
   it('verken: rijen-met-reden tonen een oeuvre-rij met kop en posters', () => {
     localStorage.clear();
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
@@ -473,7 +519,7 @@ describe('V2 smoke', () => {
     fireEvent.click(screen.getByText('Voor jou'));
     await new Promise((r) => setTimeout(r, 30)); // automatische instroom laten settelen
     expect(document.body.textContent).not.toContain('Verse Vondst');
-    fireEvent.click(screen.getByText(/Vers uit TMDB laden/));
+    fireEvent.click(screen.getAllByText(/Vers uit TMDB laden/)[0]);
     expect(await screen.findByText('Verse Vondst')).toBeTruthy();
     // de reden-tekst staat in de vlakke lijst; schakel ernaartoe als de
     // rijen-weergave actief is (die toont posters zonder redenzin)

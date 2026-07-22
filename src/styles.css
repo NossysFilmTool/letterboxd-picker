@@ -411,3 +411,11 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 .rec-tile .mt { color: var(--dot-b); }
 @keyframes tileIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .rec-tile { animation: none; } .rec-tile:hover .poster { transform: none; } }
+
+/* Score-badge op de aanbevelingstegel */
+.rec-tile .poster { position: relative; }
+.rec-tile .tile-score { position: absolute; top: 6px; right: 6px; background: rgba(10, 13, 16, 0.82); color: var(--dot-o); font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px; display: inline-flex; align-items: center; gap: 2px; backdrop-filter: blur(3px); }
+
+/* Verken: "waar zoek je nu naar" stemmingsbalk */
+.mood-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 4px; }
+.mood-bar .mood-prompt { font-size: 13px; color: var(--fog); font-weight: 600; margin-right: 2px; }

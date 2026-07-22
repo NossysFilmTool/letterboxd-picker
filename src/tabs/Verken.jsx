@@ -4,6 +4,7 @@ import { Plus, X, Download, Copy, Clapperboard, Star, RotateCcw, ArrowLeft, Spar
 import { IMG, GENRES, genreLabelById, fetchDetailById, searchPersons, personFilms, fetchSimilar, discoverGems, discoverByKeywords } from '../lib/tmdb.js';
 import { useLS } from '../lib/storage.js';
 import { buildTaste, matchScore } from '../lib/taste.js';
+import { MOODS, applyMoods } from '../lib/moods.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { shortlistToCsv, downloadText } from '../lib/csv.js';
 import { useT } from '../lib/i18n.js';
@@ -70,6 +71,9 @@ export default function Verken({ app }) {
   const detailCache = useRef(new Map());
   const [sortRecs, setSortRecs] = useState('match'); // match | aanbevolen | score | nieuw | oud
   const [rowsView, setRowsView] = useState(true); // rijen-met-reden vs één vlakke lijst
+  const [moods, setMoods] = useState([]); // actieve stemmingen
+  const [focusGenre, setFocusGenre] = useState(''); // optioneel genre om op te focussen
+  const toggleMood = (id) => setMoods((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
 
   // Detailkaart voor elke film van buiten je lijst: volledige TMDB-data
   // (backdrop, regisseur, trailer, streamingaanbod) + on-demand OMDb-scores
@@ -478,8 +482,18 @@ export default function Verken({ app }) {
           )}
         </div>
       ) : (() => {
+        const moodOn = moods.length > 0 || !!focusGenre;
+        const focusIds = focusGenre ? [Number(focusGenre)] : [];
+        const herweeg = (lijst) => (moodOn
+          ? applyMoods(lijst, { active: moods, focusGenres: focusIds, taste }).sort((a, b) => b.moodScore - a.moodScore)
+          : lijst);
+        // Rijen: films binnen elke rij herwegen op de stemming; lege rijen (na
+        // een strenge focus) vallen weg.
+        const moodRijen = moodOn
+          ? rijen.map((rij) => ({ ...rij, films: herweeg(rij.films) })).filter((rij) => rij.films.length)
+          : rijen;
         const gefilterd = applyLightFilters(recs);
-        const gesorteerd = [...gefilterd].sort((a, b) => {
+        const gesorteerd = moodOn ? herweeg([...gefilterd]) : [...gefilterd].sort((a, b) => {
           if (sortRecs === 'aanbevolen') return b.waarde - a.waarde || b.match - a.match;
           if (sortRecs === 'score') return (b.vote || 0) - (a.vote || 0);
           if (sortRecs === 'nieuw') return (b.year || 0) - (a.year || 0);
@@ -489,11 +503,18 @@ export default function Verken({ app }) {
         return (
         <div style={{ display: 'grid', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {rijen.length >= 1 && sortRecs === 'match' ? (
-              <button className="btn ghost" style={{ fontSize: 12.5 }} onClick={() => setRowsView((v) => !v)}>
-                {rowsView ? tr('verken.rowsToggleAll') : tr('verken.rowsToggleRows')}
-              </button>
-            ) : <span />}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {rijen.length >= 1 && sortRecs === 'match' ? (
+                <button className="btn ghost" style={{ fontSize: 12.5 }} onClick={() => setRowsView((v) => !v)}>
+                  {rowsView ? tr('verken.rowsToggleAll') : tr('verken.rowsToggleRows')}
+                </button>
+              ) : null}
+              {tmdbKey && (
+                <button className="btn ghost" style={{ fontSize: 12.5 }} onClick={laadVers} disabled={versLaden}>
+                  <Sparkles size={13} /> {versLaden ? tr('verken.tappingTmdb') : tr('verken.loadFresh')}
+                </button>
+              )}
+            </div>
             <select className="field" style={{ width: 'auto' }} value={sortRecs} onChange={(e) => setSortRecs(e.target.value)} aria-label="Sorteer aanbevelingen">
               <option value="match">{tr('sort.bestMatch')}</option>
               <option value="aanbevolen">{tr('verken.strongestRec')}</option>
@@ -503,9 +524,25 @@ export default function Verken({ app }) {
             </select>
           </div>
 
-          {rowsView && sortRecs === 'match' && rijen.length >= 1 ? (
+          <div className="mood-bar">
+            <span className="mood-prompt">{tr('verken.moodPrompt')}</span>
+            {MOODS.map((m) => (
+              <button key={m.id} className={`chip ${moods.includes(m.id) ? 'on-o' : ''}`} onClick={() => toggleMood(m.id)}>
+                {m.emoji} {tr(`verken.mood${m.id.charAt(0).toUpperCase()}${m.id.slice(1)}`)}
+              </button>
+            ))}
+            <select className="field" style={{ width: 'auto', fontSize: 12.5 }} value={focusGenre} onChange={(e) => setFocusGenre(e.target.value)} aria-label={tr('verken.moodFocus')}>
+              <option value="">{tr('verken.moodFocus')}</option>
+              {GENRES.map((g) => <option key={g.id} value={g.id}>{lang === 'nl' ? g.nl : g.en}</option>)}
+            </select>
+            {(moods.length > 0 || focusGenre) && (
+              <button className="btn ghost" style={{ fontSize: 12 }} onClick={() => { setMoods([]); setFocusGenre(''); }}>{tr('verken.moodClear')}</button>
+            )}
+          </div>
+
+          {rowsView && sortRecs === 'match' && moodRijen.length >= 1 ? (
             <div className="rec-rows">
-              {rijen.map((rij) => (
+              {moodRijen.map((rij) => (
                 <section key={rij.id}>
                   <div className="rec-row-head">
                     <h3>
@@ -521,6 +558,7 @@ export default function Verken({ app }) {
                       <button key={r.id} className="rec-tile" style={{ '--i': Math.min(i, 12) }} onClick={() => openDetail(r)} aria-label={tr('common.openAria', { title: r.title })}>
                         <div className="poster">
                           {r.poster ? <img src={IMG(r.poster, 'w342')} alt={tr('common.posterAlt', { name: r.title })} loading="lazy" /> : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
+                          {r.vote ? <span className="tile-score"><Star size={10} style={{ verticalAlign: -1 }} /> {String(r.vote).replace('.', ',')}</span> : null}
                         </div>
                         <span className="t">{r.title}</span>
                         <span className="yr">{r.year || '—'}{taste.sterk && r.match != null ? <span className="mt"> · {r.match}%</span> : null}</span>
