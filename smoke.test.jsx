@@ -653,7 +653,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'k', lang: 'nl' }));
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
-    fireEvent.click(screen.getByText(/mogelijk verkeerde film/));
+    fireEvent.click(screen.getByText(/afwijkend jaar/));
     // kandidaten verschijnen als posters; kies de 2014-versie
     const juiste = await screen.findByLabelText(/Kies Leviathan \(2014\)/);
     fireEvent.click(juiste);
@@ -710,17 +710,50 @@ describe('V2 smoke', () => {
     };
     localStorage.clear();
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'eddie|2015', name: 'Eddie the Eagle', year: 2015, uri: '' }]));
-    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'eddie|2015': { id: 222, year: 1989, poster: '/x.jpg', yearMismatch: 2015, at: Date.now() } }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'eddie|2015': { id: 222, year: 1989, poster: '/x.jpg', yearMismatch: 2015, mismatchType: 'year', at: Date.now() } }));
     // géén tmdbKey in settings: dit apparaat draait op de proxy
     localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
-    fireEvent.click(screen.getByText(/mogelijk verkeerde film/));
+    fireEvent.click(screen.getByText(/afwijkend jaar/));
     // het alternatief uit de zoekopdracht verschijnt: de kiezer werkt
     expect(await screen.findByText(/Eddie the Eagle/)).toBeTruthy();
     // en de zoekopdracht liep echt via de proxy-URL, niet met een lege sleutel
     expect(calls.some((u) => u.includes('workers.dev') && u.includes('/search/movie'))).toBe(true);
     expect(calls.some((u) => u.includes('api_key=&') || u.includes('api_key=&query'))).toBe(false);
+    delete global.fetch;
+  });
+
+  it('matchcontrole: korte film met kloppend jaar krijgt type short (opt-in), jaarafwijking type year', async () => {
+    const basis = (id, title, jaar, runtime) => ({ id, title, release_date: `${jaar}-01-01`, runtime, genres: [], vote_average: 7, vote_count: 900, credits: { crew: [] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } });
+    // scenario 1: miniserie met kloppend jaar (Godless 2017, 0 min looptijd)
+    global.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/search/movie')) return { ok: true, status: 200, json: async () => ({ results: [{ id: 701, title: 'Godless', release_date: '2017-11-22', vote_count: 500 }] }) };
+      return { ok: true, status: 200, json: async () => basis(701, 'Godless', 2017, 0) };
+    };
+    const { resolveFilm } = await import('./src/lib/tmdb.js');
+    // 0 min telt niet als kort (onbekende looptijd), dus géén vlag
+    let meta = await resolveFilm({ name: 'Godless', year: 2017, key: 'godless|2017' }, 'k');
+    expect(meta.yearMismatch).toBeUndefined();
+
+    // scenario 2: echte korte film (6 min) met kloppend jaar -> type 'short'
+    global.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/search/movie')) return { ok: true, status: 200, json: async () => ({ results: [{ id: 702, title: 'Piper', release_date: '2016-06-16', vote_count: 500 }] }) };
+      return { ok: true, status: 200, json: async () => basis(702, 'Piper', 2016, 6) };
+    };
+    meta = await resolveFilm({ name: 'Piper', year: 2016, key: 'piper|2016' }, 'k');
+    expect(meta.mismatchType).toBe('short');
+
+    // scenario 3: verkeerd jaar -> type 'year'
+    global.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/search/movie')) return { ok: true, status: 200, json: async () => ({ results: [{ id: 703, title: 'Leviathan', release_date: '1989-03-17', vote_count: 900 }] }) };
+      return { ok: true, status: 200, json: async () => basis(703, 'Leviathan', 1989, 140) };
+    };
+    meta = await resolveFilm({ name: 'Leviathan', year: 2014, key: 'leviathan|2014' }, 'k');
+    expect(meta.mismatchType).toBe('year');
     delete global.fetch;
   });
 
@@ -733,17 +766,17 @@ describe('V2 smoke', () => {
       return { ok: true, status: 200, json: async () => ({ results: [] }) };
     };
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: '11.22.63|2016', name: '11.22.63', year: 2016, uri: '' }]));
-    localStorage.setItem('nossyV2.meta', JSON.stringify({ '11.22.63|2016': { id: 111, year: 1989, poster: '/a.jpg', yearMismatch: 2016, at: Date.now() } }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ '11.22.63|2016': { id: 111, year: 1989, poster: '/a.jpg', yearMismatch: 2016, mismatchType: 'year', at: Date.now() } }));
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'k', lang: 'nl' }));
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
-    fireEvent.click(screen.getByText(/mogelijk verkeerde film/));
+    fireEvent.click(screen.getByText(/afwijkend jaar/));
     // de hint over tv-series verschijnt (mager resultaat)
     expect(await screen.findByText(/Mogelijk is dit een tv-serie/i)).toBeTruthy();
     // negeer 'm
     fireEvent.click(screen.getAllByText('Hoort niet op mijn filmlijst')[0]);
     // de twijfelknop verdwijnt (geen mismatches meer) en het item staat als genegeerd
-    await waitFor(() => expect(screen.queryByText(/mogelijk verkeerde film/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/afwijkend jaar/)).toBeNull());
     expect(document.body.textContent).toMatch(/gemarkeerd als "geen film"/);
     delete global.fetch;
   });
@@ -855,7 +888,7 @@ describe('V2 smoke', () => {
     expect(t('zoek.resCount', { count: 1 })).toBe('1 resultaat');
     expect(t('avond.overlapCount', { count: 1 })).toBe('1 film staat op al jullie lijsten');
     expect(t('match.votesShort', { count: 1, n: 1 })).toBe('1 stem');
-    expect(t('setup.wrongFilms', { count: 2 })).toContain('verkeerde films');
+    expect(t('setup.wrongFilms', { count: 2 })).toContain('afwijkend jaar');
     setLang('en');
     expect(t('pick.poolCount', { count: 1 })).toBe('1 film in your pool');
     expect(t('zoek.emptyTextFiltered', { count: 1, filters: 'x' })).toContain('There was 1 title match');

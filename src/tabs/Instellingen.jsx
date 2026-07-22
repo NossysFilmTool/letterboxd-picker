@@ -230,16 +230,28 @@ export default function Instellingen({ app }) {
               </button>
             )}
             {app.tmdbKey && (() => {
-              const mismatches = app.watchlist.filter((f) => app.meta[f.key]?.yearMismatch);
-              if (!mismatches.length) return null;
+              const jaarGevallen = app.watchlist.filter((f) => {
+                const m = app.meta[f.key];
+                return m?.yearMismatch && m.mismatchType !== 'short';
+              });
+              if (!jaarGevallen.length) return null;
               return (
-                <button className="btn" style={{ borderColor: 'rgba(255,128,0,0.4)' }} onClick={() => setPicker(mismatches)} disabled={app.enrich.running}>
-                  {tr('setup.wrongFilms', { count: mismatches.length })}
+                <button className="btn" style={{ borderColor: 'rgba(255,128,0,0.4)' }} onClick={() => setPicker(jaarGevallen)} disabled={app.enrich.running}>
+                  {tr('setup.wrongFilms', { count: jaarGevallen.length })}
+                </button>
+              );
+            })()}
+            {app.tmdbKey && (() => {
+              const korteGevallen = app.watchlist.filter((f) => app.meta[f.key]?.mismatchType === 'short');
+              if (!korteGevallen.length) return null;
+              return (
+                <button className="btn ghost" style={{ fontSize: 12.5 }} onClick={() => setPicker(korteGevallen)} disabled={app.enrich.running}>
+                  {tr('setup.shortFilms', { count: korteGevallen.length })}
                 </button>
               );
             })()}
           </div>
-          {app.tmdbKey && app.watchlist.length > 0 && !app.watchlist.some((f) => app.meta[f.key]?.yearMismatch) && !app.enrich.running && (
+          {app.tmdbKey && app.watchlist.length > 0 && !app.watchlist.some((f) => app.meta[f.key]?.yearMismatch && app.meta[f.key]?.mismatchType !== 'short') && !app.enrich.running && (
             <p style={{ fontSize: 12.5, color: 'var(--fog-dim)', marginTop: 8 }}>{tr('setup.recheckHint')}</p>
           )}
           {picker && <MatchPicker films={picker} app={app} onClose={() => setPicker(null)} />}

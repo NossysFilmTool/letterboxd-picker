@@ -138,18 +138,19 @@ export async function resolveFilm(film, key) {
 
   if (!hit) return null;
   const meta = await fetchDetail(hit.id, key);
-  // Markeer twijfelgevallen zodat de matchcontrole in Setup ze oppikt. Twee
-  // betrouwbare signalen, want de film is al op titel gezocht en gekozen:
-  //  - jaar wijkt meer dan 1 af van wat de watchlist zei (remake/gelijknamig)
-  //  - verdacht korte looptijd terwijl je een speelfilm verwacht (<45 min),
-  //    typisch een tv-aflevering of korte film die per ongeluk matchte
-  // Een titelvergelijking doen we bewust NIET: TMDB levert vaak een net
-  // andere schrijfwijze (ondertitel, leesteken) voor dezelfde film, wat
-  // massa's valse twijfelgevallen oplevert.
+  // Markeer twijfelgevallen met een TYPE, zodat Setup ze gescheiden kan tonen:
+  //  - 'year': jaar wijkt meer dan 1 af van de watchlist. Waarschijnlijk fout
+  //    (remake, gelijknamige film). Dit is het betrouwbare signaal.
+  //  - 'short': looptijd < 45 min terwijl je een speelfilm verwacht. Vaak een
+  //    miniserie of een film zonder looptijd-data: véél vals alarm, dus dit
+  //    tonen we alleen als de gebruiker er expliciet om vraagt.
+  // Een titelvergelijking doen we bewust NIET: TMDB levert vaak een net andere
+  // schrijfwijze voor dezelfde film, wat massa's valse twijfelgevallen geeft.
   if (meta) {
     const jaarAf = want && meta.year && Math.abs(meta.year - want) > 1;
     const kort = meta.runtime != null && meta.runtime > 0 && meta.runtime < 45;
-    if (jaarAf || kort) meta.yearMismatch = want || meta.year || true;
+    if (jaarAf) { meta.yearMismatch = want || meta.year || true; meta.mismatchType = 'year'; }
+    else if (kort) { meta.yearMismatch = want || meta.year || true; meta.mismatchType = 'short'; }
   }
   return meta;
 }
