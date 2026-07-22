@@ -69,6 +69,7 @@ export default function Verken({ app }) {
   const [openFilm, setOpenFilm] = useState(null); // { light, detail? }
   const detailCache = useRef(new Map());
   const [sortRecs, setSortRecs] = useState('match'); // match | aanbevolen | score | nieuw | oud
+  const [rowsView, setRowsView] = useState(true); // rijen-met-reden vs één vlakke lijst
 
   // Detailkaart voor elke film van buiten je lijst: volledige TMDB-data
   // (backdrop, regisseur, trailer, streamingaanbod) + on-demand OMDb-scores
@@ -203,7 +204,7 @@ export default function Verken({ app }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [themeHunt, tmdbKey, mode, (taste.topThemes || []).map((t) => t.id).join(',')]);
 
-  const { recs, seededOnRatings } = useMemo(() => {
+  const { recs, seededOnRatings, rijen } = useMemo(() => {
     const ownKeys = new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]);
     const ownIds = new Set(Object.values(meta).filter(Boolean).map((m) => m.id));
     const skippedSet = new Set(skipped.map((s) => (typeof s === 'object' ? s.id : s)));
@@ -252,7 +253,48 @@ export default function Verken({ app }) {
       }
       return { ...r, match: m.score, redenen };
     });
-    return { recs: list, seededOnRatings: onRatings };
+
+    // Rijen-met-reden: dezelfde kandidaten, gegroepeerd op waaróm ze er zijn.
+    // Volgorde: eerst per-regisseur (oeuvres), dan gedeelde thema's, dan
+    // "omdat je X hoog gaf" (sterkste seeds), dan een profiel-restrij. Elke
+    // film verschijnt in hooguit één rij (de eerst passende), zodat rijen niet
+    // dezelfde posters herhalen. Films zonder duidelijke reden vallen terug in
+    // de vlakke lijst (die de "alles"-weergave en het filteren blijft voeden).
+    const opMatch = (a, b) => b.match - a.match;
+    const rijen = [];
+    const gebruikt = new Set();
+    const neem = (films, min = 4) => {
+      const vers = films.filter((r) => !gebruikt.has(r.id)).sort(opMatch);
+      if (vers.length < min) return null;
+      vers.slice(0, 18).forEach((r) => gebruikt.add(r.id));
+      return vers.slice(0, 18);
+    };
+
+    // 1. Per regisseur: "Meer van {naam}"
+    Object.keys(oeuvres).forEach((naam) => {
+      const films = list.filter((r) => r.bronnen.includes(`oeuvre:${naam}`));
+      const rij = neem(films);
+      if (rij) rijen.push({ id: `oeuvre:${naam}`, type: 'oeuvre', naam, films: rij });
+    });
+    // 2. Gedeelde thema's
+    const themaFilms = list.filter((r) => r.bronnen.includes('thema') || r.viaTheme?.length);
+    const themaRij = neem(themaFilms);
+    if (themaRij) {
+      const topThemas = [...new Set(themaFilms.flatMap((r) => r.viaTheme || []))].slice(0, 3);
+      rijen.push({ id: 'thema', type: 'thema', themas: topThemas, films: themaRij });
+    }
+    // 3. Omdat je een specifieke film hoog gaf (sterkste seeds eerst)
+    const seedNamen = [...gewogenSeeds].filter((s) => (s.rating || 0) >= 4.5).slice(0, 4);
+    seedNamen.forEach((seed) => {
+      const films = list.filter((r) => r.seeds.includes(seed.name));
+      const rij = neem(films);
+      if (rij) rijen.push({ id: `seed:${seed.key}`, type: 'seed', naam: seed.name, films: rij });
+    });
+    // 4. Profiel-restrij: obscure/passende parels die nog niet in een rij staan
+    const restRij = neem(list.filter((r) => !gebruikt.has(r.id)), 6);
+    if (restRij) rijen.push({ id: 'profiel', type: 'profiel', films: restRij });
+
+    return { recs: list, seededOnRatings: onRatings, rijen };
   }, [watchlist, meta, ratings, ratedFilms, seenSet, shortlist, skipped, seeds, oeuvres, profielCands, themeCands, lang]);
 
   const genreNaam = (ids) => (ids || []).map((id) => genreLabelById(id)).filter(Boolean)[0];
@@ -446,7 +488,12 @@ export default function Verken({ app }) {
         });
         return (
         <div style={{ display: 'grid', gap: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {rijen.length >= 1 && sortRecs === 'match' ? (
+              <button className="btn ghost" style={{ fontSize: 12.5 }} onClick={() => setRowsView((v) => !v)}>
+                {rowsView ? tr('verken.rowsToggleAll') : tr('verken.rowsToggleRows')}
+              </button>
+            ) : <span />}
             <select className="field" style={{ width: 'auto' }} value={sortRecs} onChange={(e) => setSortRecs(e.target.value)} aria-label="Sorteer aanbevelingen">
               <option value="match">{tr('sort.bestMatch')}</option>
               <option value="aanbevolen">{tr('verken.strongestRec')}</option>
@@ -455,6 +502,35 @@ export default function Verken({ app }) {
               <option value="oud">{tr('sort.oldest')}</option>
             </select>
           </div>
+
+          {rowsView && sortRecs === 'match' && rijen.length >= 1 ? (
+            <div className="rec-rows">
+              {rijen.map((rij) => (
+                <section key={rij.id}>
+                  <div className="rec-row-head">
+                    <h3>
+                      {rij.type === 'oeuvre' && tr('verken.rowOeuvre', { name: rij.naam })}
+                      {rij.type === 'thema' && (rij.themas?.length ? tr('verken.rowTheme', { themes: rij.themas.join(', ') }) : tr('verken.rowThemePlain'))}
+                      {rij.type === 'seed' && tr('verken.rowSeed', { name: rij.naam })}
+                      {rij.type === 'profiel' && tr('verken.rowProfile')}
+                    </h3>
+                    <span className="cnt">{rij.films.length}</span>
+                  </div>
+                  <div className="rec-strip">
+                    {rij.films.map((r, i) => (
+                      <button key={r.id} className="rec-tile" style={{ '--i': Math.min(i, 12) }} onClick={() => openDetail(r)} aria-label={tr('common.openAria', { title: r.title })}>
+                        <div className="poster">
+                          {r.poster ? <img src={IMG(r.poster, 'w342')} alt={tr('common.posterAlt', { name: r.title })} loading="lazy" /> : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
+                        </div>
+                        <span className="t">{r.title}</span>
+                        <span className="yr">{r.year || '—'}{taste.sterk && r.match != null ? <span className="mt"> · {r.match}%</span> : null}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (<>
           {gesorteerd.slice(0, shown).map((r, i) => (
             <div key={r.id} className="card rec rise-in" style={{ '--i': Math.min(i, 16) }}>
               <button className="rposter" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => openDetail(r)} aria-label={tr('common.openAria', { title: r.title })}>
@@ -508,6 +584,7 @@ export default function Verken({ app }) {
               {versLaden ? tr('verken.tappingTmdb') : tr('verken.loadFreshMore')}
             </button>
           )}
+          </>)}
         </div>
         );
       })())}

@@ -74,6 +74,33 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('Meer zoals deze');
   });
 
+  it('verken: rijen-met-reden tonen een oeuvre-rij met kop en posters', () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    // vier 5-sterren films zodat het profiel "sterk" is en seeds tellen
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    // een oeuvre van "Testregisseur" met vijf films -> genoeg voor een rij
+    const oeuvreFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms } }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now() },
+    }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getByText('Voor jou'));
+    // de rij-kop verschijnt met de regisseursnaam
+    expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
+    // en de toggle om naar één lijst te wisselen staat er
+    expect(screen.getByText('Toon als één lijst')).toBeTruthy();
+    // wisselen naar vlakke lijst laat de kop verdwijnen
+    fireEvent.click(screen.getByText('Toon als één lijst'));
+    expect(screen.queryByText('Meer van Testregisseur')).toBeNull();
+  });
+
   it('verken toont aanbevelingen op ratings-basis en shortlist-export', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
@@ -448,6 +475,10 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).not.toContain('Verse Vondst');
     fireEvent.click(screen.getByText(/Vers uit TMDB laden/));
     expect(await screen.findByText('Verse Vondst')).toBeTruthy();
+    // de reden-tekst staat in de vlakke lijst; schakel ernaartoe als de
+    // rijen-weergave actief is (die toont posters zonder redenzin)
+    const toggle = screen.queryByText('Toon als één lijst');
+    if (toggle) fireEvent.click(toggle);
     expect(document.body.textContent).toContain('Via jouw smaakprofiel gevonden');
     delete global.fetch;
   });
