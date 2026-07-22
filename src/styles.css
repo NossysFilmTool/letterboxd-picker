@@ -394,11 +394,12 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 @media (prefers-reduced-motion: reduce) { .followup-card .fu-star:hover { transform: none; } }
 
 /* Verken: rijen-met-reden (horizontaal scrollende aanbevelingsrijen) */
-.rec-rows { display: grid; gap: 26px; }
+.rec-rows { display: grid; gap: 26px; min-width: 0; max-width: 100%; }
+.rec-rows > section { min-width: 0; max-width: 100%; overflow: hidden; }
 .rec-row-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .rec-row-head h3 { font-family: var(--font-display); font-size: 21px; font-weight: 400; color: var(--paper); }
 .rec-row-head .cnt { font-size: 12.5px; color: var(--fog-dim); }
-.rec-strip { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 12px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.rec-strip { display: flex; gap: 14px; overflow-x: auto; max-width: 100%; scroll-snap-type: x proximity; padding: 2px 2px 12px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .rec-strip::-webkit-scrollbar { height: 8px; }
 .rec-strip::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
 .rec-tile { flex: 0 0 132px; scroll-snap-align: start; background: none; border: none; padding: 0; cursor: pointer; text-align: left; animation: tileIn 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -419,3 +420,7 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 /* Verken: "waar zoek je nu naar" stemmingsbalk */
 .mood-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 4px; }
 .mood-bar .mood-prompt { font-size: 13px; color: var(--fog); font-weight: 600; margin-right: 2px; }
+
+/* "Andere films" knop in de rij-kop */
+.row-more { margin-left: auto; background: none; border: 1px solid var(--line); color: var(--fog); font-size: 12px; padding: 3px 10px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: border-color 0.15s, color 0.15s; }
+.row-more:hover { border-color: var(--dot-o); color: var(--dot-o); }

@@ -4,7 +4,7 @@ import { Plus, X, Download, Copy, Clapperboard, Star, RotateCcw, ArrowLeft, Spar
 import { IMG, GENRES, genreLabelById, fetchDetailById, searchPersons, personFilms, fetchSimilar, discoverGems, discoverByKeywords } from '../lib/tmdb.js';
 import { useLS } from '../lib/storage.js';
 import { buildTaste, matchScore } from '../lib/taste.js';
-import { MOODS, applyMoods } from '../lib/moods.js';
+import { MOODS, applyMoods, filterMoods } from '../lib/moods.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { shortlistToCsv, downloadText } from '../lib/csv.js';
 import { useT } from '../lib/i18n.js';
@@ -55,6 +55,13 @@ export default function Verken({ app }) {
         return [...prev, ...extra];
       });
       setProfielPage(nieuwePage);
+      // Verse films binnengehaald: schuif meteen álle rijen door, zodat je een
+      // merkbaar ander overzicht krijgt in plaats van dezelfde koppen.
+      setRowOffsets((o) => {
+        const next = {};
+        Object.keys(o).forEach((k) => { next[k] = (o[k] || 0) + 12; });
+        return next;
+      });
     } catch { /* volgende klik probeert opnieuw */ }
     setVersLaden(false);
   };
@@ -74,6 +81,13 @@ export default function Verken({ app }) {
   const [moods, setMoods] = useState([]); // actieve stemmingen
   const [focusGenre, setFocusGenre] = useState(''); // optioneel genre om op te focussen
   const toggleMood = (id) => setMoods((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
+  // Per rij: hoeveel films we al "weggeschoven" hebben (venster van 12).
+  const [rowOffsets, setRowOffsets] = useState({});
+  const schuifRij = (rijId, poolLengte) => setRowOffsets((o) => {
+    const stap = 12;
+    const volgende = (o[rijId] || 0) + stap;
+    return { ...o, [rijId]: volgende >= poolLengte ? 0 : volgende }; // rondje om
+  });
 
   // Detailkaart voor elke film van buiten je lijst: volledige TMDB-data
   // (backdrop, regisseur, trailer, streamingaanbod) + on-demand OMDb-scores
@@ -211,6 +225,9 @@ export default function Verken({ app }) {
   const { recs, seededOnRatings, rijen } = useMemo(() => {
     const ownKeys = new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]);
     const ownIds = new Set(Object.values(meta).filter(Boolean).map((m) => m.id));
+    // Geziene films apart op TMDB-id: vangt titelverschillen tussen Letterboxd
+    // en TMDB. Een film die je al zag mag nooit als aanbeveling terugkomen.
+    const seenIds = new Set([...seenSet].map((k) => meta[k]?.id).filter(Boolean));
     const skippedSet = new Set(skipped.map((s) => (typeof s === 'object' ? s.id : s)));
     const shortIds = new Set(shortlist.map((s) => s.id));
 
@@ -223,7 +240,7 @@ export default function Verken({ app }) {
     const agg = new Map();
     const voegToe = (r, waarde, bron, seedNaam) => {
       if (r.votes != null && r.votes < 20) return; // te weinig stemmen om iets over te zeggen (TMDB-schaal)
-      if (ownIds.has(r.id) || shortIds.has(r.id) || skippedSet.has(r.id)) return;
+      if (ownIds.has(r.id) || seenIds.has(r.id) || shortIds.has(r.id) || skippedSet.has(r.id)) return;
       if (ownKeys.has(filmKey(r.title, r.year))) return;
       const cur = agg.get(r.id) || { ...r, count: 0, waarde: 0, seeds: [], bronnen: [] };
       cur.count++;
@@ -259,19 +276,17 @@ export default function Verken({ app }) {
     });
 
     // Rijen-met-reden: dezelfde kandidaten, gegroepeerd op waaróm ze er zijn.
-    // Volgorde: eerst per-regisseur (oeuvres), dan gedeelde thema's, dan
-    // "omdat je X hoog gaf" (sterkste seeds), dan een profiel-restrij. Elke
-    // film verschijnt in hooguit één rij (de eerst passende), zodat rijen niet
-    // dezelfde posters herhalen. Films zonder duidelijke reden vallen terug in
-    // de vlakke lijst (die de "alles"-weergave en het filteren blijft voeden).
+    // Elke rij bewaart zijn vólledige kandidatenpoel (alleFilms), zodat de UI
+    // er een venster overheen kan schuiven ("andere films" per rij). Een film
+    // hoort bij hooguit één rij, bepaald door de eerst-passende bron.
     const opMatch = (a, b) => b.match - a.match;
     const rijen = [];
     const gebruikt = new Set();
     const neem = (films, min = 4) => {
       const vers = films.filter((r) => !gebruikt.has(r.id)).sort(opMatch);
       if (vers.length < min) return null;
-      vers.slice(0, 18).forEach((r) => gebruikt.add(r.id));
-      return vers.slice(0, 18);
+      vers.forEach((r) => gebruikt.add(r.id)); // hele poel claimen, niet enkel top-18
+      return vers;
     };
 
     // 1. Per regisseur: "Meer van {naam}"
@@ -294,7 +309,7 @@ export default function Verken({ app }) {
       const rij = neem(films);
       if (rij) rijen.push({ id: `seed:${seed.key}`, type: 'seed', naam: seed.name, films: rij });
     });
-    // 4. Profiel-restrij: obscure/passende parels die nog niet in een rij staan
+    // 4. Profiel-restrij: passende parels die nog niet in een rij staan
     const restRij = neem(list.filter((r) => !gebruikt.has(r.id)), 6);
     if (restRij) rijen.push({ id: 'profiel', type: 'profiel', films: restRij });
 
@@ -485,7 +500,7 @@ export default function Verken({ app }) {
         const moodOn = moods.length > 0 || !!focusGenre;
         const focusIds = focusGenre ? [Number(focusGenre)] : [];
         const herweeg = (lijst) => (moodOn
-          ? applyMoods(lijst, { active: moods, focusGenres: focusIds, taste }).sort((a, b) => b.moodScore - a.moodScore)
+          ? applyMoods(filterMoods(lijst, { active: moods, focusGenres: focusIds }), { active: moods, focusGenres: focusIds, taste }).sort((a, b) => b.moodScore - a.moodScore)
           : lijst);
         // Rijen: films binnen elke rij herwegen op de stemming; lege rijen (na
         // een strenge focus) vallen weg.
@@ -542,7 +557,11 @@ export default function Verken({ app }) {
 
           {rowsView && sortRecs === 'match' && moodRijen.length >= 1 ? (
             <div className="rec-rows">
-              {moodRijen.map((rij) => (
+              {moodRijen.map((rij) => {
+                const off = rowOffsets[rij.id] || 0;
+                const venster = rij.films.slice(off, off + 12);
+                const zichtbaar = venster.length ? venster : rij.films.slice(0, 12);
+                return (
                 <section key={rij.id}>
                   <div className="rec-row-head">
                     <h3>
@@ -552,9 +571,14 @@ export default function Verken({ app }) {
                       {rij.type === 'profiel' && tr('verken.rowProfile')}
                     </h3>
                     <span className="cnt">{rij.films.length}</span>
+                    {rij.films.length > 12 && (
+                      <button className="row-more" onClick={() => schuifRij(rij.id, rij.films.length)} aria-label={tr('verken.rowMoreAria')} title={tr('verken.rowMore')}>
+                        <RotateCcw size={13} /> {tr('verken.rowMore')}
+                      </button>
+                    )}
                   </div>
                   <div className="rec-strip">
-                    {rij.films.map((r, i) => (
+                    {zichtbaar.map((r, i) => (
                       <button key={r.id} className="rec-tile" style={{ '--i': Math.min(i, 12) }} onClick={() => openDetail(r)} aria-label={tr('common.openAria', { title: r.title })}>
                         <div className="poster">
                           {r.poster ? <img src={IMG(r.poster, 'w342')} alt={tr('common.posterAlt', { name: r.title })} loading="lazy" /> : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
@@ -566,7 +590,8 @@ export default function Verken({ app }) {
                     ))}
                   </div>
                 </section>
-              ))}
+                );
+              })}
             </div>
           ) : (<>
           {gesorteerd.slice(0, shown).map((r, i) => (

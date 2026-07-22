@@ -193,6 +193,7 @@ export default {
     moodAcclaimed: 'Hoog gewaardeerd', moodSurprise: 'Verras me',
     moodFocus: 'Focus op genre', moodClear: 'Wis',
     moodActive: 'Aanbevelingen aangepast aan je stemming',
+    rowMore: 'Andere films', rowMoreAria: 'Toon andere films in deze rij',
     notForMe: 'Niet voor mij', viewCard: 'Bekijk kaart', similar: 'Meer zoals deze',
     nudgeMore: 'Genoteerd. Je ziet nu iets meer {genre} in je aanbevelingen.',
     nudgeLess: 'Genoteerd. Je ziet nu iets minder {genre} in je aanbevelingen.',

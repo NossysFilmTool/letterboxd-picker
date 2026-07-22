@@ -193,6 +193,7 @@ export default {
     moodAcclaimed: 'Highly rated', moodSurprise: 'Surprise me',
     moodFocus: 'Focus on genre', moodClear: 'Clear',
     moodActive: 'Recommendations tuned to your mood',
+    rowMore: 'Other films', rowMoreAria: 'Show other films in this row',
     notForMe: 'Not for me', viewCard: 'View card', similar: 'More like this',
     nudgeMore: 'Noted. You\u0027ll now see a bit more {genre} in your recommendations.',
     nudgeLess: 'Noted. You\u0027ll now see a bit less {genre} in your recommendations.',

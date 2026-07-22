@@ -18,6 +18,25 @@ export const MOODS = [
   { id: 'surprise', emoji: '🎲' },
 ];
 
+// Sommige stemmingen sluiten films hard uit in plaats van alleen te herwegen:
+// vraag je om iets luchtigs, dan wíl je geen horror zien, ook niet onderaan.
+// "Hoog gewaardeerd" en "verras me" blijven bewust wegingen (geen filter),
+// want daar wil je nog steeds een brede selectie.
+export function filterMoods(films, { active = [], focusGenres = [] } = {}) {
+  const set = new Set(active);
+  const focus = new Set(focusGenres);
+  return films.filter((f) => {
+    const gids = f.genre_ids || [];
+    if (set.has('light') && gids.some((g) => DONKER.has(g))) return false;
+    if (set.has('dark') && gids.some((g) => LICHT.has(g)) && !gids.some((g) => DONKER.has(g))) return false;
+    // "korter": gooi films weg waarvan we weten dat ze lang zijn (>125 min)
+    if (set.has('short') && f.runtime != null && f.runtime > 125) return false;
+    // genre-focus: alleen films met dat genre
+    if (focus.size && !gids.some((g) => focus.has(g))) return false;
+    return true;
+  });
+}
+
 // Herweeg een lijst films op basis van de actieve stemmingen en gekozen
 // focus-genres. Geeft een nieuwe, sorteerbare score terug per film (moodScore),
 // zonder de originele match aan te tasten.

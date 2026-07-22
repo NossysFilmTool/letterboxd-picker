@@ -74,6 +74,54 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('Meer zoals deze');
   });
 
+  it('verken: een al geziene film komt niet terug als aanbeveling (op TMDB-id)', () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    // vier ratings zodat de mengmotor op ratings draait
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    // film A is gezien-gelogd; de tool kent 'm met TMDB-id 555
+    localStorage.setItem('nossyV2.seen', JSON.stringify(['gezienefilm|2015']));
+    // recs van seed A bevatten óók id 555 (de al geziene film) plus een verse 556
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now(), recs: [
+        { id: 555, title: 'Gezienefilm', year: 2015, poster: '/g.jpg', vote: 7.5, votes: 3000, genre_ids: [18] },
+        { id: 556, title: 'Verse Aanrader', year: 2016, poster: '/v.jpg', vote: 7.6, votes: 4000, genre_ids: [18] },
+      ] },
+      'gezienefilm|2015': { id: 555, poster: '/g.jpg', vote: 7.5, votes: 3000, genres: ['Drama'], at: Date.now() },
+    }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getByText('Voor jou'));
+    // de verse aanrader mag verschijnen, de al geziene film niet
+    expect(document.body.textContent).toContain('Verse Aanrader');
+    expect(document.body.textContent).not.toContain('Gezienefilm');
+  });
+
+  it('stemmingen: filterMoods sluit tegengestelde genres hard uit', async () => {
+    const { filterMoods } = await import('./src/lib/moods.js');
+    const komedie = { id: 1, genre_ids: [35] };
+    const horror = { id: 2, genre_ids: [27] };
+    const oorlog = { id: 3, genre_ids: [10752] };
+    // "iets luchtigs" gooit horror en oorlog eruit, niet alleen omlaag
+    let r = filterMoods([komedie, horror, oorlog], { active: ['light'] });
+    expect(r.map((f) => f.id)).toEqual([1]);
+    // "iets duisters" gooit de pure komedie eruit
+    r = filterMoods([komedie, horror], { active: ['dark'] });
+    expect(r.map((f) => f.id)).toEqual([2]);
+    // focus op genre 27 houdt alleen horror over
+    r = filterMoods([komedie, horror, oorlog], { focusGenres: [27] });
+    expect(r.map((f) => f.id)).toEqual([2]);
+    // "korter" gooit een lange film (>125 min) eruit
+    r = filterMoods([{ id: 4, genre_ids: [18], runtime: 180 }, { id: 5, genre_ids: [18], runtime: 95 }], { active: ['short'] });
+    expect(r.map((f) => f.id)).toEqual([5]);
+    // zonder stemming blijft alles staan
+    expect(filterMoods([komedie, horror], {}).length).toBe(2);
+  });
+
   it('stemmingen: applyMoods herweegt op licht/donker, kort, gewaardeerd en focus', async () => {
     const { applyMoods } = await import('./src/lib/moods.js');
     const komedie = { id: 1, match: 60, genre_ids: [35], vote: 6.5, runtime: 95 };
