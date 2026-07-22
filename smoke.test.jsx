@@ -1486,6 +1486,43 @@ describe('V2 smoke', () => {
     }
   });
 
+  it('usePoll: pauzeert bij een verborgen tabblad en stopt als inactief', async () => {
+    vi.useFakeTimers();
+    const { renderHook } = await import('@testing-library/react');
+    const { usePoll } = await import('./src/lib/usePoll.js');
+    let telling = 0;
+    const zichtbaar = { value: false };
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => zichtbaar.value });
+
+    const { rerender, unmount } = renderHook(({ actief }) => usePoll(() => { telling += 1; }, 1000, actief), {
+      initialProps: { actief: true },
+    });
+    // zichtbaar tabblad: één directe tick plus twee intervallen
+    expect(telling).toBe(1);
+    vi.advanceTimersByTime(2000);
+    expect(telling).toBe(3);
+
+    // tabblad naar de achtergrond: geen enkele tick meer
+    zichtbaar.value = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+    vi.advanceTimersByTime(5000);
+    expect(telling).toBe(3);
+
+    // terug in beeld: pollen hervat
+    zichtbaar.value = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(telling).toBe(4);
+
+    // inactief geschakeld: alles stopt
+    rerender({ actief: false });
+    vi.advanceTimersByTime(5000);
+    expect(telling).toBe(4);
+
+    unmount();
+    vi.useRealTimers();
+    delete document.hidden;
+  });
+
   it('setup toont sleutel en back-up', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);

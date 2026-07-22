@@ -1,13 +1,14 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Send } from 'lucide-react';
 import { useT } from '../lib/i18n.js';
 import { IMG } from '../lib/tmdb.js';
 import { getSession, sendVote } from '../lib/session.js';
+import { usePoll } from '../lib/usePoll.js';
 
 // Het scherm voor wie via een deellink binnenkomt (?avond=CODE): naam invullen,
 // films aantikken, stem versturen, wachten op de uitslag. Werkt zonder eigen
 // watchlist of sleutel; alles komt uit de sessie.
-export default function RemoteVote({ code, pollMs = 6000 }) {
+export default function RemoteVote({ code, pollMs = 10000 }) {
   const { t: tr } = useT();
   const [sessie, setSessie] = useState(null);
   const [fout, setFout] = useState(null);
@@ -15,7 +16,6 @@ export default function RemoteVote({ code, pollMs = 6000 }) {
   const [picks, setPicks] = useState([]);
   const [fase, setFase] = useState('stemmen'); // stemmen | bezig | verstuurd
   const [melding, setMelding] = useState('');
-  const timerRef = useRef(null);
 
   const laad = async () => {
     try {
@@ -27,12 +27,12 @@ export default function RemoteVote({ code, pollMs = 6000 }) {
     }
   };
 
-  useEffect(() => {
-    laad();
-    timerRef.current = setInterval(laad, pollMs);
-    return () => clearInterval(timerRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+  // Poll pauzeert bij een verborgen tabblad en stopt zodra je stem verstuurd
+  // is of er een winnaar is: dan hoeft er niets meer opgehaald te worden.
+  const winnaarBekend = !!sessie?.winner;
+  usePoll(laad, pollMs, fase !== 'verstuurd' && !winnaarBekend);
+
+  useEffect(() => { laad(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [code]);
 
   const toggle = (key) => setPicks((p) => (p.includes(key) ? p.filter((k) => k !== key) : [...p, key]));
 

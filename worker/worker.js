@@ -98,14 +98,9 @@ export default {
       const sessie = JSON.parse(raw);
 
       if (!m[2] && request.method === 'GET') {
-        const votes = {};
-        const lijst = await env.SESSIONS.list({ prefix: `s:${code}:v:` });
-        for (const k of lijst.keys.slice(0, 12)) {
-          const naam = k.name.slice(`s:${code}:v:`.length);
-          const v = await env.SESSIONS.get(k.name);
-          if (v) { try { votes[naam] = JSON.parse(v); } catch { /* overslaan */ } }
-        }
-        return json({ ...sessie, votes });
+        // Stemmen zitten in het sessie-object zelf: één get(), geen list().
+        // Dat houdt de 5-seconden-poll ruim binnen de KV-limieten.
+        return json({ ...sessie, votes: sessie.votes || {} });
       }
 
       if (m[2] === '/vote' && request.method === 'POST') {
@@ -116,15 +111,28 @@ export default {
         const geldig = new Set(sessie.films.map((f) => f.key));
         const picks = (body.picks || []).filter((k) => geldig.has(k)).slice(0, 20);
         if (!picks.length) return json({ error: 'NO_PICKS' }, 400);
-        await env.SESSIONS.put(`s:${code}:v:${speler}`, JSON.stringify(picks), TTL);
+        // Read-modify-write met een korte retry: als twee stemmers elkaar net
+        // kruisen, herlezen we de verse sessie en voegen opnieuw toe, zodat
+        // niemands stem verloren gaat.
+        for (let poging = 0; poging < 3; poging++) {
+          const versRaw = poging === 0 ? raw : await env.SESSIONS.get(`s:${code}`);
+          const vers = JSON.parse(versRaw);
+          vers.votes = { ...(vers.votes || {}), [speler]: picks };
+          await env.SESSIONS.put(`s:${code}`, JSON.stringify(vers), TTL);
+          // korte controle of onze stem bleef staan; zo niet, opnieuw
+          const check = JSON.parse(await env.SESSIONS.get(`s:${code}`));
+          if (JSON.stringify(check.votes?.[speler]) === JSON.stringify(picks)) break;
+        }
         return json({ ok: true });
       }
 
       if (m[2] === '/close' && request.method === 'POST') {
         let body;
         try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
-        sessie.winner = String(body.winner || '').slice(0, 120) || null;
-        await env.SESSIONS.put(`s:${code}`, JSON.stringify(sessie), TTL);
+        // Herlees vers zodat een laatste stem niet verloren gaat.
+        const vers = JSON.parse((await env.SESSIONS.get(`s:${code}`)) || raw);
+        vers.winner = String(body.winner || '').slice(0, 120) || null;
+        await env.SESSIONS.put(`s:${code}`, JSON.stringify(vers), TTL);
         return json({ ok: true });
       }
       return json({ error: 'NOT_FOUND' }, 404);

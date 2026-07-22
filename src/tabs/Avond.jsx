@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { usePoll } from '../lib/usePoll.js';
 import { useT } from '../lib/i18n.js';
 import { remoteAvailable, createSession, getSession, closeSession, computeWinner } from '../lib/session.js';
 import { Users, Swords, Ban, Clapperboard, RotateCcw, Upload, Info, ArrowLeft, X, Send } from 'lucide-react';
@@ -87,13 +88,10 @@ export default function Avond({ app }) {
   }, [watchlist]);
 
   // --- Op afstand: gastheer ------------------------------------------------
-  useEffect(() => {
-    if (!remote || remoteWinner) return undefined;
-    const t = setInterval(async () => {
-      try { const s = await getSession(remote.code); setRemoteVotes(s.votes || {}); } catch { /* volgende poll */ }
-    }, 5000);
-    return () => clearInterval(t);
-  }, [remote, remoteWinner]);
+  // Poll pauzeert bij een verborgen tabblad en stopt zodra er een winnaar is.
+  usePoll(async () => {
+    try { const s = await getSession(remote.code); setRemoteVotes(s.votes || {}); } catch { /* volgende poll */ }
+  }, 10000, !!remote && !remoteWinner);
 
   const startRemote = async () => {
     setRemoteMsg('');

@@ -27,7 +27,7 @@ jobs:
           cache: npm
       - name: Dependencies installeren
         run: npm ci
-      - name: Tests draaien (99 stuks; falen = geen deploy)
+      - name: Tests draaien (101 stuks; falen = geen deploy)
         run: npm test
       - name: Bouwen
         run: npm run build

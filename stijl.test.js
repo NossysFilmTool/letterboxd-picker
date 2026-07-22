@@ -36,3 +36,14 @@ describe('huisstijl', () => {
     expect(zondaars).toEqual([]);
   });
 });
+
+// De stemronde-poll draait elke paar seconden bij elke deelnemer. Een KV
+// list()-operatie in die hete lus tikt razendsnel tegen de gratis daglimiet
+// aan (dat gebeurde in de praktijk). Deze test bewaakt dat de Worker geen
+// list() meer gebruikt; stemmen horen in het sessie-object te zitten.
+describe('worker KV-efficiëntie', () => {
+  it('de Worker gebruikt geen KV list()-operaties', () => {
+    const worker = readFileSync('./worker/worker.js', 'utf-8');
+    expect(worker.includes('.list(')).toBe(false);
+  });
+});
