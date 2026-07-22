@@ -289,6 +289,7 @@ export default {
     backup: 'Back-up', storageUsage: 'Opslag in gebruik: {mb} van \u00b1 5 MB (browserlimiet)', storageUsageIdb: 'Cache in gebruik: {mb} MB (IndexedDB, met honderden MB\u0027s ruimte)', exportAll: 'Exporteer alles (JSON)', clickToRestore: 'Klik om terug te zetten.',
     ignoredCount: { one: '{count} item gemarkeerd als "geen film" (uitgesloten uit aanbevelingen en Avond):', other: '{count} items gemarkeerd als "geen film" (uitgesloten uit aanbevelingen en Avond):' },
     wrongFilms: { one: '{count} mogelijk verkeerde film, kies de juiste', other: '{count} mogelijk verkeerde films, kies de juiste' },
+    recheckHint: 'Klopt een match niet? Haal de filmdata opnieuw op; de tool controleert dan alle matches en vlagt de twijfelgevallen.',
     confirmClearAll: 'Alle lokale data van deze tool wissen (watchlist, cache, geschiedenis, instellingen)?',
     confirmClearData: 'Watchlist, filmdata, ratings en geschiedenis wissen? Je TMDB-sleutel blijft bewaard.',
     pageSub: 'TMDB-sleutel, je data en back-ups.', title: 'Setup',

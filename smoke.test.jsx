@@ -502,6 +502,37 @@ describe('V2 smoke', () => {
     delete global.fetch;
   });
 
+  it('matchcontrole: een verkeerde film met kloppend jaar wordt nu wél gevlagd (titel wijkt af)', async () => {
+    // De bug: vóór deze fix vlagde de tool alleen jaarafwijkingen, dus een
+    // mismatch met het juiste jaar maar de verkeerde titel glipte erdoor.
+    global.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/search/movie')) {
+        return { ok: true, status: 200, json: async () => ({ results: [
+          { id: 501, title: 'Under the Skin', release_date: '2013-09-05', vote_count: 3000 },
+        ] }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ id: 501, title: 'Under the Skin', release_date: '2013-09-05', runtime: 108, genres: [], vote_average: 7, vote_count: 3000, credits: { crew: [] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } }) };
+    };
+    const { resolveFilm } = await import('./src/lib/tmdb.js');
+    // de watchlist vroeg om een ándere film uit hetzelfde jaar
+    const meta = await resolveFilm({ name: 'The Skin I Live In', year: 2013, key: 'the-skin-i-live-in|2013' }, 'k');
+    expect(meta.yearMismatch).toBe(2013); // gevlagd ondanks kloppend jaar
+    delete global.fetch;
+  });
+
+  it('matchcontrole: een korte film waar een speelfilm werd verwacht wordt gevlagd', async () => {
+    global.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/search/movie')) return { ok: true, status: 200, json: async () => ({ results: [{ id: 601, title: 'Piper', release_date: '2016-06-16', vote_count: 500 }] }) };
+      return { ok: true, status: 200, json: async () => ({ id: 601, title: 'Piper', release_date: '2016-06-16', runtime: 6, genres: [], vote_average: 8, vote_count: 500, credits: { crew: [] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } }) };
+    };
+    const { resolveFilm } = await import('./src/lib/tmdb.js');
+    const meta = await resolveFilm({ name: 'Piper', year: 2016, key: 'piper|2016' }, 'k');
+    expect(meta.yearMismatch).toBeTruthy(); // 6 minuten = verdacht kort
+    delete global.fetch;
+  });
+
   it('zoekmachine: vrije stemmen-invoer wordt server-side vote_count', async () => {
     const calls = [];
     global.fetch = async (url) => { calls.push(String(url)); return { ok: true, status: 200, json: async () => ({ total_pages: 2, total_results: 30, results: [{ id: 6001, title: 'Breedgezien', release_date: '2010-01-01', poster_path: null, vote_average: 8.1, vote_count: 90000, original_language: 'en', overview: 'x', genre_ids: [18] }] }) }; };

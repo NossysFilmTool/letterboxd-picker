@@ -138,8 +138,18 @@ export async function resolveFilm(film, key) {
 
   if (!hit) return null;
   const meta = await fetchDetail(hit.id, key);
-  // markeer twijfelgevallen: jaar wijkt >1 af van wat de watchlist zei
-  if (meta && want && meta.year && Math.abs(meta.year - want) > 1) meta.yearMismatch = want;
+  // Markeer twijfelgevallen zodat de matchcontrole in Setup ze oppikt. We
+  // kijken breder dan alleen het jaar, want een verkeerde match heeft vaak
+  // wél het goede jaar (remake, gelijknamige film, korte versie):
+  //  - jaar wijkt meer dan 1 af van wat de watchlist zei
+  //  - titel matcht niet exact (na normalisatie)
+  //  - verdacht korte looptijd terwijl je een speelfilm verwacht (<45 min)
+  if (meta) {
+    const titelAf = wantTitle && norm(meta.title || '') !== wantTitle;
+    const jaarAf = want && meta.year && Math.abs(meta.year - want) > 1;
+    const kort = meta.runtime != null && meta.runtime > 0 && meta.runtime < 45;
+    if (jaarAf || titelAf || kort) meta.yearMismatch = want || meta.year || true;
+  }
   return meta;
 }
 

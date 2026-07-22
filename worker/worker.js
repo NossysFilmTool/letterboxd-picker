@@ -143,13 +143,18 @@ export default {
     url.searchParams.forEach((v, k) => { if (k !== 'api_key') upstream.searchParams.set(k, v); });
     upstream.searchParams.set('api_key', env.TMDB_KEY);
 
+    // Zoekopdrachten NIET cachen. Bij druk verrijken (8 parallelle ophalers,
+    // soms met korte of lege query-varianten) kan een gecachte zoekrespons
+    // aan de verkeerde film worden gekoppeld, wat stille mismatches oplevert.
+    // Detail- en lijst-calls (vast film-id) cachen we wél: veilig en zuinig.
+    const cachebaar = !upstream.pathname.startsWith('/3/search/');
     const res = await fetch(upstream.toString(), {
-      cf: { cacheTtl: 300, cacheEverything: true },
+      cf: cachebaar ? { cacheTtl: 300, cacheEverything: true } : { cacheTtl: 0 },
     });
 
     const out = new Response(res.body, { status: res.status, statusText: res.statusText });
     out.headers.set('Content-Type', res.headers.get('Content-Type') || 'application/json');
-    out.headers.set('Cache-Control', 'public, max-age=300');
+    out.headers.set('Cache-Control', cachebaar ? 'public, max-age=300' : 'no-store');
     Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
     return out;
   },

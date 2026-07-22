@@ -239,6 +239,9 @@ export default function Instellingen({ app }) {
               );
             })()}
           </div>
+          {app.tmdbKey && app.watchlist.length > 0 && !app.watchlist.some((f) => app.meta[f.key]?.yearMismatch) && !app.enrich.running && (
+            <p style={{ fontSize: 12.5, color: 'var(--fog-dim)', marginTop: 8 }}>{tr('setup.recheckHint')}</p>
+          )}
           {picker && <MatchPicker films={picker} app={app} onClose={() => setPicker(null)} />}
           {app.ignored.length > 0 && (
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>

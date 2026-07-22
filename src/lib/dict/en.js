@@ -289,6 +289,7 @@ export default {
     backup: 'Backup', storageUsage: 'Storage in use: {mb} of \u00b1 5 MB (browser limit)', storageUsageIdb: 'Cache in use: {mb} MB (IndexedDB, with hundreds of MBs of room)', exportAll: 'Export everything (JSON)', clickToRestore: 'Click to restore.',
     ignoredCount: { one: '{count} item marked as "not a film" (excluded from recommendations and Movie night):', other: '{count} items marked as "not a film" (excluded from recommendations and Movie night):' },
     wrongFilms: { one: '{count} possibly wrong film, pick the right one', other: '{count} possibly wrong films, pick the right one' },
+    recheckHint: 'A match looks off? Fetch the film data again; the tool then rechecks all matches and flags the doubtful ones.',
     confirmClearAll: 'Erase all local data of this tool (watchlist, cache, history, settings)?',
     confirmClearData: 'Erase watchlist, film data, ratings and history? Your TMDB key is kept.',
     pageSub: 'TMDB key, your data and backups.', title: 'Setup',
