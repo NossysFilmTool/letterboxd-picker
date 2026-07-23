@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useT } from '../lib/i18n.js';
 import { lbLink, jwLink } from '../lib/links.js';
 import ImdbA from '../components/ImdbA.jsx';
-import { Search, Clapperboard, Plus, Gem, Wand2, X, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { Search, Clapperboard, Plus, X, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { IMG, GENRES, genreLabelById, genreLabel, discover, searchMovies, searchPersons, personFilms } from '../lib/tmdb.js';
 import { matchScore } from '../lib/taste.js';
 import { nossyScore, fmtScore } from '../lib/pick.js';
@@ -151,19 +151,6 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
     setLoading(false);
   };
 
-  // Presets: de oude Pareljacht en een profiel-vuller, nu als knop
-  const presetParel = () => { setTekst(''); setMinVotes(50); setMaxVotes(800); setMinScore(7.0); setSortBy('vote_average.desc'); setRuntime(60); };
-  const presetSmaak = () => {
-    setTekst('');
-    const topG = Object.entries(taste.genres).filter(([, v]) => v > 0.3).sort((a, b) => b[1] - a[1]).slice(0, 3)
-      .map(([en]) => GENRES.find((g) => g.en === en)?.id).filter(Boolean);
-    const topD = Object.entries(taste.decades).sort((a, b) => b[1] - a[1])[0]?.[0];
-    setGenres(topG);
-    if (topD) { setJaarVan(+topD); setJaarTot(+topD + 9); } else { setJaarVan(''); setJaarTot(''); }
-    if (taste.nietEngels >= 0.35) setLang('niet-en');
-    setMinVotes(''); setMaxVotes(''); setMinScore(6.5);
-    setSortBy('vote_average.desc');
-  };
   const wis = () => { setTekst(''); setGenres([]); setExcl([]); setJaarVan(''); setJaarTot(''); setLang('alle'); setMinVotes(''); setMaxVotes(''); setMinScore(0); setRuntime(''); setSortBy('popularity.desc'); setRes(null); setMaker(null); setPersonen([]); };
 
   const toggle = (setter, max) => (id) => setter((a) => (a.includes(id) ? a.filter((x) => x !== id) : (max ? [...a, id].slice(-max) : [...a, id])));
@@ -218,8 +205,6 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: toonFilters ? 14 : 0, alignItems: 'center' }}>
           <button className="btn primary" onClick={() => zoek(1)} disabled={loading}><Search size={15} /> {loading ? tr('zoek.searching') : tr('common.search')}</button>
-          <button className="btn ghost" onClick={presetSmaak} title={tr('zoek.tasteTitle')}><Wand2 size={14} /> {tr('zoek.onMyTaste')}</button>
-          <button className="btn ghost" onClick={presetParel} title={tr('zoek.pearlTitle')}><Gem size={14} /> {tr('zoek.pearlPreset')}</button>
           <button className="btn ghost" onClick={() => setToonFilters(!toonFilters)}><SlidersHorizontal size={14} /> {toonFilters ? tr('common.hideFilters') : tr('common.showFilters')}</button>
           <button className="btn ghost" onClick={wis}><X size={14} /> Wis</button>
         </div>

@@ -179,5 +179,17 @@ export function matchScore(cand, taste) {
   if (cand.votes != null && cand.votes < 40) redenen.push(tt('taste.barelyRated', { count: cand.votes }));
   if (cand.votes && cand.votes < 3000 && taste.medianVotes < 8000) redenen.push(tt('taste.obscure'));
 
-  return { score: Math.min(score, 99), redenen };
+  // Het transparante recept: per component de genormaliseerde waarde (0..1),
+  // het effectieve gewicht en de bijdrage in punten. De som van de punten is
+  // (op afronding na) de score — geen black box.
+  const recept = [
+    { id: 'quality', v: q, w: base.q * k, pts: Math.round(100 * base.q * k * q) },
+    ...(wTheme > 0 ? [{ id: 'theme', v: th, w: wTheme, pts: Math.round(100 * wTheme * th) }] : []),
+    { id: 'genre', v: g, w: base.g * k, pts: Math.round(100 * base.g * k * g) },
+    { id: 'era', v: d, w: base.d * k, pts: Math.round(100 * base.d * k * d) },
+    { id: 'lang', v: t, w: base.t * k, pts: Math.round(100 * base.t * k * t) },
+    { id: 'obscurity', v: o, w: base.o * k, pts: Math.round(100 * base.o * k * o) },
+  ];
+
+  return { score: Math.min(score, 99), redenen, recept };
 }

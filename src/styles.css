@@ -424,3 +424,22 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 /* "Andere films" knop in de rij-kop */
 .row-more { margin-left: auto; background: none; border: 1px solid var(--line); color: var(--fog); font-size: 12px; padding: 3px 10px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: border-color 0.15s, color 0.15s; }
 .row-more:hover { border-color: var(--dot-o); color: var(--dot-o); }
+
+/* Het transparante score-recept */
+.why-score { background: none; border: none; color: var(--dot-b); font-size: 12.5px; cursor: pointer; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; }
+.recept-panel { margin-top: 10px; padding: 12px 14px; background: var(--ink); border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 7px; }
+.recept-intro { font-size: 12px; color: var(--fog-dim); margin-bottom: 3px; }
+.recept-row { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr auto; align-items: center; gap: 10px; }
+.recept-label { font-size: 12px; color: var(--fog); }
+.recept-bar { height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.recept-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--dot-b), var(--dot-g)); border-radius: 4px; transition: width 0.35s cubic-bezier(0.2, 0.7, 0.3, 1); }
+.recept-pts { font-size: 12px; color: var(--paper); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .recept-bar > span { transition: none; } }
+
+/* Rustige icoon-knoppen in de rijkoppen */
+.row-more.icon { padding: 4px 8px; }
+.row-more.icon + .row-more.icon { margin-left: 4px; }
+.row-more:first-of-type { margin-left: auto; }
+.spin { animation: spinR 0.9s linear infinite; }
+@keyframes spinR { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

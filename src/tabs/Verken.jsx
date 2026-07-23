@@ -25,7 +25,7 @@ export default function Verken({ app }) {
   const [oeuvres, setOeuvres] = useLS('oeuvres', {});
   const [profielCands, setProfielCands] = useState([]);
   const [themeCands, setThemeCands] = useState([]);
-  const [themeHunt, setThemeHunt] = useState(false);
+  const themaAutoRef = useRef(false);
   const [huntBusy, setHuntBusy] = useState(false);
   const [profielPage, setProfielPage] = useState(1);
   const [versLaden, setVersLaden] = useState(false);
@@ -86,6 +86,7 @@ export default function Verken({ app }) {
   const [verseShift, setVerseShift] = useState(0);
   const [dismissed, setDismissed] = useState([]);
   const [rowBusy, setRowBusy] = useState({});
+  const [receptOpen, setReceptOpen] = useState(null); // film-id waarvan het score-recept uitgeklapt is
   const [themaPage, setThemaPage] = useState(2); // pagina 1-2 laadt de instroom al
   const schuifRij = (rijId) => setRowOffsets((o) => ({ ...o, [rijId]: (o[rijId] || 0) + 12 }));
 
@@ -241,10 +242,12 @@ export default function Verken({ app }) {
   }, [seeds.length, tmdbKey, mode]);
 
   // Thema-jacht (optioneel): haalt films op die jouw top-thema's delen. Draait
-  // alleen als je 'm aanzet, en opnieuw als je top-thema's wezenlijk wijzigen.
+  // Draait automatisch (één keer per sessie) zodra je top-thema's bestaan:
+  // geen aparte knop meer, thema-films horen er gewoon bij.
   useEffect(() => {
     const key = tmdbKey;
-    if (!themeHunt || !key || mode !== 'voorJou') return undefined;
+    if (themaAutoRef.current || !key || mode !== 'voorJou' || themeCands.length) return undefined;
+    themaAutoRef.current = true;
     const ids = (taste.topThemes || []).map((t) => t.id).slice(0, 5);
     if (!ids.length) return undefined;
     let stop = false;
@@ -265,7 +268,7 @@ export default function Verken({ app }) {
     })();
     return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeHunt, tmdbKey, mode, (taste.topThemes || []).map((t) => t.id).join(',')]);
+  }, [tmdbKey, mode, themeCands.length, (taste.topThemes || []).map((t) => t.id).join(',')]);
 
   const { recs, seededOnRatings, rijen } = useMemo(() => {
     const ownKeys = new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]);
@@ -317,7 +320,7 @@ export default function Verken({ app }) {
       if (r.viaTheme?.length && !redenen.some((x) => /thema/i.test(x))) {
         redenen = [tr('verken.foundOnThemes', { themes: r.viaTheme.slice(0, 3).join(', ') }), ...redenen];
       }
-      return { ...r, match: m.score, redenen };
+      return { ...r, match: m.score, redenen, recept: m.recept };
     });
 
     // Rijen-met-reden: dezelfde kandidaten, gegroepeerd op waaróm ze er zijn.
@@ -482,54 +485,14 @@ export default function Verken({ app }) {
         </div>
       )}
 
-      {mode === 'voorJou' && (blendBusy ? (
+      {mode === 'voorJou' && blendBusy && (
         <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginBottom: 14 }}>
           {tr('verken.blending')}
         </p>
-      ) : (Object.keys(oeuvres).length > 0 || profielCands.length > 0) && (
-        <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginBottom: 14 }}>
-          {tr('verken.inflow', { oeuvres: Object.keys(oeuvres).length, theme: themeCands.length ? tr('verken.inflowTheme', { count: themeCands.length }) : '', count: recs.length })}
-        </p>
-      ))}
-
-      {mode === 'voorJou' && (taste.topThemes?.length > 0) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-          <button className={`chip ${themeHunt ? 'on-o' : ''}`} onClick={() => setThemeHunt((v) => !v)} title={tr('verken.huntTitle')}>
-            {huntBusy ? tr('verken.hunting') : themeHunt ? tr('verken.huntThemesActive') : tr('verken.huntThemes')}
-          </button>
-          <span style={{ fontSize: 12.5, color: 'var(--fog-dim)' }}>
-            Je thema's: {taste.topThemes.slice(0, 4).map((t) => t.name).join(', ')}
-          </span>
-        </div>
       )}
 
 
-      {shortlist.length > 0 && (
-        <div className="card" style={{ marginBottom: 20, borderColor: 'rgba(64,188,244,0.35)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <p className="label" style={{ color: 'var(--dot-b)' }}>Shortlist ({shortlist.length})</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn" onClick={copyList}><Copy size={14} /> {tr('zoek.copyBtn')}</button>
-              <button className="btn" onClick={() => downloadText('letterboxd-import.csv', shortlistToCsv(shortlist))}>
-                <Download size={14} /> {tr('zoek.exportLbBtn')}
-              </button>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-            {shortlist.map((s) => (
-              <span key={s.id} className="chip on-b">
-                {s.title} ({s.year || '?'})
-                <button onClick={() => removeShort(s.id)} aria-label={tr('verken.removeShortAria', { title: s.title })} style={{ background: 'none', border: 'none', color: 'inherit', padding: 0, display: 'inline-flex' }}>
-                  <X size={13} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginTop: 10 }}>
-            {tr('zoek.lbImportHint')}
-          </p>
-        </div>
-      )}
+
 
       {mode === 'voorJou' && (!recs.length ? (
         <div className="empty card">
@@ -552,6 +515,7 @@ export default function Verken({ app }) {
         const moodRijen = moodOn
           ? rijen.map((rij) => ({ ...rij, films: herweeg(rij.films) })).filter((rij) => rij.films.length)
           : rijen;
+        const toonRijen = rowsView && sortRecs === 'match' && moodRijen.filter((rij) => !dismissed.includes(rij.id)).length >= 1;
         const gefilterd = applyLightFilters(recs);
         const gesorteerd = moodOn ? herweeg([...gefilterd]) : [...gefilterd].sort((a, b) => {
           if (sortRecs === 'aanbevolen') return b.waarde - a.waarde || b.match - a.match;
@@ -575,13 +539,15 @@ export default function Verken({ app }) {
                 </button>
               )}
             </div>
-            <select className="field" style={{ width: 'auto' }} value={sortRecs} onChange={(e) => setSortRecs(e.target.value)} aria-label="Sorteer aanbevelingen">
-              <option value="match">{tr('sort.bestMatch')}</option>
-              <option value="aanbevolen">{tr('verken.strongestRec')}</option>
-              <option value="score">{tr('sort.highestScore')}</option>
-              <option value="nieuw">{tr('sort.newest')}</option>
-              <option value="oud">{tr('sort.oldest')}</option>
-            </select>
+            {!toonRijen && (
+              <select className="field" style={{ width: 'auto' }} value={sortRecs} onChange={(e) => setSortRecs(e.target.value)} aria-label="Sorteer aanbevelingen">
+                <option value="match">{tr('sort.bestMatch')}</option>
+                <option value="aanbevolen">{tr('verken.strongestRec')}</option>
+                <option value="score">{tr('sort.highestScore')}</option>
+                <option value="nieuw">{tr('sort.newest')}</option>
+                <option value="oud">{tr('sort.oldest')}</option>
+              </select>
+            )}
           </div>
 
           <div className="mood-bar">
@@ -600,7 +566,7 @@ export default function Verken({ app }) {
             )}
           </div>
 
-          {rowsView && sortRecs === 'match' && moodRijen.length >= 1 ? (
+          {toonRijen ? (
             <div className="rec-rows">
               {moodRijen.filter((rij) => !dismissed.includes(rij.id)).slice(0, 7).map((rij) => {
                 const zichtbaar = vensterVan(rij.films, (rowOffsets[rij.id] || 0) + verseShift, 12);
@@ -615,12 +581,12 @@ export default function Verken({ app }) {
                     </h3>
                     <span className="cnt">{rij.films.length}</span>
                     {(rij.films.length > 12 || rij.type !== 'oeuvre') && (
-                      <button className="row-more" onClick={() => (rij.type === 'oeuvre' ? schuifRij(rij.id) : haalMeerVoorRij(rij))} disabled={!!rowBusy[rij.id]} aria-label={tr('verken.rowMoreAria')} title={tr('verken.rowMoreAria')}>
-                        <RotateCcw size={13} /> {rowBusy[rij.id] ? tr('verken.rowFetching') : tr('verken.rowMore')}
+                      <button className="row-more icon" onClick={() => (rij.type === 'oeuvre' ? schuifRij(rij.id) : haalMeerVoorRij(rij))} disabled={!!rowBusy[rij.id]} aria-label={tr('verken.rowMoreAria')} title={tr('verken.rowMoreAria')}>
+                        <RotateCcw size={13} className={rowBusy[rij.id] ? 'spin' : ''} />
                       </button>
                     )}
-                    <button className="row-more" style={{ marginLeft: rij.films.length > 12 || rij.type !== 'oeuvre' ? 6 : 'auto' }} onClick={() => setDismissed((d) => [...d, rij.id])} aria-label={tr('verken.rowSwapAria')} title={tr('verken.rowSwapAria')}>
-                      <X size={13} /> {tr('verken.rowSwap')}
+                    <button className="row-more icon" style={{ marginLeft: rij.films.length > 12 || rij.type !== 'oeuvre' ? 0 : 'auto' }} onClick={() => setDismissed((d) => [...d, rij.id])} aria-label={tr('verken.rowSwapAria')} title={tr('verken.rowSwapAria')}>
+                      <X size={13} />
                     </button>
                   </div>
                   <div className="rec-strip">
@@ -672,6 +638,25 @@ export default function Verken({ app }) {
                     return extra.length ? ` · ${extra.slice(0, 2).join(' · ')}` : '';
                   })()}
                 </p>
+                {r.recept && r.match != null && (
+                  <div style={{ marginTop: 8 }}>
+                    <button className="why-score" onClick={() => setReceptOpen(receptOpen === r.id ? null : r.id)}>
+                      {receptOpen === r.id ? tr('verken.receptHide') : tr('verken.whyScore', { score: r.match })}
+                    </button>
+                    {receptOpen === r.id && (
+                      <div className="recept-panel">
+                        <p className="recept-intro">{tr('verken.receptIntro', { score: r.match })}</p>
+                        {r.recept.map((c) => (
+                          <div key={c.id} className="recept-row">
+                            <span className="recept-label">{tr(`verken.recept${c.id.charAt(0).toUpperCase()}${c.id.slice(1)}`)}</span>
+                            <span className="recept-bar"><span style={{ width: `${Math.round(c.v * 100)}%` }} /></span>
+                            <span className="recept-pts">{tr('verken.receptPts', { pts: c.pts })}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="btn green" onClick={() => addToShortlist(r)}><Plus size={14} /> {tr('common.shortlist')}</button>
                   <button className="btn ghost" onClick={() => skip(r)}><X size={14} /> {tr('verken.notForMe')}</button>
@@ -688,15 +673,37 @@ export default function Verken({ app }) {
           {gesorteerd.length > shown && (
             <button className="btn" style={{ justifyContent: 'center' }} onClick={() => setShown(shown + 12)}>{tr('verken.showMore', { count: gesorteerd.length - shown })}</button>
           )}
-          {tmdbKey && gesorteerd.length - shown < 12 && (
-            <button className="btn" style={{ justifyContent: 'center' }} onClick={laadVers} disabled={versLaden}>
-              {versLaden ? tr('verken.tappingTmdb') : tr('verken.loadFreshMore')}
-            </button>
-          )}
           </>)}
         </div>
         );
       })())}
+
+      {shortlist.length > 0 && (
+        <div className="card" style={{ marginBottom: 20, borderColor: 'rgba(64,188,244,0.35)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <p className="label" style={{ color: 'var(--dot-b)' }}>Shortlist ({shortlist.length})</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn" onClick={copyList}><Copy size={14} /> {tr('zoek.copyBtn')}</button>
+              <button className="btn" onClick={() => downloadText('letterboxd-import.csv', shortlistToCsv(shortlist))}>
+                <Download size={14} /> {tr('zoek.exportLbBtn')}
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            {shortlist.map((s) => (
+              <span key={s.id} className="chip on-b">
+                {s.title} ({s.year || '?'})
+                <button onClick={() => removeShort(s.id)} aria-label={tr('verken.removeShortAria', { title: s.title })} style={{ background: 'none', border: 'none', color: 'inherit', padding: 0, display: 'inline-flex' }}>
+                  <X size={13} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginTop: 10 }}>
+            {tr('zoek.lbImportHint')}
+          </p>
+        </div>
+      )}
 
       {skippedObjects.length > 0 && (
         <div style={{ marginTop: 22 }}>

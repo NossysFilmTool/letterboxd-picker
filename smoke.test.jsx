@@ -74,6 +74,54 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('Meer zoals deze');
   });
 
+  it('score-recept: de componenten tellen op tot de match-score', async () => {
+    const { matchScore } = await import('./src/lib/taste.js');
+    const taste = { genres: { Drama: 0.6 }, themes: {}, decades: { 2010: 0.4 }, nietEngels: 0.3, medianVotes: 5000, topThemes: [] };
+    const { score, recept } = matchScore({ title: 'X', year: 2014, vote: 7.8, votes: 4000, genre_ids: [18], lang: 'en' }, taste);
+    expect(Array.isArray(recept)).toBe(true);
+    expect(recept.length).toBeGreaterThanOrEqual(5);
+    // elke component: waarde 0..1, gewicht 0..1, punten >= 0
+    recept.forEach((c) => {
+      expect(c.v).toBeGreaterThanOrEqual(0); expect(c.v).toBeLessThanOrEqual(1);
+      expect(c.w).toBeGreaterThan(0); expect(c.w).toBeLessThanOrEqual(1);
+      expect(c.pts).toBeGreaterThanOrEqual(0);
+    });
+    // de punten sommeren tot de score (op afronding per component na)
+    const som = recept.reduce((a, c) => a + c.pts, 0);
+    expect(Math.abs(som - score)).toBeLessThanOrEqual(recept.length);
+    // en de gewichten sommeren tot 1 (het hele recept is verantwoord)
+    const wSom = recept.reduce((a, c) => a + c.w, 0);
+    expect(Math.abs(wSom - 1)).toBeLessThan(0.01);
+  });
+
+  it('score-recept: "Waarom X%?" klapt het recept uit op de kaart', () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const recFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 600 + n, title: `Seed Film ${n}`, year: 2005 + n, poster: `/s${n}.jpg`, vote: 7.2, votes: 2500, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now(), recs: recFilms },
+      'b|2019': { id: 2, poster: '/b.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now() },
+      'c|2018': { id: 3, poster: '/c.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now() },
+      'd|2017': { id: 4, poster: '/d.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now() },
+    }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getByText('Voor jou'));
+    // naar de vlakke lijst, waar het recept woont
+    fireEvent.click(screen.getByText('Toon als één lijst'));
+    fireEvent.click(screen.getAllByText(/Waarom \d+%\?/)[0]);
+    expect(screen.getByText('Kwaliteit (gedempt op stemmen)')).toBeTruthy();
+    expect(screen.getByText('Genre-affiniteit')).toBeTruthy();
+    expect(document.body.textContent).toMatch(/\+\d+ punten/);
+    fireEvent.click(screen.getByText('Verberg het recept'));
+    expect(screen.queryByText('Kwaliteit (gedempt op stemmen)')).toBeNull();
+  });
+
   it('rijen: vensterVan wrapt netjes rond en voegNieuweToe dedupliceert', async () => {
     const { vensterVan, voegNieuweToe } = await import('./src/lib/rows.js');
     const films = Array.from({ length: 20 }, (_, i) => ({ id: i + 1 }));
@@ -102,7 +150,7 @@ describe('V2 smoke', () => {
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
-    fireEvent.click(screen.getByText('Wissel om'));
+    fireEvent.click(screen.getByLabelText('Vervang deze rij door een andere categorie'));
     expect(screen.queryByText('Meer van Testregisseur')).toBeNull();
   });
 
@@ -136,7 +184,7 @@ describe('V2 smoke', () => {
       fireEvent.click(screen.getAllByLabelText('Verken')[0]);
       fireEvent.click(screen.getByText('Voor jou'));
       expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
-      fireEvent.click(screen.getByText('Andere films'));
+      fireEvent.click(screen.getByLabelText('Haal andere films voor deze rij'));
       // de diepere pagina is echt opgevraagd én de nieuwe film staat in de rij
       expect(await screen.findByText('Diepere Vondst')).toBeTruthy();
       expect(calls.some((u) => u.includes('page=2') && u.includes('/1/similar'))).toBe(true);
@@ -361,7 +409,7 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('162 min');
   });
 
-  it('zoekmachine: pareljacht-preset zoekt via discover en shortlist werkt', async () => {
+  it('zoekmachine: discover-zoek zonder tekst werkt en shortlist werkt', async () => {
     global.fetch = async () => ({
       ok: true, status: 200,
       json: async () => ({
@@ -373,7 +421,6 @@ describe('V2 smoke', () => {
     });
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]); // start op Zoeken
-    fireEvent.click(screen.getByText('Pareljacht-preset'));
     fireEvent.click(screen.getByText('Zoek'));
     expect(await screen.findByText('Onbekende Parel')).toBeTruthy();
     expect(document.body.textContent).toContain('42 resultaten');
@@ -555,6 +602,8 @@ describe('V2 smoke', () => {
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     expect(document.body.textContent).toContain('% match');
+    const lijstToggle = screen.queryByText('Toon als één lijst');
+    if (lijstToggle) fireEvent.click(lijstToggle);
     expect(document.body.textContent).toContain('Beste match voor jou');
   });
 
@@ -998,8 +1047,7 @@ describe('V2 smoke', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
-    const huntBtn = await screen.findByText(/Jaag op mijn thema/);
-    fireEvent.click(huntBtn);
+    // de thema-jacht draait nu automatisch; geen chip meer
     // de gejaagde film verschijnt mét uitleg over het thema
     expect(await screen.findByText('Eenzame Film')).toBeTruthy();
     expect(document.body.textContent).toMatch(/thema['’]s: .*loneliness/i);
