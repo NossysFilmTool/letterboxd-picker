@@ -68,7 +68,9 @@ async function fetchDetail(id, key) {
     year: d.release_date ? parseInt(d.release_date.slice(0, 4)) : null,
     runtime: d.runtime || null,
     genres: (d.genres || []).map((g) => g.name),
-    keywords: (d.keywords?.keywords || []).slice(0, 10).map((k) => ({ id: k.id, name: k.name })),
+    // 20, niet 10: TMDB zet de trefwoorden in willekeurige volgorde, en bij 10
+    // viel het thema van een film (bijv. "coming of age") er vaak net af.
+    keywords: (d.keywords?.keywords || []).slice(0, 20).map((k) => ({ id: k.id, name: k.name })),
     vote: d.vote_average ? Math.round(d.vote_average * 10) / 10 : null,
     votes: d.vote_count || 0,
     poster: d.poster_path,
@@ -307,11 +309,12 @@ export async function discover(key, { minScore, minVotes, maxVotes, genreIds, ex
 export const discoverGems = discover;
 
 // Thema-jacht: haal films op die TMDB-keywords delen met jouw top-thema's.
-// with_keywords met | betekent OR (één van de thema's volstaat).
-export async function discoverByKeywords(key, keywordIds, { minVotes = 40, page = 1 } = {}) {
+// with_keywords met | betekent OR (één van de thema's volstaat), met , AND
+// (alle thema's samen; veel gerichter).
+export async function discoverByKeywords(key, keywordIds, { minVotes = 40, page = 1, alle = false } = {}) {
   if (!keywordIds?.length) return { results: [], totalPages: 0 };
   const d = await get('/discover/movie', key, {
-    with_keywords: keywordIds.slice(0, 5).join('|'),
+    with_keywords: keywordIds.slice(0, 5).join(alle ? ',' : '|'),
     'vote_count.gte': minVotes,
     sort_by: 'vote_average.desc',
     include_adult: 'false',

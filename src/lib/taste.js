@@ -17,6 +17,17 @@ const KEYWORD_STOPLIST = new Set([
   'live action remake', 'reboot', 'shot on location', 'imax', '3d',
   'anime', 'live action', 'dubbed', 'silent film', 'black and white',
   'cameo', 'post credits scene', 'end credits scene', 'based on tv series',
+  // Te algemeen om iets over jouw smaak te zeggen: ze staan op een groot deel
+  // van alle films ("Deelt parent child relationship, dreams, jealousy").
+  'parent child relationship', 'father son relationship', 'father daughter relationship',
+  'mother son relationship', 'mother daughter relationship', 'husband wife relationship',
+  'brother brother relationship', 'brother sister relationship', 'sister sister relationship',
+  'family', 'family relationships', 'friendship', 'love', 'romance', 'relationship',
+  'dream', 'dreams', 'jealousy', 'death', 'dying and death', 'murder', 'violence',
+  'sex', 'nudity', 'female nudity', 'male nudity', 'sex scene', 'drugs', 'alcohol',
+  'new york city', 'los angeles, california', 'london, england', 'paris, france',
+  'small town', 'biography', 'historical figure', 'period drama', 'teenager', 'child',
+  'children', 'woman', 'man', 'girl', 'boy',
 ]);
 
 export function buildTaste({ watchlist, ratedFilms, meta, shortlist = [], skipped = [] }) {

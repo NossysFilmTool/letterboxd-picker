@@ -25,8 +25,22 @@ export const gedempt = (f) => {
 };
 
 // Kwaliteitsdrempel voor alle rijen. Onbekende waarden geven we het voordeel
-// van de twijfel; TMDB levert ze vrijwel altijd mee.
-export const degelijk = (f) => (f.votes == null || f.votes >= 50) && (f.vote == null || f.vote >= 6);
+// van de twijfel; TMDB levert ze vrijwel altijd mee. Is de looptijd bekend
+// (via de kandidaat-details), dan vallen korte films en segmenten af.
+export const degelijk = (f) => (f.votes == null || f.votes >= 50)
+  && (f.vote == null || f.vote >= 6)
+  && (f.runtime == null || f.runtime >= 40);
+
+// De filters van Voor jou. Looptijd en streamingaanbod komen uit de
+// kandidaat-details; zolang die er niet zijn, telt een film niet als passend.
+//   dienst: '' (maakt niet uit), '*' (elke dienst) of een dienstnaam
+export function pastFilter(f, { genre = '', kort = false, dienst = '' } = {}) {
+  if (genre && !(f.genre_ids || []).includes(Number(genre))) return false;
+  if (kort && !(f.runtime && f.runtime <= 105)) return false;
+  if (dienst === '*' && !f.flat?.length) return false;
+  if (dienst && dienst !== '*' && !f.flat?.includes(dienst)) return false;
+  return true;
+}
 
 // Dagnummer: welke favorieten en regisseurs een rij krijgen wisselt per dag
 // (en per klik op "Andere suggesties"), maar verspringt niet bij elke render.
@@ -83,10 +97,22 @@ export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, 
 
   const seed2 = seedB ? maak(`seed:${seedB.key}`, 'seed', doorSeed(seedB.name), { naam: seedB.name }) : null;
 
-  // 5. Gedeelde thema's
-  const opThema = (f) => !!(f.bronnen?.includes('thema') || f.viaTheme?.length);
-  const themas = [...new Set(pool.filter(opThema).flatMap((f) => f.viaTheme || []))].slice(0, 3);
-  const thema = maak('thema', 'thema', opThema, { themas });
+  // 5. Gedeelde thema's: alleen films die aantoonbaar (via hun trefwoorden)
+  // twee van je thema's delen, of één als je er maar één hebt. Eén los
+  // gedeeld trefwoord ("florida") zegt te weinig, tenzij het een sterk thema
+  // is: terug te vinden in 4+ films die jij hoog gaf. Het label noemt wat de
+  // rij echt deelt.
+  const nThemas = (taste.topThemes || []).length;
+  const themaMin = Math.min(2, nThemas);
+  const sterkeThemas = new Set((taste.topThemes || []).filter((t) => (t.films || 0) >= 4).map((t) => t.name));
+  const opThema = (f) => (f.gedeeldeThemas?.length || 0) >= themaMin
+    || !!f.gedeeldeThemas?.some((n) => sterkeThemas.has(n));
+  const thema = nThemas ? maak('thema', 'thema', opThema) : null;
+  if (thema) {
+    const tel = {};
+    thema.films.forEach((f) => f.gedeeldeThemas.forEach((n) => { tel[n] = (tel[n] || 0) + 1; }));
+    thema.themas = Object.entries(tel).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n]) => n);
+  }
 
   // 6. Buiten je bubbel: sterk, maar geen van je topgenres en niets wat je mijdt
   const topGenres = new Set(Object.entries(taste.genres || {}).filter(([, w]) => w > 0.4).map(([g]) => g));

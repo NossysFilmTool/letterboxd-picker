@@ -2,7 +2,7 @@
 // (aanbevelingen, vergelijkbaar, oeuvres, profiel, thema's) en scoort elke
 // kandidaat. Los van de weergave, zodat Verken.jsx alleen over het scherm gaat.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GENRES, searchPersons, personFilms, fetchSimilar, fetchRecommendations, discoverGems, discoverByKeywords } from './tmdb.js';
+import { GENRES, searchPersons, personFilms, fetchSimilar, fetchRecommendations, discoverGems, discoverByKeywords, fetchDetailById, getRegion } from './tmdb.js';
 import { useLS, filmKey } from './storage.js';
 import { buildTaste, matchScore } from './taste.js';
 import { voegNieuweToe, plekGewicht, rangschikRegisseurs, pastInOeuvre } from './rows.js';
@@ -10,6 +10,30 @@ import { useT } from './i18n.js';
 
 const HIST_PER_SESSIE = 60;
 const OEUVRE_TTL = 30 * 24 * 3600e3;
+const DETAIL_TTL = 14 * 24 * 3600e3; // streamingaanbod wisselt; twee weken is vers genoeg
+const DETAIL_MAX = 300; // ~250 KB localStorage
+const DETAIL_WERKERS = 6;
+
+// Alleen wat Voor jou nodig heeft van een filmdetail: looptijd en genres
+// (filters), trefwoorden (thema's en redenen), streamingaanbod en links.
+const slank = (d) => ({
+  runtime: d.runtime || null,
+  genres: d.genres || [],
+  keywords: d.keywords || [],
+  flat: d.flat || [],
+  jwLink: d.jwLink || null,
+  imdbId: d.imdbId || null,
+  director: d.director || null,
+  regio: getRegion(),
+  at: Date.now(),
+});
+// Houd de cache klein: verlopen eruit, daarna alleen de nieuwste DETAIL_MAX.
+const snoei = (map) => {
+  const nu = Date.now();
+  const rijen = Object.entries(map).filter(([, d]) => d && nu - (d.at || 0) < DETAIL_TTL);
+  if (rijen.length <= DETAIL_MAX) return Object.fromEntries(rijen);
+  return Object.fromEntries(rijen.sort((a, b) => b[1].at - a[1].at).slice(0, DETAIL_MAX));
+};
 
 // actief: alleen als 'Voor jou' open staat halen we iets op, zodat de
 // Zoeken-tab instant blijft.
@@ -35,6 +59,49 @@ export function useForYou(app, actief) {
   const themaGeladen = useRef(''); // signatuur van de top-thema's waarop al gejaagd is
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+
+  // Kandidaat-details: per TMDB-id, slank gecachet, per regio. Verken vraagt
+  // ze op voor wat zichtbaar is en voor de sterkste kandidaten.
+  const [details, setDetails] = useLS('kandDetails', {});
+  const [detailsLaden, setDetailsLaden] = useState(false);
+  const detailRij = useRef([]);
+  const detailGeprobeerd = useRef(new Set()); // deze sessie; mislukt = pas na herladen opnieuw
+  const detailLoopt = useRef(false);
+  const regio = getRegion();
+  const isVers = (d) => !!d && d.regio === regio && Date.now() - (d.at || 0) < DETAIL_TTL;
+  const draaiDetails = async () => {
+    detailLoopt.current = true;
+    setDetailsLaden(true);
+    let buffer = {};
+    const flush = () => {
+      const b = buffer;
+      buffer = {};
+      if (Object.keys(b).length) setDetails((prev) => snoei({ ...prev, ...b }));
+    };
+    const werker = async () => {
+      while (detailRij.current.length && mounted.current) {
+        const id = detailRij.current.shift();
+        try {
+          buffer[id] = slank(await fetchDetailById(id, tmdbKey));
+          if (Object.keys(buffer).length >= DETAIL_WERKERS) flush();
+        } catch { /* volgende sessie opnieuw */ }
+      }
+    };
+    await Promise.all(Array.from({ length: DETAIL_WERKERS }, werker));
+    flush();
+    // Kwam er tijdens het ophalen nog iets bij, dan meteen door
+    if (detailRij.current.length && mounted.current) { draaiDetails(); return; }
+    detailLoopt.current = false;
+    if (mounted.current) setDetailsLaden(false);
+  };
+  const vraagDetails = (ids) => {
+    if (!tmdbKey || !actief) return;
+    const nieuw = ids.filter((id) => !isVers(details[id]) && !detailGeprobeerd.current.has(id));
+    if (!nieuw.length) return;
+    nieuw.forEach((id) => detailGeprobeerd.current.add(id));
+    detailRij.current.push(...nieuw);
+    if (!detailLoopt.current) draaiDetails();
+  };
 
   const taste = useMemo(
     () => buildTaste({ watchlist, ratedFilms, meta, shortlist, skipped }),
@@ -163,32 +230,42 @@ export function useForYou(app, actief) {
   }, [actief, tmdbKey, seedSig, dirSig, enrich.running, blendTick]);
 
   // Thema-jacht: films die jouw top-thema's delen, automatisch zodra die
-  // bestaan. Per thema-signatuur, en pas als er niets meer verrijkt wordt
-  // (tijdens het verrijken schuiven de thema's nog).
-  const themaSig = (taste.topThemes || []).slice(0, 5).map((t) => t.id).join(',');
+  // bestaan. We jagen op páren thema's die allebei in de film moeten zitten:
+  // op één los trefwoord ("florida", "fire") kwam elke klassieker binnen.
+  // Met maar één thema jagen we op dat ene. Per thema-signatuur, en pas als er
+  // niets meer verrijkt wordt (tijdens het verrijken schuiven de thema's nog).
+  const themaJachten = () => {
+    const top = (taste.topThemes || []).slice(0, 4);
+    if (top.length < 2) return top.map((t) => ({ ids: [t.id], namen: [t.name] }));
+    // sterke thema's (4+ van je favorieten) mogen ook los
+    const los = top.filter((t) => (t.films || 0) >= 4).map((t) => ({ ids: [t.id], namen: [t.name] }));
+    const paren = [];
+    for (let i = 0; i < top.length; i++) {
+      for (let j = i + 1; j < top.length; j++) paren.push({ ids: [top[i].id, top[j].id], namen: [top[i].name, top[j].name] });
+    }
+    return [...los, ...paren];
+  };
+  const jaag = async (key, page) => {
+    let fout = false;
+    const lijsten = await Promise.all(themaJachten().map((j) => discoverByKeywords(key, j.ids, { minVotes: 40, page, alle: true })
+      // Merk elke treffer met de thema's waarop gejaagd is, zodat de kaart kan uitleggen waarom
+      .then((d) => d.results.map((r) => ({ ...r, viaTheme: j.namen })))
+      .catch(() => { fout = true; return []; })));
+    return { films: lijsten.reduce((acc, l) => voegNieuweToe(acc, l), []), fout };
+  };
+  const themaSig = (taste.topThemes || []).slice(0, 4).map((t) => t.id).join(',');
   useEffect(() => {
     const key = tmdbKey;
     if (!key || !actief || !themaSig || enrich.running || themaGeladen.current === themaSig) return;
     const sig = themaSig;
     themaGeladen.current = sig;
-    const ids = sig.split(',').map(Number);
-    const themeNamen = (taste.topThemes || []).slice(0, 5).map((t) => t.name);
     (async () => {
-      try {
-        const [a, b] = await Promise.all([
-          discoverByKeywords(key, ids, { minVotes: 40, page: 1 }),
-          discoverByKeywords(key, ids, { minVotes: 40, page: 2 }).catch(() => ({ results: [] })),
-        ]);
-        if (!mounted.current || themaGeladen.current !== sig) return; // ingehaald door nieuwere thema's
-        // Merk elke treffer met de thema's waarop gejaagd is, zodat de kaart
-        // kan uitleggen wáárom hij is aanbevolen.
-        const merk = (r) => ({ ...r, viaTheme: themeNamen });
-        setThemeCands([...a.results.map(merk), ...b.results.map(merk)]);
-        setThemaPage(2);
-      } catch {
-        // mislukt: bij een volgende aanleiding (bijv. einde verrijking) opnieuw proberen
-        if (themaGeladen.current === sig) themaGeladen.current = '';
-      }
+      const { films, fout } = await jaag(key, 1);
+      if (!mounted.current || themaGeladen.current !== sig) return; // ingehaald door nieuwere thema's
+      // alles mislukt: bij een volgende aanleiding (bijv. einde verrijking) opnieuw proberen
+      if (fout && !films.length) { themaGeladen.current = ''; return; }
+      setThemeCands(films);
+      setThemaPage(1);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tmdbKey, actief, themaSig, enrich.running]);
@@ -230,12 +307,10 @@ export function useForYou(app, actief) {
         },
       }));
     } else if (rij.type === 'thema') {
-      const kwIds = (taste.topThemes || []).map((t) => t.id);
-      if (!kwIds.length) return;
+      if (!(taste.topThemes || []).length) return;
       const page = themaPage + 1;
-      const d = await discoverByKeywords(tmdbKey, kwIds, { minVotes: 40, page }).catch(() => ({ results: [] }));
-      const merk = (r) => ({ ...r, viaTheme: (taste.topThemes || []).slice(0, 3).map((t) => t.name) });
-      setThemeCands((prev) => voegNieuweToe(prev, (d.results || []).map(merk)));
+      const { films } = await jaag(tmdbKey, page);
+      setThemeCands((prev) => voegNieuweToe(prev, films));
       setThemaPage(page);
     } else if (rij.type !== 'oeuvre') {
       await laadVers();
@@ -291,7 +366,15 @@ export function useForYou(app, actief) {
     profielCands.forEach((r) => voegToe(r, 0.7, 'profiel', null));
     themeCands.forEach((r) => voegToe(r, 0.85, 'thema', null));
 
-    const list = [...agg.values()].map((r) => {
+    const topThemaNamen = new Map((taste.topThemes || []).map((t) => [t.id, t.name]));
+    const list = [...agg.values()].map((kaal) => {
+      // Met details: echte looptijd, genres, trefwoorden (thema-match) en aanbod
+      const d = isVers(details[kaal.id]) ? details[kaal.id] : null;
+      const r = d ? {
+        ...kaal,
+        runtime: d.runtime, keywords: d.keywords, flat: d.flat, jwLink: d.jwLink, imdbId: d.imdbId, director: d.director,
+        genres: d.genres?.length ? d.genres : kaal.genres,
+      } : kaal;
       const m = matchScore(r, taste);
       let redenen = m.redenen;
       // Via de thema-jacht gevonden en de score gaf zelf geen thema-reden
@@ -299,7 +382,9 @@ export function useForYou(app, actief) {
       if (r.viaTheme?.length && !redenen.some((x) => /thema/i.test(x))) {
         redenen = [tr('verken.foundOnThemes', { themes: r.viaTheme.slice(0, 3).join(', ') }), ...redenen];
       }
-      return { ...r, match: m.score, redenen, recept: m.recept };
+      // Welke van jouw top-thema's deze film aantoonbaar deelt (alleen met details)
+      const gedeeldeThemas = r.keywords ? r.keywords.filter((k) => topThemaNamen.has(k.id)).map((k) => topThemaNamen.get(k.id)) : null;
+      return { ...r, match: m.score, redenen, recept: m.recept, gedeeldeThemas };
     });
 
     return {
@@ -308,7 +393,7 @@ export function useForYou(app, actief) {
       seedFilms: gewogenSeeds.filter((s) => (s.rating || 0) >= 4.5),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchlist, meta, ratedFilms, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, taste, lang]);
+  }, [watchlist, meta, ratedFilms, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, taste, details, regio, lang]);
 
-  return { taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer };
+  return { taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden };
 }

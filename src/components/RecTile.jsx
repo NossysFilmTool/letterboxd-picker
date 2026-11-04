@@ -5,9 +5,11 @@ import { useT } from '../lib/i18n.js';
 // Eén aanbeveling als poster-tegel. Klik opent de filmkaart; ＋ en ✕ geven
 // direct feedback (shortlist / niet voor mij), waarna de volgende film uit
 // dezelfde rij vanzelf op deze plek schuift.
-export default function RecTile({ film: r, i = 0, onOpen, onShortlist, onSkip }) {
+export default function RecTile({ film: r, i = 0, dienst = '', onOpen, onShortlist, onSkip }) {
   const { t: tr, lang } = useT();
   const score = r.vote ? (lang === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote)) : null;
+  // Waar is hij nu te streamen? De gekozen dienst als die erbij zit, anders de eerste.
+  const prov = r.flat?.length ? (dienst && dienst !== '*' && r.flat.includes(dienst) ? dienst : r.flat[0]) : null;
   return (
     <div className="rec-tile" style={{ '--i': Math.min(i, 12) }}>
       <div className="poster">
@@ -29,6 +31,7 @@ export default function RecTile({ film: r, i = 0, onOpen, onShortlist, onSkip })
       <button type="button" className="tile-cap" onClick={() => onOpen(r)} tabIndex={-1}>
         <span className="t">{r.title}</span>
         {r.year ? <span className="yr">{r.year}</span> : null}
+        {prov ? <span className="tile-prov" title={tr('winner.nowOn', { p: r.flat.join(', ') })}><span className="livedot" aria-hidden="true" />{prov}</span> : null}
       </button>
     </div>
   );

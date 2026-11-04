@@ -4,7 +4,7 @@ import { RAAM } from '../lib/foryou.js';
 import RecTile from './RecTile.jsx';
 
 // Eén rij-met-reden: kop (klikbaar naar "Alles bekijken") en een strook tegels.
-export default function RecRow({ titel, rij, totaal, onAlles, onOpen, onShortlist, onSkip }) {
+export default function RecRow({ titel, rij, totaal, dienst, onAlles, onOpen, onShortlist, onSkip }) {
   const { t: tr } = useT();
   return (
     <section className="rec-row">
@@ -16,7 +16,7 @@ export default function RecRow({ titel, rij, totaal, onAlles, onOpen, onShortlis
       </div>
       <div className="rec-strip">
         {rij.films.slice(0, RAAM).map((r, i) => (
-          <RecTile key={r.id} film={r} i={i} onOpen={onOpen} onShortlist={onShortlist} onSkip={onSkip} />
+          <RecTile key={r.id} film={r} i={i} dienst={dienst} onOpen={onOpen} onShortlist={onShortlist} onSkip={onSkip} />
         ))}
       </div>
     </section>

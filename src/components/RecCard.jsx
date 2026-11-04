@@ -6,7 +6,7 @@ import ImdbA from './ImdbA.jsx';
 
 // De uitgebreide aanbevelingskaart van "Alles bekijken": waarom de film er
 // staat, de match met het uitklapbare recept, en alle acties.
-export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdbKey, receptOpen, onToggleRecept, onOpen, onShortlist, onSkip, onSimilar }) {
+export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdbKey, dienst = '', receptOpen, onToggleRecept, onOpen, onShortlist, onSkip, onSimilar }) {
   const { t: tr, lang } = useT();
   const fmt = (v) => (lang === 'nl' ? String(v).replace('.', ',') : String(v));
 
@@ -40,9 +40,16 @@ export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdb
         </button>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 2 }}>
           {r.year || tr('match.yearUnknown')}
+          {r.runtime ? ` · ${r.runtime} min` : ''}
           {r.vote ? <> · <Star size={12} style={{ verticalAlign: -1, color: 'var(--dot-o)' }} /> {fmt(r.vote)}{r.votes != null ? <span style={{ color: 'var(--fog-dim)' }}> ({tr('match.votesShort', { count: r.votes, n: r.votes >= 1000 ? `${Math.round(r.votes / 1000)}k` : r.votes })})</span> : null}</> : null}
           {sterk && <span className="chip on-b" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>{tr('zoek.matchPct', { pct: r.match })}</span>}
         </p>
+        {r.flat?.length > 0 && (
+          <p className="card-prov">
+            <span className="livedot" aria-hidden="true" />
+            {tr('winner.nowOn', { p: (dienst && dienst !== '*' && r.flat.includes(dienst) ? [dienst, ...r.flat.filter((p) => p !== dienst)] : r.flat).slice(0, 3).join(', ') })}
+          </p>
+        )}
         <p className="why">
           {hoofdreden}
           {r.bronnen.length > 1 ? tr('verken.viaRoutes', { count: r.bronnen.length }) : ''}

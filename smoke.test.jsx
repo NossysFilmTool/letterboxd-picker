@@ -170,6 +170,27 @@ describe('V2 smoke', () => {
     expect(bouwRecept(list.slice(0, 3), { seedFilms, taste, dag: 0 })).toEqual([]);
   });
 
+  it('voor jou: de thema-rij vraagt twee gedeelde thema\'s, en het label noemt ze', async () => {
+    const { bouwRecept } = await import('./src/lib/foryou.js');
+    let id = 0;
+    const film = (gedeeldeThemas) => ({ id: ++id, vote: 7.4, votes: 3000, match: 70, waarde: 1, bronnen: ['thema'], seeds: [], genre_ids: [18], gedeeldeThemas });
+    const taste = { genres: {}, topThemes: [{ id: 1, name: 'grief' }, { id: 2, name: 'loneliness' }, { id: 3, name: 'florida' }] };
+    // vijf films die twee thema's delen, vijf die er maar één delen (alleen "florida")
+    const list = [...Array.from({ length: 5 }, () => film(['grief', 'loneliness'])), ...Array.from({ length: 5 }, () => film(['florida']))];
+    const thema = bouwRecept(list, { taste, dag: 0 }).find((r) => r.type === 'thema');
+    expect(thema.films.length).toBe(5);
+    expect(thema.films.every((f) => f.gedeeldeThemas.length === 2)).toBe(true);
+    expect(thema.themas).toEqual(['grief', 'loneliness']);
+    // een sterk thema (op 4+ van je favorieten) telt ook in zijn eentje
+    const sterk = { ...taste, topThemes: [{ id: 4, name: 'coming of age', films: 5 }, ...taste.topThemes] };
+    const losse = Array.from({ length: 5 }, () => film(['coming of age']));
+    const alles = [...list, ...losse];
+    const rij = bouwRecept(alles, { taste: sterk, dag: 0 }).find((r) => r.type === 'thema');
+    // de reden van de rij (ook gebruikt door "Alles bekijken"): paren én het sterke thema, geen losse florida
+    expect(alles.filter(rij.past).length).toBe(10);
+    expect(alles.filter(rij.past).some((f) => f.gedeeldeThemas.includes('florida') && f.gedeeldeThemas.length === 1)).toBe(false);
+  });
+
   it('rijen: binnen een rij wint aanbevelingssterkte van een hoge match op een zwakke route', async () => {
     const { sorteerOpSterkte, plekGewicht } = await import('./src/lib/rows.js');
     expect(plekGewicht(0, 10)).toBe(1);
@@ -365,49 +386,37 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).not.toContain('Gezienefilm');
   });
 
-  it('stemmingen: filterMoods sluit tegengestelde genres hard uit', async () => {
-    const { filterMoods } = await import('./src/lib/moods.js');
-    const komedie = { id: 1, genre_ids: [35] };
-    const horror = { id: 2, genre_ids: [27] };
-    const oorlog = { id: 3, genre_ids: [10752] };
-    // "iets luchtigs" gooit horror en oorlog eruit, niet alleen omlaag
-    let r = filterMoods([komedie, horror, oorlog], { active: ['light'] });
-    expect(r.map((f) => f.id)).toEqual([1]);
-    // "iets duisters" gooit de pure komedie eruit
-    r = filterMoods([komedie, horror], { active: ['dark'] });
-    expect(r.map((f) => f.id)).toEqual([2]);
-    // focus op genre 27 houdt alleen horror over
-    r = filterMoods([komedie, horror, oorlog], { focusGenres: [27] });
-    expect(r.map((f) => f.id)).toEqual([2]);
-    // "korter" gooit een lange film (>125 min) eruit
-    r = filterMoods([{ id: 4, genre_ids: [18], runtime: 180 }, { id: 5, genre_ids: [18], runtime: 95 }], { active: ['short'] });
-    expect(r.map((f) => f.id)).toEqual([5]);
-    // zonder stemming blijft alles staan
-    expect(filterMoods([komedie, horror], {}).length).toBe(2);
+  it('voor jou: filters op genre, looptijd en dienst, en korte films vallen uit de rijen', async () => {
+    const { pastFilter, degelijk } = await import('./src/lib/foryou.js');
+    const drama = { id: 1, genre_ids: [18], runtime: 95, flat: ['Netflix'] };
+    const lang = { id: 2, genre_ids: [18], runtime: 160, flat: [] };
+    const onbekend = { id: 3, genre_ids: [35] }; // nog geen details
+    // genre
+    expect(pastFilter(drama, { genre: '18' })).toBe(true);
+    expect(pastFilter(onbekend, { genre: '18' })).toBe(false);
+    // kort: alleen met bekende looptijd tot 105 minuten
+    expect(pastFilter(drama, { kort: true })).toBe(true);
+    expect(pastFilter(lang, { kort: true })).toBe(false);
+    expect(pastFilter(onbekend, { kort: true })).toBe(false);
+    // dienst: '*' is elke dienst, een naam is precies die dienst
+    expect(pastFilter(drama, { dienst: '*' })).toBe(true);
+    expect(pastFilter(lang, { dienst: '*' })).toBe(false);
+    expect(pastFilter(drama, { dienst: 'Netflix' })).toBe(true);
+    expect(pastFilter(drama, { dienst: 'Videoland' })).toBe(false);
+    // zonder filters past alles
+    expect(pastFilter(onbekend, {})).toBe(true);
+    // een segment van 8 minuten hoort niet in de rijen; onbekende looptijd wel
+    expect(degelijk({ vote: 7.5, votes: 900, runtime: 8 })).toBe(false);
+    expect(degelijk({ vote: 7.5, votes: 900 })).toBe(true);
   });
 
-  it('stemmingen: applyMoods herweegt op licht/donker, kort, gewaardeerd en focus', async () => {
-    const { applyMoods } = await import('./src/lib/moods.js');
-    const komedie = { id: 1, match: 60, genre_ids: [35], vote: 6.5, runtime: 95 };
-    const horror = { id: 2, match: 60, genre_ids: [27], vote: 8, runtime: 130 };
-    // "iets luchtigs" tilt de komedie boven de horror
-    let r = applyMoods([komedie, horror], { active: ['light'] }).sort((a, b) => b.moodScore - a.moodScore);
-    expect(r[0].id).toBe(1);
-    // "iets duisters" draait het om
-    r = applyMoods([komedie, horror], { active: ['dark'] }).sort((a, b) => b.moodScore - a.moodScore);
-    expect(r[0].id).toBe(2);
-    // "korter" beloont de 95-minuten film boven de 130-minuten film
-    r = applyMoods([horror, komedie], { active: ['short'] }).sort((a, b) => b.moodScore - a.moodScore);
-    expect(r[0].id).toBe(1);
-    // "hoog gewaardeerd" beloont de 8.0 boven de 6.5
-    r = applyMoods([komedie, horror], { active: ['acclaimed'] }).sort((a, b) => b.moodScore - a.moodScore);
-    expect(r[0].id).toBe(2);
-    // focus op genre 27 (horror) duwt de komedie omlaag
-    r = applyMoods([komedie, horror], { focusGenres: [27] }).sort((a, b) => b.moodScore - a.moodScore);
-    expect(r[0].id).toBe(2);
-    // zonder stemming verandert de volgorde niet t.o.v. match
-    r = applyMoods([komedie, horror], {});
-    expect(r.every((f) => typeof f.moodScore === 'number')).toBe(true);
+  it('taste: te algemene trefwoorden worden geen thema', async () => {
+    const { buildTaste } = await import('./src/lib/taste.js');
+    const kw = [{ id: 970, name: 'parent child relationship' }, { id: 90, name: 'loneliness' }];
+    const rf = [1, 2, 3].map((n) => ({ key: `f${n}|2015`, year: 2015, rating: 5 }));
+    const meta = Object.fromEntries(rf.map((f) => [f.key, { genres: ['Drama'], keywords: kw, votes: 2000 }]));
+    const t = buildTaste({ watchlist: [], ratedFilms: rf, meta });
+    expect(t.topThemes.map((x) => x.name)).toEqual(['loneliness']);
   });
 
   it('voor jou: het genre-filter beperkt de rijen en is terug te zetten', () => {
@@ -428,10 +437,68 @@ describe('V2 smoke', () => {
     // alleen komedie: de drama-regisseur valt weg, met een duidelijke melding
     fireEvent.change(screen.getByLabelText('Filter op genre'), { target: { value: '35' } });
     expect(screen.queryByText('Meer van Testregisseur')).toBeNull();
-    expect(screen.getByText('Geen suggesties in dit genre')).toBeTruthy();
-    // terug naar alle genres
-    fireEvent.click(screen.getByRole('button', { name: 'Alle genres' }));
+    expect(screen.getByText('Geen suggesties met deze filters')).toBeTruthy();
+    // filters wissen brengt de rij terug
+    fireEvent.click(screen.getByRole('button', { name: 'Filters wissen' }));
     expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
+  });
+
+  it('voor jou: details van kandidaten voeden "Kort", de dienstkeuze en de streaming-hint', async () => {
+    const calls = [];
+    const kortIds = [601, 603, 605];
+    const netflixIds = [601, 602];
+    global.fetch = async (url) => {
+      const u = new URL(String(url));
+      const p = u.pathname.replace(/^\/3/, '');
+      calls.push(p);
+      const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+      const m = p.match(/^\/movie\/(60\d)$/);
+      if (m) {
+        const id = Number(m[1]);
+        return json({
+          id, title: `Seed Film ${id - 600}`, release_date: '2010-01-01', runtime: kortIds.includes(id) ? 95 : 140,
+          genres: [{ id: 18, name: 'Drama' }], vote_average: 7.2, vote_count: 2500, credits: { crew: [] }, videos: { results: [] },
+          recommendations: { results: [] }, keywords: { keywords: [] }, production_countries: [],
+          'watch/providers': { results: netflixIds.includes(id) ? { NL: { flatrate: [{ provider_name: 'Netflix' }], link: 'https://www.justwatch.com/nl/film/x' } } : {} },
+        });
+      }
+      return json({ results: [], total_pages: 1 });
+    };
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const recFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 600 + n, title: `Seed Film ${n}`, year: 2005 + n, poster: `/s${n}.jpg`, vote: 7.2, votes: 2500, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now(), recs: recFilms },
+      'b|2019': { id: 2, poster: '/b.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+      'c|2018': { id: 3, poster: '/c.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+      'd|2017': { id: 4, poster: '/d.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+    }));
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
+      // de details komen binnen: twee tegels tonen dat ze op Netflix staan
+      await waitFor(() => expect(document.querySelectorAll('.tile-prov').length).toBe(2));
+      expect(calls).toContain('/movie/601');
+      // kort: de films van 140 minuten vallen weg (te weinig voor een rij, dus de kaartenlijst)
+      fireEvent.click(screen.getByText('Kort (< 1u45)'));
+      expect(screen.getByText('Seed Film 1')).toBeTruthy();
+      expect(screen.getByText('Seed Film 3')).toBeTruthy();
+      expect(screen.queryByText('Seed Film 2')).toBeNull();
+      expect(document.body.textContent).toContain('95 min');
+      // plus alleen Netflix: één film over, met het aanbod op de kaart
+      fireEvent.change(screen.getByLabelText('Filter op streamingdienst'), { target: { value: 'Netflix' } });
+      expect(screen.getByText('Seed Film 1')).toBeTruthy();
+      expect(screen.queryByText('Seed Film 3')).toBeNull();
+      expect(document.body.textContent).toContain('Nu op Netflix');
+    } finally {
+      delete global.fetch;
+    }
   });
 
   it('verken: rijen-met-reden tonen een oeuvre-rij met kop en posters', () => {
