@@ -552,6 +552,12 @@ describe('V2 smoke', () => {
     expect(m.genoeg).toBe(true);
     expect(m.gevonden).toBe(5);
     expect(m.pct).toBe(100);
+    // de diagnose: alle favorieten hebben data, iedereen is bereikbaar, met aanbevelingen
+    expect(m.diagnose.favorietenMetData).toBe(5);
+    expect(m.diagnose.favorietenTotaal).toBe(5);
+    expect(m.diagnose.metAanbevelingen).toBe(5);
+    expect(m.diagnose.mediaanPositie).toBe(1);
+    expect(m.diagnose.stemmenFavorieten).toBe(null); // geen stemmen in de testdata
     // te weinig favorieten: geen meting
     expect(meetlat({ watchlist: [], meta, ratedFilms: ratedFilms.slice(0, 4) }).genoeg).toBe(false);
   });
@@ -571,6 +577,10 @@ describe('V2 smoke', () => {
     fireEvent.click(screen.getByText('Meet het'));
     expect(document.body.textContent).toMatch(/\d+ van \d+ favorieten teruggevonden in de top 50/);
     expect(screen.getByText('Meet opnieuw')).toBeTruthy();
+    // de diagnose laat zien waar het zit: bereik of rangschikking
+    expect(screen.getByText('Diagnose')).toBeTruthy();
+    expect(document.body.textContent).toMatch(/Bereik: \d+ van de \d+ verborgen favorieten/);
+    expect(document.body.textContent).toMatch(/Rangschikking: mediaanpositie #/);
   });
 
   it('voor jou: je kiest je diensten en krijgt een rij "Nu op ..., voor jou"', async () => {

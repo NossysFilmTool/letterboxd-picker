@@ -170,10 +170,8 @@ export function meetlat({
   const proef = favorieten.length <= maxProef
     ? favorieten
     : Array.from({ length: maxProef }, (_, i) => favorieten[Math.floor(i * stap)]);
-  const perFilm = [];
-  for (const film of proef) {
-    const verborgen = [film];
-    const weg = new Set([film.key]);
+  // Eén ronde: de aanbevelingen opbouwen zonder de films in `weg`
+  const ronde = (weg) => {
     const metaZonder = Object.fromEntries(Object.entries(meta).filter(([k]) => !weg.has(k)));
     const wl = watchlist.filter((f) => !weg.has(f.key));
     const rf = ratedFilms.filter((f) => !weg.has(f.key));
@@ -186,13 +184,43 @@ export function meetlat({
       watchlist: wl, meta: metaZonder, ratedFilms: rf, ratings: rt, seenSet: seen, oeuvres, details, regio,
       taste, seeds, regisseurs, opties,
     });
-    const rang = new Map(sorteerOpSterkte(recs.filter(degelijk)).map((f, i) => [f.id, i]));
-    verborgen.forEach((f) => {
-      const id = meta[f.key].id;
-      perFilm.push({ name: f.name, year: f.year, positie: rang.has(id) ? rang.get(id) + 1 : null });
-    });
+    return { gerangschikt: sorteerOpSterkte(recs.filter(degelijk)), seeds, regisseurs };
+  };
+  const perFilm = [];
+  let poelTotaal = 0;
+  for (const film of proef) {
+    const { gerangschikt } = ronde(new Set([film.key]));
+    poelTotaal += gerangschikt.length;
+    const rang = new Map(gerangschikt.map((f, i) => [f.id, i]));
+    const id = meta[film.key].id;
+    perFilm.push({ name: film.name, year: film.year, votes: meta[film.key].votes ?? null, positie: rang.has(id) ? rang.get(id) + 1 : null });
   }
   const gevonden = perFilm.filter((p) => p.positie != null && p.positie <= topN).length;
+
+  // Diagnose: waar zit het, bij het bereik of bij de rangschikking?
+  const mediaan = (lijst) => {
+    const s = lijst.filter((v) => v != null).sort((a, b) => a - b);
+    return s.length ? s[Math.floor(s.length / 2)] : null;
+  };
+  const alles = alleRatings({ watchlist, ratings, ratedFilms });
+  const volledig = ronde(new Set());
+  const diagnose = {
+    favorietenTotaal: alles.filter((f) => f.rating >= 4.5).length,
+    favorietenMetData: favorieten.length,
+    seedsTotaal: alles.filter((f) => f.rating >= 4).length,
+    seedsMetData: volledig.seeds.length,
+    metAanbevelingen: volledig.seeds.filter((s) => meta[s.key]?.recs?.length).length,
+    metVergelijkbaar: volledig.seeds.filter((s) => meta[s.key]?.sims?.length).length,
+    regisseurs: volledig.regisseurs.length,
+    regisseursMetOeuvre: volledig.regisseurs.filter((r) => oeuvres[r.naam]?.films?.length).length,
+    mediaanPositie: mediaan(perFilm.map((p) => p.positie)),
+    poel: Math.round(poelTotaal / proef.length),
+    // Bekendheid: hoeveel TMDB-stemmen de top van Voor jou heeft, tegen je favorieten.
+    // Veel hoger = de motor trekt naar populaire films.
+    stemmenTop: mediaan(volledig.gerangschikt.slice(0, topN).map((f) => f.votes)),
+    stemmenFavorieten: mediaan(favorieten.map((f) => meta[f.key].votes)),
+    proef: proef.length,
+  };
   return {
     genoeg: true,
     favorieten: favorieten.length,
@@ -200,6 +228,7 @@ export function meetlat({
     pct: Math.round((100 * gevonden) / perFilm.length),
     inPoel: perFilm.filter((p) => p.positie != null).length,
     topN,
+    diagnose,
     perFilm: perFilm.sort((a, b) => (a.positie ?? 1e9) - (b.positie ?? 1e9)),
   };
 }

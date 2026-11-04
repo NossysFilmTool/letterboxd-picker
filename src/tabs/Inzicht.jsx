@@ -215,6 +215,22 @@ export default function Inzicht({ app }) {
                 {tr('inzicht.meetGevonden')} {meting.perFilm.filter((p) => p.positie != null && p.positie <= meting.topN).slice(0, 6).map((p) => `${p.name} (#${p.positie})`).join(', ')}
               </p>
             )}
+            {meting.diagnose && (() => {
+              const d = meting.diagnose;
+              const n = (v) => (v == null ? '?' : Number(v).toLocaleString(lang));
+              return (
+                <div className="meet-diagnose">
+                  <p className="label" style={{ marginBottom: 6 }}>{tr('inzicht.meetDiagnose')}</p>
+                  <ul>
+                    <li>{tr('inzicht.meetDekking', { fav: n(d.favorietenMetData), favTotaal: n(d.favorietenTotaal), seeds: n(d.seedsMetData), seedsTotaal: n(d.seedsTotaal) })}</li>
+                    <li>{tr('inzicht.meetBereik', { inPoel: meting.inPoel, n: d.proef })}</li>
+                    <li>{tr('inzicht.meetMediaan', { pos: n(d.mediaanPositie), poel: n(d.poel) })}</li>
+                    <li>{tr('inzicht.meetBronnen', { recs: n(d.metAanbevelingen), sims: n(d.metVergelijkbaar), oeuvres: n(d.regisseursMetOeuvre), regisseurs: n(d.regisseurs) })}</li>
+                    <li>{tr('inzicht.meetBekendheid', { top: n(d.stemmenTop), fav: n(d.stemmenFavorieten) })}</li>
+                  </ul>
+                </div>
+              );
+            })()}
           </div>
         )}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
