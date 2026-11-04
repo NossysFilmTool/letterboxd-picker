@@ -1,7 +1,8 @@
 // "Voor jou": het vaste rijrecept. Puur en testbaar.
 //
-// Hooguit zes rijen, elk met een eigen reden:
-//   Top voor jou        de sterkste films uit alle bronnen
+// Hooguit zeven rijen, elk met een eigen reden:
+//   Top voor jou        de sterkste films uit alle bronnen, kruisbevestigd eerst
+//   Nu op je diensten   wat op jouw streamingdiensten staat en bij je past
 //   Omdat je X ...      twee van je favorieten, wisselend per dag
 //   Meer van Y          één regisseur achter je favorieten, wisselend per dag
 //   Verborgen parels    goed beoordeeld, weinig stemmen
@@ -33,12 +34,13 @@ export const degelijk = (f) => (f.votes == null || f.votes >= 50)
 
 // De filters van Voor jou. Looptijd en streamingaanbod komen uit de
 // kandidaat-details; zolang die er niet zijn, telt een film niet als passend.
-//   dienst: '' (maakt niet uit), '*' (elke dienst) of een dienstnaam
-export function pastFilter(f, { genre = '', kort = false, dienst = '' } = {}) {
+//   dienst: '' (maakt niet uit), '*' (elke dienst), '~mijn' (jouw diensten) of een dienstnaam
+export function pastFilter(f, { genre = '', kort = false, dienst = '', mijnDiensten = [] } = {}) {
   if (genre && !(f.genre_ids || []).includes(Number(genre))) return false;
   if (kort && !(f.runtime && f.runtime <= 105)) return false;
   if (dienst === '*' && !f.flat?.length) return false;
-  if (dienst && dienst !== '*' && !f.flat?.includes(dienst)) return false;
+  if (dienst === '~mijn' && !f.flat?.some((p) => mijnDiensten.includes(p))) return false;
+  if (dienst && dienst !== '*' && dienst !== '~mijn' && !f.flat?.includes(dienst)) return false;
   return true;
 }
 
@@ -59,7 +61,7 @@ const genreNamen = (f) => (f.genre_ids || []).map((id) => GENRE_EN[id]).filter(B
 //   seedFilms:  je 4,5★+-favorieten [{ key, name }], sterkste eerst
 //   regisseurs: namen, sterkste eerst
 //   taste:      smaakprofiel (voor "Buiten je bubbel")
-export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, ronde = 0, dag = dagNummer(), max = 6 } = {}) {
+export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, mijnDiensten = [], ronde = 0, dag = dagNummer(), max = 7 } = {}) {
   const pool = list.filter(degelijk);
   const gebruikt = new Set();
   const vrij = (f) => !gebruikt.has(f.id);
@@ -73,14 +75,35 @@ export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, 
   const stap = dag + ronde;
 
   // 1. Top voor jou: de sterkste films, met een strengere kwaliteitslat. Hooguit
-  // een derde van de poel, zodat de andere rijen ook iets overhouden.
+  // een derde van de poel, zodat de andere rijen ook iets overhouden. Films die
+  // via meerdere routes binnenkomen (kruisbevestiging) gaan voor; zijn dat er
+  // te weinig, dan vult de rest aan.
   let top = null;
   const topGrootte = Math.min(RAAM, Math.floor(pool.length / 3));
-  const topFilms = sorteerOpSterkte(pool.filter((f) => gedempt(f) >= 6.8)).slice(0, topGrootte);
+  const topKandidaten = pool.filter((f) => gedempt(f) >= 6.8);
+  const bevestigd = sorteerOpSterkte(topKandidaten.filter((f) => f.bevestigd));
+  const overig = sorteerOpSterkte(topKandidaten.filter((f) => !f.bevestigd));
+  // Spreiding: hooguit 3 films per regisseur of per favoriet, anders is de
+  // Top bij een geliefde regisseur alleen nog zijn oeuvre
+  const perBron = {};
+  const topFilms = [];
+  for (const f of [...bevestigd, ...overig]) {
+    if (topFilms.length >= topGrootte) break;
+    const bron = f.bronnen?.find((b) => b.startsWith('oeuvre:')) || (f.seeds?.[0] ? `seed:${f.seeds[0]}` : 'overig');
+    if ((perBron[bron] || 0) >= 3 && bron !== 'overig') continue;
+    perBron[bron] = (perBron[bron] || 0) + 1;
+    topFilms.push(f);
+  }
   if (topFilms.length >= 4) {
     topFilms.forEach((f) => gebruikt.add(f.id));
     top = { id: 'top', type: 'top', films: topFilms, past: () => true };
   }
+
+  // 1b. Nu op jouw diensten: wat daar staat (via discover op je diensten, of
+  // volgens de details van een aanbeveling) en bij je past
+  const mijn = new Set(mijnDiensten);
+  const opDienst = (f) => !!(f.bronnen?.includes('dienst') || f.flat?.some((p) => mijn.has(p)));
+  const dienst = mijn.size ? maak('dienst', 'dienst', opDienst, { diensten: mijnDiensten }) : null;
 
   // 2. Twee favorieten, wisselend: alleen favorieten met genoeg eigen films doen mee
   const doorSeed = (naam) => (f) => !!f.seeds?.includes(naam);
@@ -124,7 +147,7 @@ export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, 
     })
     : null;
 
-  let rijen = [top, seed1, oeuvre, parels, seed2, thema, bubbel].filter(Boolean);
+  let rijen = [top, dienst, seed1, oeuvre, parels, seed2, thema, bubbel].filter(Boolean);
   // Weinig rijen: vul aan met de rest. Zonder één echte rij geven we niets
   // terug; dan toont Voor jou de lijst met uitgebreide kaarten.
   if (rijen.length > 0 && rijen.length < 3) {

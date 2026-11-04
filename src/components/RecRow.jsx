@@ -4,19 +4,22 @@ import { RAAM } from '../lib/foryou.js';
 import RecTile from './RecTile.jsx';
 
 // Eén rij-met-reden: kop (klikbaar naar "Alles bekijken") en een strook tegels.
-export default function RecRow({ titel, rij, totaal, dienst, onAlles, onOpen, onShortlist, onSkip }) {
+//   voorkeur: diensten die een tegel als eerste noemt
+//   actie:    optionele extra knop in de kop ({ label, onClick })
+export default function RecRow({ titel, rij, totaal, voorkeur = [], actie = null, onAlles, onOpen, onShortlist, onSkip }) {
   const { t: tr } = useT();
   return (
     <section className="rec-row">
       <div className="rec-row-head">
         <h3><button type="button" className="row-title" onClick={() => onAlles(rij)}>{titel}</button></h3>
+        {actie && <button type="button" className="row-actie" onClick={actie.onClick}>{actie.label}</button>}
         <button type="button" className="row-all" onClick={() => onAlles(rij)}>
           {tr('verken.seeAll', { count: totaal })} <ChevronRight size={14} aria-hidden="true" />
         </button>
       </div>
       <div className="rec-strip">
         {rij.films.slice(0, RAAM).map((r, i) => (
-          <RecTile key={r.id} film={r} i={i} dienst={dienst} onOpen={onOpen} onShortlist={onShortlist} onSkip={onSkip} />
+          <RecTile key={r.id} film={r} i={i} voorkeur={voorkeur} onOpen={onOpen} onShortlist={onShortlist} onSkip={onSkip} />
         ))}
       </div>
     </section>

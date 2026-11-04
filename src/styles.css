@@ -153,6 +153,10 @@ select.field { appearance: none; }
 .bar-row .bar-track { flex: 1; height: 8px; background: var(--char-2); border-radius: 4px; overflow: hidden; }
 .bar-row .bar-fill { height: 100%; border-radius: 4px; }
 .bar-row .bar-num { width: 34px; text-align: right; color: var(--fog-dim); font-variant-numeric: tabular-nums; }
+/* Inzicht: de meetlat van Voor jou */
+.meet-score { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.meet-score strong { font-family: var(--font-display); font-size: 34px; font-weight: 400; color: var(--dot-g); line-height: 1; }
+.meet-score span { font-size: 13.5px; color: var(--fog); }
 
 /* ---------- Posters ---------- */
 .poster {
@@ -403,6 +407,12 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 .rec-row-head .row-title:focus-visible, .rec-row-head .row-all:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px; border-radius: 4px; }
 .rec-row-head .row-all { margin-left: auto; flex-shrink: 0; background: none; border: none; padding: 2px 0; color: var(--fog); font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
 .rec-row-head .row-all:hover { color: var(--paper); }
+.rec-row-head .row-actie { margin-left: auto; flex-shrink: 0; background: none; border: none; padding: 2px 0; color: var(--fog-dim); font-size: 12px; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.rec-row-head .row-actie:hover { color: var(--paper); }
+.rec-row-head .row-actie + .row-all { margin-left: 12px; }
+.rec-row-head .row-actie:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px; border-radius: 4px; }
+/* De dienstenkiezer tussen de rijen */
+.dienst-kiezer { border-color: rgba(0, 224, 84, 0.3); }
 .rec-strip { display: flex; gap: 14px; overflow-x: auto; max-width: 100%; scroll-snap-type: x proximity; padding: 2px 2px 12px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .rec-strip::-webkit-scrollbar { height: 8px; }
 .rec-strip::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }

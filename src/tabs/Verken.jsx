@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { Fragment, useMemo, useState, useRef, useEffect } from 'react';
 import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw } from 'lucide-react';
 import { GENRES, genreLabelById, fetchDetailById } from '../lib/tmdb.js';
 import { sorteerOpSterkte } from '../lib/rows.js';
@@ -12,6 +12,7 @@ import Zoekmachine from './Zoekmachine.jsx';
 import Winner from '../components/Winner.jsx';
 import RecRow from '../components/RecRow.jsx';
 import RecCard from '../components/RecCard.jsx';
+import DienstKiezer from '../components/DienstKiezer.jsx';
 
 // Sorteeropties in "Alles bekijken"
 const SORTS = [['sterkte', 'verken.strongestRec'], ['match', 'sort.bestMatch'], ['score', 'sort.highestScore'], ['nieuw', 'sort.newest'], ['oud', 'sort.oldest']];
@@ -27,7 +28,15 @@ export default function Verken({ app }) {
   // Voor jou (ontdekken is het doel), zonder op Zoeken.
   const [gekozenMode, setMode] = useLS('verkenMode', null);
   const mode = gekozenMode || (Object.keys(meta).length ? 'voorJou' : 'zoeken');
-  const { taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden } = useForYou(app, mode === 'voorJou');
+  const {
+    taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden,
+    mijnDiensten, setMijnDiensten, dienstenKeuze,
+  } = useForYou(app, mode === 'voorJou');
+  // De dienstenkiezer: verschijnt zolang je nog geen diensten koos (tot "Niet
+  // nu"), en opnieuw via "Diensten wijzigen" op de dienstrij
+  const [kiezerWeg, setKiezerWeg] = useLS('dienstKiezerWeg', false);
+  const [kiesDiensten, setKiesDiensten] = useState(false);
+  const toonKiezer = !!tmdbKey && dienstenKeuze.length > 0 && (kiesDiensten || (!mijnDiensten.length && !kiezerWeg));
 
   const topRef = useRef(null);
   const [openFilm, setOpenFilm] = useState(null); // { light, detail? }
@@ -44,7 +53,7 @@ export default function Verken({ app }) {
   // wisselen zelden); genre en kort gelden per bezoek.
   const [genre, setGenre] = useState('');
   const [kort, setKort] = useState(false);
-  const [dienst, setDienst] = useLS('verkenDienst', ''); // '' | '*' (elke dienst) | dienstnaam
+  const [dienst, setDienst] = useLS('verkenDienst', ''); // '' | '*' (elke dienst) | '~mijn' | dienstnaam
   const filterActief = !!(genre || kort || dienst);
   const wachtOpDetails = (kort || !!dienst) && detailsLaden; // genre kan zonder details
   const wisFilters = () => { setGenre(''); setKort(false); setDienst(''); };
@@ -56,8 +65,8 @@ export default function Verken({ app }) {
   const [meerBezig, setMeerBezig] = useState(false);
 
   const gefilterd = useMemo(
-    () => (filterActief ? recs.filter((f) => pastFilter(f, { genre, kort, dienst })) : recs),
-    [recs, filterActief, genre, kort, dienst],
+    () => (filterActief ? recs.filter((f) => pastFilter(f, { genre, kort, dienst, mijnDiensten })) : recs),
+    [recs, filterActief, genre, kort, dienst, mijnDiensten],
   );
   // Diensten om op te filteren: wat je eigen bibliotheek en de kandidaten
   // het vaakst aanbieden in jouw regio (zoals bij Pick)
@@ -66,12 +75,14 @@ export default function Verken({ app }) {
     Object.values(meta).forEach((m) => m?.flat?.forEach((p) => { tel[p] = (tel[p] || 0) + 1; }));
     recs.forEach((f) => f.flat?.forEach((p) => { tel[p] = (tel[p] || 0) + 1; }));
     const top = Object.entries(tel).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([p]) => p);
-    return dienst && dienst !== '*' && !top.includes(dienst) ? [...top, dienst] : top;
+    return dienst && !['*', '~mijn'].includes(dienst) && !top.includes(dienst) ? [...top, dienst] : top;
   }, [meta, recs, dienst]);
   const rijen = useMemo(
-    () => bouwRecept(gefilterd, { seedFilms, regisseurs: regisseurs.map((r) => r.naam), taste, ronde }),
-    [gefilterd, seedFilms, regisseurs, taste, ronde],
+    () => bouwRecept(gefilterd, { seedFilms, regisseurs: regisseurs.map((r) => r.naam), taste, mijnDiensten, ronde }),
+    [gefilterd, seedFilms, regisseurs, taste, mijnDiensten, ronde],
   );
+  // Welke dienst noemt een tegel als eerste: de gefilterde, anders een van jouw diensten
+  const voorkeur = dienst && !['*', '~mijn'].includes(dienst) ? [dienst] : mijnDiensten;
 
   // De lijstweergave: "Alles bekijken" van één rij (live uit de kandidaten,
   // dus met wat je net ophaalde en zonder wat je afwees), of alles als er
@@ -184,9 +195,21 @@ export default function Verken({ app }) {
       case 'parels': return tr('verken.rowGems');
       case 'thema': return rij.themas?.length ? tr('verken.rowTheme', { themes: rij.themas.join(', ') }) : tr('verken.rowThemePlain');
       case 'bubbel': return tr('verken.rowBubble');
+      case 'dienst': {
+        const d = rij.diensten || [];
+        return tr('verken.rowServices', { services: d.length > 2 ? `${d.slice(0, 2).join(', ')} +${d.length - 2}` : d.join(tr('verken.and')) });
+      }
       default: return tr('verken.rowProfile');
     }
   };
+  const kiezer = toonKiezer ? (
+    <DienstKiezer
+      key="kiezer"
+      keuze={dienstenKeuze} gekozen={mijnDiensten}
+      onOpslaan={(sel) => { setMijnDiensten(sel); setKiesDiensten(false); }}
+      onLater={() => { if (kiesDiensten) setKiesDiensten(false); else setKiezerWeg(true); }}
+    />
+  ) : null;
   const totaalVan = (rij) => gefilterd.filter((f) => degelijk(f) && rij.past(f)).length;
 
   // De zoekmachine draait op een TMDB-sleutel alleen, zonder verrijkte bieb.
@@ -242,7 +265,7 @@ export default function Verken({ app }) {
         <RecCard
           key={r.id} r={r} i={i} sterk={taste.sterk} seededOnRatings={seededOnRatings}
           detail={detailCache.current.get(r.id) || (r.jwLink || r.imdbId ? { jwLink: r.jwLink, imdbId: r.imdbId } : undefined)}
-          tmdbKey={tmdbKey} dienst={dienst}
+          tmdbKey={tmdbKey} voorkeur={voorkeur}
           receptOpen={receptOpen === r.id} onToggleRecept={(id) => setReceptOpen(receptOpen === id ? null : id)}
           onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip} onSimilar={openSimilar}
         />
@@ -306,6 +329,7 @@ export default function Verken({ app }) {
           <select className="field" style={{ width: 'auto' }} value={dienst} onChange={(e) => setDienst(e.target.value)} aria-label={tr('verken.serviceFilter')}>
             <option value="">{tr('verken.serviceAny')}</option>
             <option value="*">{tr('verken.serviceStreaming')}</option>
+            {mijnDiensten.length > 0 && <option value="~mijn">{tr('verken.serviceMine')}</option>}
             {diensten.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           <button className={`chip ${kort ? 'on-o' : ''}`} onClick={() => setKort((v) => !v)} aria-pressed={kort}>{tr('verken.filterShort')}</button>
@@ -320,12 +344,18 @@ export default function Verken({ app }) {
         </div>
         {rijen.length > 0 ? (
           <div className="rec-rows">
-            {rijen.map((rij) => (
-              <RecRow
-                key={rij.id} titel={rijTitel(rij)} rij={rij} totaal={totaalVan(rij)} dienst={dienst}
-                onAlles={openAlles} onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip}
-              />
+            {rijen.map((rij, i) => (
+              <Fragment key={rij.id}>
+                {/* de dienstenkiezer staat direct onder de eerste rij */}
+                {i === 1 && kiezer}
+                <RecRow
+                  titel={rijTitel(rij)} rij={rij} totaal={totaalVan(rij)} voorkeur={voorkeur}
+                  actie={rij.type === 'dienst' && !kiesDiensten ? { label: tr('verken.servicesEdit'), onClick: () => setKiesDiensten(true) } : null}
+                  onAlles={openAlles} onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip}
+                />
+              </Fragment>
             ))}
+            {rijen.length === 1 && kiezer}
           </div>
         ) : gefilterd.length > 0 ? lijstWeergave : (
           <div className="empty card">

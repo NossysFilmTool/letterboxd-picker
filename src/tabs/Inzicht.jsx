@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { History, X, Sparkles } from 'lucide-react';
 import Winner from '../components/Winner.jsx';
 import { buildTaste } from '../lib/taste.js';
-import { GENRES, genreLabel } from '../lib/tmdb.js';
+import { GENRES, genreLabel, getRegion } from '../lib/tmdb.js';
+import { meetlat, STANDAARD_OPTIES } from '../lib/kandidaten.js';
+import { useLS } from '../lib/storage.js';
 
 function BarList({ items, color, max }) {
   return (
@@ -85,8 +87,16 @@ export default function Inzicht({ app }) {
   }, [watchlist, meta, ratings]);
 
   
+  // De meetlat van Voor jou: draait lokaal op wat al gecachet is
+  const [oeuvres] = useLS('oeuvres', {});
+  const [kandDetails] = useLS('kandDetails', {});
+  const [meting, setMeting] = useState(null);
+  const meet = () => setMeting(meetlat({
+    watchlist, meta, ratedFilms: ratedFilms || [], ratings: ratings || {}, seenSet, oeuvres, details: kandDetails, regio: getRegion(),
+  }));
+
   const smaak = useMemo(() => {
-    const tp = buildTaste({ watchlist, ratedFilms: ratedFilms || [], meta, shortlist: shortlist || [], skipped: skipped || [] });
+    const tp = buildTaste({ watchlist, ratedFilms: ratedFilms || [], meta, shortlist: shortlist || [], skipped: skipped || [], idf: STANDAARD_OPTIES.idf });
     const lblFromEn = (en) => { const gg = GENRES.find((x) => x.en === en); return gg ? genreLabel(gg) : en; };
     const g = Object.entries(tp.genres).map(([en, v]) => [lblFromEn(en), v]).sort((a, b) => b[1] - a[1]);
     const d = Object.entries(tp.decades).sort((a, b) => b[1] - a[1]);
@@ -185,6 +195,31 @@ export default function Inzicht({ app }) {
             votes: smaak.medianVotes >= 1000 ? `${Math.round(smaak.medianVotes / 1000)}k` : smaak.medianVotes,
             verdict: esc(smaak.medianVotes < 2000 ? tr('inzicht.famDeep') : smaak.medianVotes < 10000 ? tr('inzicht.famMix') : tr('inzicht.famEstablished')),
           }) }} />
+        </div>
+      </div>
+
+      <div className="card meetlat" style={{ marginBottom: 18 }}>
+        <p className="label" style={{ marginBottom: 8 }}>{tr('inzicht.meetTitle')}</p>
+        <p style={{ fontSize: 13.5, color: 'var(--fog)' }}>{tr('inzicht.meetUitleg')}</p>
+        {meting && !meting.genoeg && (
+          <p style={{ fontSize: 13.5, color: 'var(--fog)', marginTop: 10 }}>{tr('inzicht.meetTeWeinig', { count: meting.favorieten })}</p>
+        )}
+        {meting?.genoeg && (
+          <div style={{ marginTop: 12 }}>
+            <p className="meet-score">
+              <strong>{meting.pct}%</strong>
+              <span>{tr('inzicht.meetResultaat', { found: meting.gevonden, total: meting.perFilm.length, top: meting.topN })}</span>
+            </p>
+            {meting.gevonden > 0 && (
+              <p style={{ fontSize: 12.5, color: 'var(--fog-dim)', marginTop: 6 }}>
+                {tr('inzicht.meetGevonden')} {meting.perFilm.filter((p) => p.positie != null && p.positie <= meting.topN).slice(0, 6).map((p) => `${p.name} (#${p.positie})`).join(', ')}
+              </p>
+            )}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+          <button className="btn" onClick={meet}>{meting ? tr('inzicht.meetOpnieuw') : tr('inzicht.meetKnop')}</button>
+          <span style={{ fontSize: 12, color: 'var(--fog-dim)' }}>{tr('inzicht.meetCache')}</span>
         </div>
       </div>
 

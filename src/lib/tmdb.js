@@ -279,12 +279,18 @@ export async function personFilms(key, personId) {
 // De vote_count-band bepaalt hoe diep ondergronds je zoekt.
 // De Discover-motor: élk criterium wordt een server-side queryparameter, zodat
 // TMDB de hele catalogus doorzoekt i.p.v. dat wij een lokale emmer zeven.
-export async function discover(key, { minScore, minVotes, maxVotes, genreIds, excludeGenreIds, yearFrom, yearTo, lang, minRuntime, maxRuntime, sortBy = 'vote_average.desc', page = 1 }) {
+export async function discover(key, { minScore, minVotes, maxVotes, genreIds, excludeGenreIds, yearFrom, yearTo, lang, minRuntime, maxRuntime, providerIds, sortBy = 'vote_average.desc', page = 1 }) {
   const params = {
     sort_by: sortBy,
     include_adult: 'false',
     page,
   };
+  // Alleen wat nu (in abonnement) te streamen is op deze diensten, in jouw regio
+  if (providerIds?.length) {
+    params.with_watch_providers = providerIds.join('|');
+    params.watch_region = getRegion();
+    params.with_watch_monetization_types = 'flatrate';
+  }
   if (minScore) params['vote_average.gte'] = minScore;
   if (minVotes) params['vote_count.gte'] = minVotes;
   if (maxVotes) params['vote_count.lte'] = maxVotes;
@@ -307,6 +313,14 @@ export async function discover(key, { minScore, minVotes, maxVotes, genreIds, ex
 
 // Bestaande naam blijft werken (mengmotor, profiel-discover)
 export const discoverGems = discover;
+
+// Streamingdiensten in een regio, op TMDB's eigen volgorde (populairste eerst)
+export async function fetchDiensten(key, region = getRegion()) {
+  const d = await get('/watch/providers/movie', key, { watch_region: region });
+  return (d.results || [])
+    .map((p) => ({ id: p.provider_id, naam: p.provider_name, prio: p.display_priorities?.[region] ?? p.display_priority ?? 999 }))
+    .sort((a, b) => a.prio - b.prio);
+}
 
 // Thema-jacht: haal films op die TMDB-keywords delen met jouw top-thema's.
 // with_keywords met | betekent OR (één van de thema's volstaat), met , AND

@@ -145,7 +145,7 @@ describe('V2 smoke', () => {
     // sterke aanbevelingen via drie favorieten
     ['S1', 'S2', 'S3'].forEach((n) => { for (let i = 0; i < 8; i++) list.push(film({ waarde: 3 - i * 0.2, bronnen: ['aanbevolen'], seeds: [n] })); });
     // twee regisseurs
-    ['R1', 'R2'].forEach((n) => { for (let i = 0; i < 5; i++) list.push(film({ waarde: 1.6, bronnen: [`oeuvre:${n}`] })); });
+    ['R1', 'R2'].forEach((n) => { for (let i = 0; i < 8; i++) list.push(film({ waarde: 1.6, bronnen: [`oeuvre:${n}`] })); });
     // parels: weinig stemmen, hoog cijfer
     for (let i = 0; i < 5; i++) list.push(film({ votes: 400, vote: 7.6, waarde: 0.7, bronnen: ['profiel'] }));
     // buiten de bubbel: komedie, sterk beoordeeld
@@ -160,8 +160,11 @@ describe('V2 smoke', () => {
     const ids = rijen.flatMap((r) => r.films.map((f) => f.id));
     expect(new Set(ids).size).toBe(ids.length);
     expect(rijen.some((r) => r.films.some((f) => f.votes === 30))).toBe(false);
-    // de top begint met de sterkste aanbeveling
+    // de top begint met de sterkste aanbeveling, en neemt hooguit 3 films per favoriet of regisseur
     expect(rijen[0].films[0].waarde).toBe(3);
+    const perBron = {};
+    rijen[0].films.forEach((f) => { const b = f.bronnen.find((x) => x.startsWith('oeuvre:')) || f.seeds[0]; perBron[b] = (perBron[b] || 0) + 1; });
+    expect(Math.max(...Object.values(perBron))).toBeLessThanOrEqual(3);
     // een andere dag (of "Andere suggesties") kiest andere favorieten en een andere regisseur
     const morgen = bouwRecept(list, { seedFilms, regisseurs: ['R1', 'R2'], taste, dag: 1 });
     expect(morgen.filter((r) => r.type === 'seed').map((r) => r.naam)).not.toEqual(rijen.filter((r) => r.type === 'seed').map((r) => r.naam));
@@ -242,7 +245,7 @@ describe('V2 smoke', () => {
         return json({ results: [{ id: 100 + n, title: q, release_date: `${2010 + n}-01-01` }] });
       }
       if (p === '/person/77/movie_credits') {
-        return json({ crew: [1, 2, 3, 4, 5].map((k) => ({ ...rec(700 + k, `Regiefilm ${k}`), job: 'Director' })), cast: [] });
+        return json({ crew: [1, 2, 3, 4, 5, 6, 7, 8].map((k) => ({ ...rec(700 + k, `Regiefilm ${k}`), job: 'Director' })), cast: [] });
       }
       if (u.searchParams.get('with_keywords')) {
         return json({ total_pages: 1, results: [1, 2, 3, 4].map((k) => rec(800 + k, `Themafilm ${k}`)) });
@@ -496,6 +499,132 @@ describe('V2 smoke', () => {
       expect(screen.getByText('Seed Film 1')).toBeTruthy();
       expect(screen.queryByText('Seed Film 3')).toBeNull();
       expect(document.body.textContent).toContain('Nu op Netflix');
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('scoring: kruisbevestiging, anti-favorieten en regisseursgewicht', async () => {
+    const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
+    const { rangschikRegisseurs } = await import('./src/lib/rows.js');
+    const { buildTaste } = await import('./src/lib/taste.js');
+    const f = (id, title) => ({ id, title, year: 2010, vote: 7.5, votes: 2000, genre_ids: [18] });
+    const meta = {
+      'a|2000': { id: 1, genres: ['Drama'], director: 'D', recs: [f(10, 'X'), f(11, 'Y')] },
+      'b|2001': { id: 2, genres: ['Drama'], director: 'D', recs: [f(10, 'X'), f(12, 'Z')] },
+      'c|2002': { id: 3, genres: ['Drama'], recs: [f(11, 'Y')] },
+      'e|2003': { id: 4, genres: ['Drama'], recs: [] }, // derde favoriet: de motor draait pas op ratings vanaf drie
+    };
+    const ratedFilms = [
+      { key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 5 },
+      { key: 'c|2002', name: 'C', year: 2002, rating: 1 }, { key: 'e|2003', name: 'E', year: 2003, rating: 4 },
+    ];
+    const oeuvres = { D: { at: Date.now(), films: [f(20, 'Oeuvrefilm')] } };
+    const seeds = bepaalSeeds({ watchlist: [], ratedFilms, meta });
+    const basis = {
+      watchlist: [], meta, ratedFilms, oeuvres, seeds, regisseurs: rangschikRegisseurs(seeds, meta),
+      taste: buildTaste({ watchlist: [], ratedFilms, meta }), uitleg: (k, v) => `${k}:${v?.names || ''}`,
+    };
+    const scoor = (opties) => Object.fromEntries(scoorKandidaten({ ...basis, opties }).recs.map((r) => [r.title, r]));
+    const aan = scoor({ kruis: true, anti: true, regisseur: true });
+    const uit = scoor({ kruis: false, anti: false, regisseur: false });
+    // X komt via A én B binnen: bevestigd, en zwaarder dan zonder kruisbevestiging
+    expect(aan.X.bevestigd).toBe(true);
+    expect(aan.X.waarde).toBeGreaterThan(uit.X.waarde);
+    // Y wordt ook aangeraden bij C (1★): omlaag, met een eerlijke reden
+    expect(aan.Y.waarde).toBeLessThan(uit.Y.waarde);
+    expect(aan.Y.anti).toEqual(['C']);
+    expect(aan.Y.redenen.join(' ')).toContain('verken.antiReason:C');
+    // twee 5★-films van D: zijn oeuvre telt zwaarder dan de vaste 1,6
+    expect(aan.Oeuvrefilm.waarde).toBeGreaterThan(uit.Oeuvrefilm.waarde);
+  });
+
+  it('meetlat: verborgen favorieten die via andere favorieten bereikbaar zijn, komen terug', async () => {
+    const { meetlat } = await import('./src/lib/kandidaten.js');
+    const namen = ['F1', 'F2', 'F3', 'F4', 'F5'];
+    const ratedFilms = namen.map((n, i) => ({ key: `${n.toLowerCase()}|${2000 + i}`, name: n, year: 2000 + i, rating: 5 }));
+    // een kring: elke favoriet raadt de volgende aan
+    const meta = Object.fromEntries(ratedFilms.map((r, i) => {
+      const volgende = ratedFilms[(i + 1) % 5];
+      return [r.key, { id: 100 + i, genres: ['Drama'], recs: [{ id: 100 + ((i + 1) % 5), title: volgende.name, year: volgende.year, vote: 7.5, votes: 2000, genre_ids: [18] }] }];
+    }));
+    const m = meetlat({ watchlist: [], meta, ratedFilms });
+    expect(m.genoeg).toBe(true);
+    expect(m.gevonden).toBe(5);
+    expect(m.pct).toBe(100);
+    // te weinig favorieten: geen meting
+    expect(meetlat({ watchlist: [], meta, ratedFilms: ratedFilms.slice(0, 4) }).genoeg).toBe(false);
+  });
+
+  it('inzicht: de meetlat-kaart meet op verzoek', () => {
+    const namen = ['F1', 'F2', 'F3', 'F4', 'F5'];
+    const ratedFilms = namen.map((n, i) => ({ key: `${n.toLowerCase()}|${2000 + i}`, name: n, year: 2000 + i, rating: 5 }));
+    const meta = Object.fromEntries(ratedFilms.map((r, i) => {
+      const volgende = ratedFilms[(i + 1) % 5];
+      return [r.key, { id: 100 + i, genres: ['Drama'], recs: [{ id: 100 + ((i + 1) % 5), title: volgende.name, year: volgende.year, vote: 7.5, votes: 2000, genre_ids: [18] }] }];
+    }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify(ratedFilms));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ ...JSON.parse(localStorage.getItem('nossyV2.meta')), ...meta }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Inzicht')[0]);
+    expect(screen.getByText('Hoe goed kent Voor jou je smaak?')).toBeTruthy();
+    fireEvent.click(screen.getByText('Meet het'));
+    expect(document.body.textContent).toMatch(/\d+ van \d+ favorieten teruggevonden in de top 50/);
+    expect(screen.getByText('Meet opnieuw')).toBeTruthy();
+  });
+
+  it('voor jou: je kiest je diensten en krijgt een rij "Nu op ..., voor jou"', async () => {
+    const calls = [];
+    const film = (id, title) => ({ id, title, release_date: '2012-01-01', poster_path: `/d${id}.jpg`, vote_average: 7.6, vote_count: 3000, original_language: 'en', overview: '', genre_ids: [18] });
+    global.fetch = async (url) => {
+      const u = new URL(String(url));
+      const p = u.pathname.replace(/^\/3/, '');
+      calls.push(String(url));
+      const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+      if (p === '/watch/providers/movie') {
+        return json({ results: [
+          { provider_id: 8, provider_name: 'Netflix', display_priorities: { NL: 1 } },
+          { provider_id: 72, provider_name: 'Videoland', display_priorities: { NL: 2 } },
+          { provider_id: 175, provider_name: 'Netflix Kids', display_priorities: { NL: 3 } },
+        ] });
+      }
+      if (p === '/discover/movie' && u.searchParams.get('with_watch_providers')) {
+        return json({ total_pages: 1, results: [1, 2, 3, 4, 5].map((k) => film(900 + k, `Dienstfilm ${k}`)) });
+      }
+      return json({ results: [], total_pages: 1 });
+    };
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const recFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 600 + n, title: `Seed Film ${n}`, year: 2005 + n, poster: `/s${n}.jpg`, vote: 7.2, votes: 2500, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now(), recs: recFilms, sims: [] },
+      'b|2019': { id: 2, poster: '/b.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+      'c|2018': { id: 3, poster: '/c.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+      'd|2017': { id: 4, poster: '/d.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+    }));
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      // de kiezer verschijnt zodra de diensten van je regio binnen zijn (zonder kindervariant)
+      expect(await screen.findByText('Welke streamingdiensten heb je?')).toBeTruthy();
+      expect(screen.queryByText('Netflix Kids')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Netflix' }));
+      fireEvent.click(screen.getByText('Opslaan'));
+      expect(await screen.findByText('Nu op Netflix, voor jou')).toBeTruthy();
+      expect(screen.getByText('Dienstfilm 1')).toBeTruthy();
+      expect(screen.queryByText('Welke streamingdiensten heb je?')).toBeNull();
+      // discover vroeg echt naar Netflix (id 8) in jouw regio, alleen in abonnement
+      const disc = calls.find((c) => c.includes('with_watch_providers'));
+      expect(disc).toContain('with_watch_providers=8');
+      expect(disc).toContain('watch_region=NL');
+      expect(disc).toContain('with_watch_monetization_types=flatrate');
+      // de keuze is later te wijzigen
+      expect(screen.getByText('Diensten wijzigen')).toBeTruthy();
     } finally {
       delete global.fetch;
     }

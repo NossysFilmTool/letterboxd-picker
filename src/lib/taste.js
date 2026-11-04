@@ -30,15 +30,31 @@ const KEYWORD_STOPLIST = new Set([
   'children', 'woman', 'man', 'girl', 'boy',
 ]);
 
-export function buildTaste({ watchlist, ratedFilms, meta, shortlist = [], skipped = [] }) {
+export function buildTaste({ watchlist, ratedFilms, meta, shortlist = [], skipped = [], idf = false }) {
   const gRaw = {}; const dRaw = {}; const kRaw = {}; const kName = {}; const kFilms = {};
   const add = (obj, k, v) => { obj[k] = (obj[k] || 0) + v; };
+  // Zeldzaamheid (idf): een trefwoord dat op een groot deel van je hele
+  // bibliotheek staat, zegt weinig over jóuw smaak en weegt als thema tot de
+  // helft minder. Pas zinvol met een bibliotheek van enige omvang.
+  let idfFactor = () => 1;
+  if (idf) {
+    const df = {}; let n = 0;
+    Object.values(meta).forEach((m) => {
+      if (!m?.keywords?.length) return;
+      n++;
+      m.keywords.forEach((k) => { df[k.id] = (df[k.id] || 0) + 1; });
+    });
+    if (n >= 20) {
+      const hoogste = Math.log((n + 1) / 2); // een trefwoord op één film
+      idfFactor = (id) => 0.5 + 0.5 * Math.min(1, Math.log((n + 1) / ((df[id] || 0) + 1)) / hoogste);
+    }
+  }
   // Thema's tellen we ALLEEN uit films die je echt beoordeeld hebt (bewezen smaak),
   // niet uit je watchlist (dat is 'wil ik zien'). En we houden bij op hoeveel films
   // een thema voorkomt, zodat een toevallig trefwoord uit één film niet domineert.
   const addKw = (list, w, filmKey) => (list || []).forEach((kw) => {
     if (!kw?.name || KEYWORD_STOPLIST.has(kw.name.toLowerCase())) return;
-    add(kRaw, kw.id, w); kName[kw.id] = kw.name;
+    add(kRaw, kw.id, w * idfFactor(kw.id)); kName[kw.id] = kw.name;
     (kFilms[kw.id] = kFilms[kw.id] || new Set()).add(filmKey);
   });
   const idNaam = Object.fromEntries(GENRES.map((g) => [g.id, g.en]));

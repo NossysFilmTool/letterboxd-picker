@@ -2,15 +2,16 @@
 // (aanbevelingen, vergelijkbaar, oeuvres, profiel, thema's) en scoort elke
 // kandidaat. Los van de weergave, zodat Verken.jsx alleen over het scherm gaat.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GENRES, searchPersons, personFilms, fetchSimilar, fetchRecommendations, discoverGems, discoverByKeywords, fetchDetailById, getRegion } from './tmdb.js';
-import { useLS, filmKey } from './storage.js';
-import { buildTaste, matchScore } from './taste.js';
-import { voegNieuweToe, plekGewicht, rangschikRegisseurs, pastInOeuvre } from './rows.js';
+import { GENRES, searchPersons, personFilms, fetchSimilar, fetchRecommendations, discoverGems, discoverByKeywords, fetchDetailById, fetchDiensten, getRegion } from './tmdb.js';
+import { useLS } from './storage.js';
+import { buildTaste } from './taste.js';
+import { voegNieuweToe, rangschikRegisseurs } from './rows.js';
+import { bepaalSeeds, scoorKandidaten, detailVers, DETAIL_TTL, STANDAARD_OPTIES } from './kandidaten.js';
 import { useT } from './i18n.js';
 
 const HIST_PER_SESSIE = 60;
 const OEUVRE_TTL = 30 * 24 * 3600e3;
-const DETAIL_TTL = 14 * 24 * 3600e3; // streamingaanbod wisselt; twee weken is vers genoeg
+const DIENSTEN_TTL = 30 * 24 * 3600e3;
 const DETAIL_MAX = 300; // ~250 KB localStorage
 const DETAIL_WERKERS = 6;
 
@@ -44,6 +45,7 @@ export function useForYou(app, actief) {
   const [oeuvres, setOeuvres] = useLS('oeuvres', {});
   const [profielCands, setProfielCands] = useState([]);
   const [themeCands, setThemeCands] = useState([]);
+  const [dienstCands, setDienstCands] = useState([]); // "Nu op jouw diensten"
   const [profielPage, setProfielPage] = useState(1);
   const [themaPage, setThemaPage] = useState(2); // pagina 1-2 laadt de instroom al
   const [versLaden, setVersLaden] = useState(false);
@@ -68,7 +70,7 @@ export function useForYou(app, actief) {
   const detailGeprobeerd = useRef(new Set()); // deze sessie; mislukt = pas na herladen opnieuw
   const detailLoopt = useRef(false);
   const regio = getRegion();
-  const isVers = (d) => !!d && d.regio === regio && Date.now() - (d.at || 0) < DETAIL_TTL;
+  const isVers = (d) => detailVers(d, regio);
   const draaiDetails = async () => {
     detailLoopt.current = true;
     setDetailsLaden(true);
@@ -104,34 +106,26 @@ export function useForYou(app, actief) {
   };
 
   const taste = useMemo(
-    () => buildTaste({ watchlist, ratedFilms, meta, shortlist, skipped }),
+    () => buildTaste({ watchlist, ratedFilms, meta, shortlist, skipped, idf: STANDAARD_OPTIES.idf }),
     [watchlist, ratedFilms, meta, shortlist, skipped],
   );
 
   // Seeds met gewicht: films die jij 4+ gaf (5★ duwt harder dan 4★)
-  const seeds = useMemo(() => {
-    const uit = new Map();
-    watchlist.forEach((f) => {
-      const r = ratings[f.key];
-      if (r >= 4 && meta[f.key]) uit.set(f.key, { ...f, rating: r });
-    });
-    ratedFilms.forEach((f) => {
-      if (f.rating >= 4 && meta[f.key] && !uit.has(f.key)) uit.set(f.key, f);
-    });
-    return [...uit.values()].sort((a, b) => b.rating - a.rating);
-  }, [watchlist, ratedFilms, ratings, meta]);
+  const seeds = useMemo(
+    () => bepaalSeeds({ watchlist, ratings, ratedFilms, meta }),
+    [watchlist, ratedFilms, ratings, meta],
+  );
 
   // Kijkgeschiedenis verdiepen: je best beoordeelde films zonder filmdata
-  // worden seed. Los van de mengmotor, want die heeft seeds nodig om te
-  // starten. We wachten tot een lopende verrijking klaar is, want startEnrich
-  // negeert een aanroep tijdens een andere run.
-  const historyCandidates = useMemo(
-    () => ratedFilms
-      .filter((f) => f.rating >= 4 && !(f.key in meta))
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, 40),
-    [ratedFilms, meta],
-  );
+  // worden seed, je laagst beoordeelde anti-seed. Los van de mengmotor, want
+  // die heeft seeds nodig om te starten. We wachten tot een lopende
+  // verrijking klaar is, want startEnrich negeert een aanroep tijdens een andere run.
+  const historyCandidates = useMemo(() => {
+    const zonder = ratedFilms.filter((f) => !(f.key in meta));
+    const hoog = zonder.filter((f) => f.rating >= 4).sort((a, b) => b.rating - a.rating).slice(0, 40);
+    const laag = zonder.filter((f) => f.rating <= 2).sort((a, b) => a.rating - b.rating).slice(0, 15);
+    return [...hoog, ...laag];
+  }, [ratedFilms, meta]);
   useEffect(() => {
     if (!actief || !tmdbKey || !metaReady || enrich.running) return;
     const ruimte = HIST_PER_SESSIE - histTried.current.size;
@@ -270,6 +264,66 @@ export function useForYou(app, actief) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tmdbKey, actief, themaSig, enrich.running]);
 
+  // "Nu op jouw diensten": welke diensten jij hebt (onthouden), de lijst van
+  // diensten in je regio (eens per 30 dagen), en wat daar nu staat en bij je
+  // genres past. De rij zelf mengt dit met je eigen aanbevelingen die op je
+  // diensten staan (uit de kandidaat-details).
+  const [mijnDiensten, setMijnDiensten] = useLS('mijnDiensten', []);
+  const [dienstenLijst, setDienstenLijst] = useLS('dienstenLijst', null); // { regio, at, lijst }
+  const [dienstPage, setDienstPage] = useState(1);
+  const dienstGeladen = useRef('');
+  useEffect(() => {
+    if (!actief || !tmdbKey) return undefined;
+    if (dienstenLijst && dienstenLijst.regio === regio && Date.now() - (dienstenLijst.at || 0) < DIENSTEN_TTL) return undefined;
+    let weg = false;
+    fetchDiensten(tmdbKey, regio)
+      .then((lijst) => { if (!weg && mounted.current) setDienstenLijst({ regio, at: Date.now(), lijst }); })
+      .catch(() => { /* zonder lijst geen kiezer; volgende keer opnieuw */ });
+    return () => { weg = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actief, tmdbKey, regio]);
+  const regioDiensten = dienstenLijst?.regio === regio ? dienstenLijst.lijst : [];
+  const dienstIds = mijnDiensten.map((n) => regioDiensten.find((p) => p.naam === n)?.id).filter(Boolean);
+  // Wat de kiezer aanbiedt: wat je al koos, dan de diensten waar jouw films en
+  // kandidaten het vaakst op staan (MUBI staat niet in TMDB's top, maar wel
+  // onder je arthouse-favorieten), dan de bekendste in je regio. Zonder
+  // kinder-, winkel- en kanaalvarianten.
+  const dienstenKeuze = useMemo(() => {
+    const geldig = (p) => !/kids|store|channel/i.test(p);
+    const tel = {};
+    [...Object.values(meta), ...Object.values(details)].forEach((m) => m?.flat?.forEach((p) => { tel[p] = (tel[p] || 0) + 1; }));
+    const eigen = Object.entries(tel).sort((a, b) => b[1] - a[1]).map(([p]) => p).filter(geldig).slice(0, 6);
+    const lijst = regioDiensten.map((p) => p.naam).filter(geldig).slice(0, 12);
+    if (!lijst.length) return [];
+    return [...new Set([...mijnDiensten, ...eigen, ...lijst])].slice(0, 16);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dienstenLijst, regio, mijnDiensten, meta, details]);
+  const dienstQueries = (page) => {
+    const topG = Object.entries(taste.genres).filter(([, v]) => v > 0.3).sort((a, b) => b[1] - a[1]).slice(0, 2)
+      .map(([en]) => GENRES.find((g) => g.en === en)?.id).filter(Boolean);
+    return [
+      { providerIds: dienstIds, genreIds: topG, minScore: 7.0, minVotes: 300, minRuntime: 60, sortBy: 'vote_average.desc', page },
+      { providerIds: dienstIds, genreIds: [], minScore: 7.3, minVotes: 1000, minRuntime: 60, sortBy: 'vote_average.desc', page },
+    ];
+  };
+  const laadDienst = async (page) => {
+    const batches = await Promise.all(dienstQueries(page).map((q) => discoverGems(tmdbKey, q).catch(() => ({ results: [] }))));
+    return batches.reduce((acc, b) => voegNieuweToe(acc, b.results), []);
+  };
+  const dienstSig = `${dienstIds.join('|')}@${regio}`;
+  useEffect(() => {
+    if (!actief || !tmdbKey || !dienstIds.length || enrich.running || dienstGeladen.current === dienstSig) return;
+    const sig = dienstSig;
+    dienstGeladen.current = sig;
+    (async () => {
+      const films = await laadDienst(1);
+      if (!mounted.current || dienstGeladen.current !== sig) return;
+      setDienstCands(films);
+      setDienstPage(1);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actief, tmdbKey, dienstSig, enrich.running]);
+
   // Verse instroom: een volgende discover-pagina op je profiel
   const laadVers = async () => {
     if (!tmdbKey || versLaden) return;
@@ -312,88 +366,30 @@ export function useForYou(app, actief) {
       const { films } = await jaag(tmdbKey, page);
       setThemeCands((prev) => voegNieuweToe(prev, films));
       setThemaPage(page);
+    } else if (rij.type === 'dienst') {
+      if (!dienstIds.length) return;
+      const page = dienstPage + 1;
+      const films = await laadDienst(page);
+      setDienstCands((prev) => voegNieuweToe(prev, films));
+      setDienstPage(page);
     } else if (rij.type !== 'oeuvre') {
       await laadVers();
     }
   };
 
-  // Alle kandidaten, gewogen per bron en gescoord op jouw smaak
-  const { recs, seededOnRatings, seedFilms } = useMemo(() => {
-    const ownKeys = new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]);
-    const ownIds = new Set(Object.values(meta).filter(Boolean).map((m) => m.id));
-    // Geziene films apart op TMDB-id: vangt titelverschillen tussen Letterboxd
-    // en TMDB. Een film die je al zag mag nooit als aanbeveling terugkomen.
-    const seenIds = new Set([...seenSet].map((k) => meta[k]?.id).filter(Boolean));
-    const skippedSet = new Set(skipped.map((s) => (typeof s === 'object' ? s.id : s)));
-    const shortIds = new Set(shortlist.map((s) => s.id));
-
-    // Zonder minstens drie favorieten leunen we op de aanbevelingen bij je watchlist
-    let gewogenSeeds = seeds;
-    const onRatings = gewogenSeeds.length >= 3;
-    if (!onRatings) gewogenSeeds = watchlist.filter((f) => meta[f.key]?.recs?.length).map((f) => ({ ...f, rating: 3.5 }));
-
-    const agg = new Map();
-    const voegToe = (r, waarde, bron, seedNaam) => {
-      if (r.votes != null && r.votes < 20) return; // te weinig stemmen om iets over te zeggen (TMDB-schaal)
-      if (ownIds.has(r.id) || seenIds.has(r.id) || shortIds.has(r.id) || skippedSet.has(r.id)) return;
-      if (ownKeys.has(filmKey(r.title, r.year))) return;
-      const cur = agg.get(r.id) || { ...r, count: 0, waarde: 0, seeds: [], bronnen: [] };
-      cur.count++;
-      cur.waarde += waarde;
-      if (seedNaam && cur.seeds.length < 3 && !cur.seeds.includes(seedNaam)) cur.seeds.push(seedNaam);
-      if (!cur.bronnen.includes(bron)) cur.bronnen.push(bron);
-      // vollediger data wint (similar/discover dragen soms meer velden dan recs)
-      if (!cur.genre_ids?.length && r.genre_ids?.length) cur.genre_ids = r.genre_ids;
-      agg.set(r.id, cur);
-    };
-
-    gewogenSeeds.forEach((seed) => {
-      const w = (seed.rating || 3.5) - 3; // 4★ = 1, 5★ = 2
-      // /recommendations (kijkgedrag) is de hoofdbron; /similar (metadata) is
-      // veel ruiser en weegt daarom half zo zwaar. De plek in TMDB's lijst telt mee.
-      const recsS = meta[seed.key]?.recs || [];
-      recsS.forEach((r, i) => voegToe(r, (1 + w) * plekGewicht(i, recsS.length), 'aanbevolen', seed.name));
-      const sims = meta[seed.key]?.sims || [];
-      sims.forEach((r, i) => voegToe(r, (0.4 + w * 0.4) * plekGewicht(i, sims.length), 'vergelijkbaar', seed.name));
-    });
-    // Alleen oeuvres van je huidige favoriete regisseurs (de cache kan oude
-    // bevatten), en alleen films die een genre delen met wat jij van ze waardeert.
-    regisseurs.forEach((reg) => {
-      oeuvres[reg.naam]?.films?.forEach((r) => {
-        if (pastInOeuvre(r, reg.genres)) voegToe(r, 1.6, `oeuvre:${reg.naam}`, null);
-      });
-    });
-    profielCands.forEach((r) => voegToe(r, 0.7, 'profiel', null));
-    themeCands.forEach((r) => voegToe(r, 0.85, 'thema', null));
-
-    const topThemaNamen = new Map((taste.topThemes || []).map((t) => [t.id, t.name]));
-    const list = [...agg.values()].map((kaal) => {
-      // Met details: echte looptijd, genres, trefwoorden (thema-match) en aanbod
-      const d = isVers(details[kaal.id]) ? details[kaal.id] : null;
-      const r = d ? {
-        ...kaal,
-        runtime: d.runtime, keywords: d.keywords, flat: d.flat, jwLink: d.jwLink, imdbId: d.imdbId, director: d.director,
-        genres: d.genres?.length ? d.genres : kaal.genres,
-      } : kaal;
-      const m = matchScore(r, taste);
-      let redenen = m.redenen;
-      // Via de thema-jacht gevonden en de score gaf zelf geen thema-reden
-      // (light-object zonder keywords): leg het alsnog uit.
-      if (r.viaTheme?.length && !redenen.some((x) => /thema/i.test(x))) {
-        redenen = [tr('verken.foundOnThemes', { themes: r.viaTheme.slice(0, 3).join(', ') }), ...redenen];
-      }
-      // Welke van jouw top-thema's deze film aantoonbaar deelt (alleen met details)
-      const gedeeldeThemas = r.keywords ? r.keywords.filter((k) => topThemaNamen.has(k.id)).map((k) => topThemaNamen.get(k.id)) : null;
-      return { ...r, match: m.score, redenen, recept: m.recept, gedeeldeThemas };
-    });
-
-    return {
-      recs: list,
-      seededOnRatings: onRatings,
-      seedFilms: gewogenSeeds.filter((s) => (s.rating || 0) >= 4.5),
-    };
+  // Alle kandidaten, gewogen per bron en gescoord op jouw smaak (lib/kandidaten.js)
+  const { recs, seededOnRatings, seedFilms } = useMemo(
+    () => scoorKandidaten({
+      watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped,
+      oeuvres, profielCands, themeCands, dienstCands, details, regio,
+      taste, seeds, regisseurs, uitleg: tr,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchlist, meta, ratedFilms, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, taste, details, regio, lang]);
+    [watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, dienstCands, taste, details, regio, lang],
+  );
 
-  return { taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden };
+  return {
+    taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden,
+    mijnDiensten, setMijnDiensten, dienstenKeuze,
+  };
 }

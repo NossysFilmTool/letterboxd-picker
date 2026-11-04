@@ -6,7 +6,7 @@ import ImdbA from './ImdbA.jsx';
 
 // De uitgebreide aanbevelingskaart van "Alles bekijken": waarom de film er
 // staat, de match met het uitklapbare recept, en alle acties.
-export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdbKey, dienst = '', receptOpen, onToggleRecept, onOpen, onShortlist, onSkip, onSimilar }) {
+export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdbKey, voorkeur = [], receptOpen, onToggleRecept, onOpen, onShortlist, onSkip, onSimilar }) {
   const { t: tr, lang } = useT();
   const fmt = (v) => (lang === 'nl' ? String(v).replace('.', ',') : String(v));
 
@@ -47,7 +47,7 @@ export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdb
         {r.flat?.length > 0 && (
           <p className="card-prov">
             <span className="livedot" aria-hidden="true" />
-            {tr('winner.nowOn', { p: (dienst && dienst !== '*' && r.flat.includes(dienst) ? [dienst, ...r.flat.filter((p) => p !== dienst)] : r.flat).slice(0, 3).join(', ') })}
+            {tr('winner.nowOn', { p: [...r.flat.filter((p) => voorkeur.includes(p)), ...r.flat.filter((p) => !voorkeur.includes(p))].slice(0, 3).join(', ') })}
           </p>
         )}
         <p className="why">
