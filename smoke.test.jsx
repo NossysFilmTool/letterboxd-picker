@@ -547,6 +547,143 @@ describe('V2 smoke', () => {
     expect(zonderWl.some((r) => r.title === 'Via watchlist')).toBe(false);
   });
 
+  it('eigen rijen: naam, vingerafdruk, zoekvraag, filters en voorstellen', async () => {
+    const { autoNaam, handtekening, isBruikbaar, zoekVragen, pastEigen, stelRijenVoor } = await import('./src/lib/eigenrijen.js');
+    const { t } = await import('./src/lib/i18n.js');
+    const landNaam = (c) => ({ KR: 'Zuid-Korea' }[c] || c);
+    // automatische namen
+    expect(autoNaam({ basis: 'criteria', genres: [53], land: 'KR', jaarVan: 2000, jaarTot: 2009 }, { tr: t, landNaam })).toBe('Thriller uit Zuid-Korea, 2000–2009');
+    expect(autoNaam({ basis: 'film', film: { id: 1, title: 'Burning' } }, { tr: t })).toBe('Lijkt op Burning');
+    expect(autoNaam({ basis: 'maker', maker: { id: 2, naam: 'Wong Kar-wai' } }, { tr: t })).toBe('Van Wong Kar-wai');
+    expect(autoNaam({ basis: 'criteria', themas: [{ id: 9, name: 'grief' }], kort: true }, { tr: t })).toBe('Films over grief, kort');
+    // dezelfde bouwstenen = dezelfde vingerafdruk, ongeacht naam of volgorde van genres
+    expect(handtekening({ id: 'a', naam: 'x', genres: [18, 53] })).toBe(handtekening({ id: 'b', naam: 'y', genres: [53, 18] }));
+    expect(isBruikbaar({ basis: 'criteria' })).toBe(false);
+    expect(isBruikbaar({ basis: 'criteria', land: 'KR' })).toBe(true);
+    expect(isBruikbaar({ basis: 'film' })).toBe(false);
+    // de zoekvraag vertaalt de bouwstenen naar TMDB
+    const [q] = zoekVragen({ basis: 'criteria', genres: [53], land: 'KR', kort: true, themas: [{ id: 9, name: 'grief' }] }, { providerIds: [8] });
+    expect(q).toMatchObject({ genreIds: [53], originCountry: 'KR', maxRuntime: 105, keywordIds: [9], providerIds: [8] });
+    // "lijkt op" met filters: genre en kort gelden pas als filter op de gevonden films
+    const rij = { id: 'r1', basis: 'film', film: { id: 1, title: 'X' }, genres: [18], kort: true };
+    const film = (extra) => ({ bronnen: ['eigen:r1'], genre_ids: [18], runtime: 95, ...extra });
+    expect(pastEigen(film({}), rij)).toBe(true);
+    expect(pastEigen(film({ genre_ids: [35] }), rij)).toBe(false);
+    expect(pastEigen(film({ runtime: 150 }), rij)).toBe(false);
+    expect(pastEigen(film({ bronnen: ['aanbevolen'] }), rij)).toBe(false); // niet via deze rij binnengekomen
+    // voorstellen: een land met drie favorieten, maar niet als je die rij al hebt
+    const seeds = ['a', 'b', 'c'].map((k) => ({ key: k, rating: 5 }));
+    const meta = { a: { country: 'KR' }, b: { country: 'KR' }, c: { country: 'KR' } };
+    expect(stelRijenVoor({ seeds, meta }).some((v) => v.land === 'KR')).toBe(true);
+    expect(stelRijenVoor({ seeds, meta, bestaande: [{ id: 'x', basis: 'criteria', land: 'KR' }] }).some((v) => v.land === 'KR')).toBe(false);
+  });
+
+  it('eigen rijen: samenstellen, bewerken en verwijderen in Voor jou', async () => {
+    const calls = [];
+    const film = (id, title) => ({ id, title, release_date: '2005-01-01', poster_path: `/k${id}.jpg`, vote_average: 7.6, vote_count: 3000, original_language: 'ko', overview: '', genre_ids: [53] });
+    global.fetch = async (url) => {
+      const u = new URL(String(url));
+      calls.push(String(url));
+      const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+      if (u.pathname.endsWith('/discover/movie') && u.searchParams.get('with_origin_country') === 'KR') {
+        return json({ total_pages: 1, results: [1, 2, 3, 4, 5].map((k) => film(800 + k, `Koreaans ${k}`)) });
+      }
+      return json({ results: [], total_pages: 1 });
+    };
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.dienstKiezerWeg', 'true');
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const recFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 600 + n, title: `Seed Film ${n}`, year: 2005 + n, poster: `/s${n}.jpg`, vote: 7.2, votes: 2500, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now(), recs: recFilms, sims: [] },
+      'b|2019': { id: 2, poster: '/b.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+      'c|2018': { id: 3, poster: '/c.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+      'd|2017': { id: 4, poster: '/d.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+    }));
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      // samenstellen: alles uit Zuid-Korea
+      fireEvent.click(screen.getByRole('button', { name: 'Eigen rij' }));
+      expect(screen.getByText('Stel je eigen rij samen')).toBeTruthy();
+      fireEvent.change(screen.getByLabelText('Land'), { target: { value: 'KR' } });
+      fireEvent.click(screen.getByText('Rij opslaan'));
+      expect(await screen.findByText('Koreaans 1')).toBeTruthy();
+      expect(document.body.textContent).toContain('Films uit Zuid-Korea');
+      expect(calls.some((c) => c.includes('with_origin_country=KR'))).toBe(true);
+      expect(JSON.parse(localStorage.getItem('nossyV2.eigenRijen'))).toHaveLength(1);
+      // bewerken: een eigen naam
+      fireEvent.click(screen.getAllByText('Bewerk')[0]);
+      expect(screen.getByText('Eigen rij bewerken')).toBeTruthy();
+      fireEvent.change(screen.getByLabelText('Naam van de rij'), { target: { value: 'Mijn Koreaanse rij' } });
+      fireEvent.click(screen.getByText('Rij opslaan'));
+      expect(screen.getByText('Mijn Koreaanse rij')).toBeTruthy();
+      // verwijderen
+      fireEvent.click(screen.getAllByText('Bewerk')[0]);
+      fireEvent.click(screen.getByText('Verwijderen'));
+      expect(screen.queryByText('Mijn Koreaanse rij')).toBeNull();
+      expect(JSON.parse(localStorage.getItem('nossyV2.eigenRijen'))).toHaveLength(0);
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('eigen rijen: een automatische rij vastzetten en bewaren vanuit Zoeken', async () => {
+    const film = (id, title, genre) => ({ id, title, release_date: '2011-01-01', poster_path: null, vote_average: 7.5, vote_count: 2500, original_language: 'en', overview: '', genre_ids: [genre] });
+    global.fetch = async (url) => {
+      const u = new URL(String(url));
+      const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+      if (u.pathname.endsWith('/movie/1/recommendations')) return json({ results: [1, 2, 3, 4, 5].map((k) => film(700 + k, `Vast ${k}`, 18)) });
+      if (u.pathname.endsWith('/discover/movie')) return json({ total_pages: 1, total_results: 1, results: [film(9100, 'Zoekvondst', 18)] });
+      return json({ results: [], total_pages: 1 });
+    };
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.dienstKiezerWeg', 'true');
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const recFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 600 + n, title: `Seed Film ${n}`, year: 2005 + n, poster: `/s${n}.jpg`, vote: 7.2, votes: 2500, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({
+      'a|2020': { id: 1, year: 2020, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now(), recs: recFilms, sims: [] },
+      'b|2019': { id: 2, poster: '/b.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+      'c|2018': { id: 3, poster: '/c.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+      'd|2017': { id: 4, poster: '/d.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now(), sims: [] },
+    }));
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
+      // vastzetten: de rij wordt een eigen rij "lijkt op A" en wisselt niet meer mee
+      fireEvent.click(screen.getByText('Vastzetten'));
+      const eigen = JSON.parse(localStorage.getItem('nossyV2.eigenRijen'));
+      expect(eigen).toHaveLength(1);
+      expect(eigen[0]).toMatchObject({ basis: 'film', film: { id: 1, title: 'A' }, naam: 'Omdat je A hoog waardeerde' });
+      expect(await screen.findByText('Vast 1')).toBeTruthy();
+      expect(screen.getAllByText('Omdat je A hoog waardeerde')).toHaveLength(1); // geen automatische dubbelganger
+      // bewaren vanuit Zoeken: een zoekopdracht op genre wordt een rij
+      fireEvent.click(screen.getByText('Zoeken'));
+      fireEvent.click(screen.getByText('Toon filters'));
+      fireEvent.click(screen.getAllByText('Drama')[0]);
+      fireEvent.click(screen.getByText('Zoek'));
+      expect(await screen.findByText('Zoekvondst')).toBeTruthy();
+      fireEvent.click(screen.getByText('Bewaar als rij in Voor jou'));
+      const na = JSON.parse(localStorage.getItem('nossyV2.eigenRijen'));
+      expect(na).toHaveLength(2);
+      expect(na[1]).toMatchObject({ basis: 'criteria', genres: [18], naam: 'Drama' });
+      expect(document.body.textContent).toContain('Rij "Drama" staat nu in Voor jou.');
+    } finally {
+      delete global.fetch;
+    }
+  });
+
   it('meetlat: verborgen favorieten die via andere favorieten bereikbaar zijn, komen terug', async () => {
     const { meetlat } = await import('./src/lib/kandidaten.js');
     const namen = ['F1', 'F2', 'F3', 'F4', 'F5'];

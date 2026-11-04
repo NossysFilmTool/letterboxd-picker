@@ -279,7 +279,7 @@ export async function personFilms(key, personId) {
 // De vote_count-band bepaalt hoe diep ondergronds je zoekt.
 // De Discover-motor: élk criterium wordt een server-side queryparameter, zodat
 // TMDB de hele catalogus doorzoekt i.p.v. dat wij een lokale emmer zeven.
-export async function discover(key, { minScore, minVotes, maxVotes, genreIds, excludeGenreIds, yearFrom, yearTo, lang, minRuntime, maxRuntime, providerIds, sortBy = 'vote_average.desc', page = 1 }) {
+export async function discover(key, { minScore, minVotes, maxVotes, genreIds, excludeGenreIds, keywordIds, originCountry, yearFrom, yearTo, lang, minRuntime, maxRuntime, providerIds, sortBy = 'vote_average.desc', page = 1 }) {
   const params = {
     sort_by: sortBy,
     include_adult: 'false',
@@ -296,6 +296,8 @@ export async function discover(key, { minScore, minVotes, maxVotes, genreIds, ex
   if (maxVotes) params['vote_count.lte'] = maxVotes;
   if (genreIds?.length) params.with_genres = genreIds.join(',');
   if (excludeGenreIds?.length) params.without_genres = excludeGenreIds.join(',');
+  if (keywordIds?.length) params.with_keywords = keywordIds.join('|'); // één van de onderwerpen volstaat
+  if (originCountry) params.with_origin_country = originCountry;
   if (minRuntime) params['with_runtime.gte'] = minRuntime;
   if (maxRuntime) params['with_runtime.lte'] = maxRuntime;
   if (yearFrom) params['primary_release_date.gte'] = `${yearFrom}-01-01`;
@@ -313,6 +315,12 @@ export async function discover(key, { minScore, minVotes, maxVotes, genreIds, ex
 
 // Bestaande naam blijft werken (mengmotor, profiel-discover)
 export const discoverGems = discover;
+
+// Onderwerpen zoeken (TMDB-trefwoorden), voor eigen rijen ("grief", "heist")
+export async function searchKeywords(key, query) {
+  const d = await get('/search/keyword', key, { query });
+  return (d.results || []).slice(0, 8).map((k) => ({ id: k.id, name: k.name }));
+}
 
 // Streamingdiensten in een regio, op TMDB's eigen volgorde (populairste eerst)
 export async function fetchDiensten(key, region = getRegion()) {

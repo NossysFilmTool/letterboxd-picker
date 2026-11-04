@@ -31,7 +31,7 @@ const FAME_PRESETS = [
   ['breed', 'breed', 10000, ''],
 ];
 
-export default function Zoekmachine({ app, taste, openDetail, addToShortlist, shortIds, ownIdsAll, ownKeysAll, seenIds }) {
+export default function Zoekmachine({ app, taste, openDetail, addToShortlist, shortIds, ownIdsAll, ownKeysAll, seenIds, onBewaarRij }) {
   const { t: tr, lang: uiLang } = useT();
   // Taalnamen in de UI-taal via de browser (Intl); geen woordenboek nodig.
   const langName = useMemo(() => {
@@ -146,10 +146,16 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
     setLoading(true);
     try {
       const films = await personFilms(tmdbKey, p.id);
-      setMaker({ naam: p.name, dept: p.dept, films });
+      setMaker({ id: p.id, naam: p.name, dept: p.dept, films });
       setRes(null); setPersonen([]);
     } catch (e) { alert(`Filmografie laden liep vast: ${e.message}`); }
     setLoading(false);
+  };
+
+  // Deze zoekopdracht (of filmografie) bewaren als eigen rij in Voor jou
+  const bewaarAlsRij = () => {
+    if (maker) onBewaarRij({ basis: 'maker', maker: { id: maker.id, naam: maker.naam, rol: maker.dept === 'Acting' ? 'cast' : 'regie' } });
+    else onBewaarRij({ basis: 'criteria', genres, jaarVan, jaarTot, taal: lang === 'alle' ? '' : lang, minScore, minVotes, maxVotes });
   };
 
   const wis = () => { setTekst(''); setGenres([]); setExcl([]); setJaarVan(''); setJaarTot(''); setLang('alle'); setMinVotes(''); setMaxVotes(''); setMinScore(0); setRuntime(''); setSortBy('popularity.desc'); setRes(null); setMaker(null); setPersonen([]); };
@@ -271,7 +277,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
               ))}
             </div>
             {excl.length > 0 && (
-              <p style={{ fontSize: 12, color: 'var(--fog-dim)', marginTop: 10 }}>{tr('zoek.excluded', { genres: excl.map((id) => genreLabelById(id)).join(', ') })} \u2014 <button className="linkbtn" onClick={() => setExcl([])}>{tr('zoek.wis')}</button></p>
+              <p style={{ fontSize: 12, color: 'var(--fog-dim)', marginTop: 10 }}>{tr('zoek.excluded', { genres: excl.map((id) => genreLabelById(id)).join(', ') })}{' \u00b7 '}<button className="linkbtn" onClick={() => setExcl([])}>{tr('zoek.wis')}</button></p>
             )}
           </div>
         )}
@@ -290,9 +296,9 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
           <p style={{ fontSize: 13, color: 'var(--fog)' }}>
             {maker ? (
-              <><strong style={{ color: 'var(--paper)' }}>{tr('zoek.filmsByLine', { naam: maker.naam })}</strong> \u00b7 {tr('zoek.ofCount', { shown: lijst.length, total: maker.films.length })}</>
+              <><strong style={{ color: 'var(--paper)' }}>{tr('zoek.filmsByLine', { naam: maker.naam })}</strong>{' \u00b7 '}{tr('zoek.ofCount', { shown: lijst.length, total: maker.films.length })}</>
             ) : (
-              <><strong style={{ color: 'var(--paper)' }}>{queryTekst()}</strong> \u2014 {res.tekstZoek ? tr('zoek.resCount', { count: lijst.length }) : tr('zoek.resPage', { total: res.totalResults.toLocaleString(), page: page, pages: res.totalPages })}</>
+              <><strong style={{ color: 'var(--paper)' }}>{queryTekst()}</strong>{' \u00b7 '}{res.tekstZoek ? tr('zoek.resCount', { count: lijst.length }) : tr('zoek.resPage', { total: res.totalResults.toLocaleString(), page: page, pages: res.totalPages })}</>
             )}
           </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -302,6 +308,9 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
               </button>
             )}
             <button className={chip(hideKnown ? 'on-g' : '')} style={{ fontSize: 12 }} onClick={() => setHideKnown(!hideKnown)}>{tr('zoek.hideKnown')}</button>
+            {onBewaarRij && (maker || (res && !res.tekstZoek)) && (
+              <button className="btn ghost" style={{ fontSize: 12 }} onClick={bewaarAlsRij}><Plus size={13} /> {tr('zoek.saveAsRow')}</button>
+            )}
           </div>
         </div>
       )}

@@ -43,7 +43,7 @@ export function bepaalAntiSeeds({ watchlist, ratings, ratedFilms, meta }) {
 //   uitleg(key, vars): vertaalfunctie voor redenen (de meetlat geeft een dummy)
 export function scoorKandidaten({
   watchlist, meta, ratedFilms, ratings = {}, seenSet = new Set(), shortlist = [], skipped = [],
-  oeuvres = {}, profielCands = [], themeCands = [], dienstCands = [], details = {}, regio = 'NL',
+  oeuvres = {}, profielCands = [], themeCands = [], dienstCands = [], eigenCands = {}, details = {}, regio = 'NL',
   taste, seeds, regisseurs, uitleg = (k) => k, opties = STANDAARD_OPTIES,
 }) {
   const ownKeys = new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]);
@@ -113,6 +113,9 @@ export function scoorKandidaten({
   profielCands.forEach((r) => voegToe(r, 0.7, 'profiel', null));
   themeCands.forEach((r) => voegToe(r, 0.85, 'thema', null));
   dienstCands.forEach((r) => voegToe(r, 0.8, 'dienst', null));
+  // Eigen rijen: elke rij is een eigen bron (eigen:<id>), zodat de rij precies
+  // weet welke films bij hem horen
+  Object.entries(eigenCands).forEach(([id, films]) => (films || []).forEach((r) => voegToe(r, 0.6, `eigen:${id}`, null)));
 
   // Anti-favorieten: hoe sterk een kandidaat wordt aangeraden bij films die
   // jij laag gaf (1★ telt dubbel zo zwaar als 2★, bovenaan de lijst zwaarder)

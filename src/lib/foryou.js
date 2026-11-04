@@ -62,7 +62,9 @@ const genreNamen = (f) => (f.genre_ids || []).map((id) => GENRE_EN[id]).filter(B
 //   regisseurs: namen, sterkste eerst
 //   taste:      smaakprofiel (voor "Buiten je bubbel")
 export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, mijnDiensten = [], ronde = 0, dag = dagNummer(), max = 7 } = {}) {
-  const pool = list.filter(degelijk);
+  // Films die alleen via een eigen rij binnenkwamen, horen in die rij en niet
+  // in de automatische rijen (anders vult "Koreaanse thrillers" je Top)
+  const pool = list.filter((f) => degelijk(f) && (f.bronnen || []).some((b) => !b.startsWith('eigen:')));
   const gebruikt = new Set();
   const vrij = (f) => !gebruikt.has(f.id);
   const maak = (id, type, past, extra = {}, min = 4) => {

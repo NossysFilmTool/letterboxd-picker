@@ -7,6 +7,7 @@ import { useLS } from './storage.js';
 import { buildTaste } from './taste.js';
 import { voegNieuweToe, rangschikRegisseurs } from './rows.js';
 import { bepaalSeeds, scoorKandidaten, detailVers, DETAIL_TTL, STANDAARD_OPTIES } from './kandidaten.js';
+import { normaliseer, handtekening, zoekVragen } from './eigenrijen.js';
 import { useT } from './i18n.js';
 
 const HIST_PER_SESSIE = 60;
@@ -324,6 +325,56 @@ export function useForYou(app, actief) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actief, tmdbKey, dienstSig, enrich.running]);
 
+  // Eigen rijen: wat je zelf samenstelt (bewaard), en per rij de gevonden
+  // films (per sessie, opnieuw zodra je de rij aanpast).
+  const [eigenRijen, setEigenRijen] = useLS('eigenRijen', []);
+  const [eigenCands, setEigenCands] = useState({}); // id -> { sig, films, page }
+  const eigenBezig = useRef(new Set());
+  const providerIdsVoor = (dienst) => {
+    if (!dienst || dienst === '*') return []; // "elke dienst" kan TMDB niet; dat filtert de rij zelf
+    const namen = dienst === '~mijn' ? mijnDiensten : [dienst];
+    return namen.map((n) => regioDiensten.find((p) => p.naam === n)?.id).filter(Boolean);
+  };
+  const haalEigen = async (rij, page) => {
+    const b = normaliseer(rij);
+    if (b.basis === 'film') {
+      const [recsF, simsF] = await Promise.all([
+        fetchRecommendations(b.film.id, tmdbKey, page).catch(() => []),
+        page === 1 ? fetchSimilar(b.film.id, tmdbKey, 1).catch(() => []) : Promise.resolve([]),
+      ]);
+      return voegNieuweToe(recsF, simsF);
+    }
+    if (b.basis === 'maker') {
+      if (page > 1) return []; // een filmografie is in één keer compleet
+      const films = await personFilms(tmdbKey, b.maker.id).catch(() => []);
+      return films.filter((f) => (b.maker.rol === 'cast' ? f.rol === 'cast' : f.rol === 'regie'));
+    }
+    const vragen = zoekVragen(b, { providerIds: providerIdsVoor(b.dienst) });
+    const res = await Promise.all(vragen.map((q) => discoverGems(tmdbKey, { ...q, page }).catch(() => ({ results: [] }))));
+    return res.reduce((acc, d) => voegNieuweToe(acc, d.results), []);
+  };
+  const eigenSig = eigenRijen.map((r) => `${r.id}:${handtekening(r)}`).join('|');
+  useEffect(() => {
+    if (!actief || !tmdbKey) return;
+    eigenRijen.forEach((rij) => {
+      const sig = handtekening(rij);
+      // wacht met dienst-rijen tot de dienstenlijst er is, anders zoekt TMDB zonder dienst
+      if (rij.dienst && rij.dienst !== '*' && !regioDiensten.length) return;
+      if (eigenCands[rij.id]?.sig === sig || eigenBezig.current.has(`${rij.id}:${sig}`)) return;
+      eigenBezig.current.add(`${rij.id}:${sig}`);
+      haalEigen(rij, 1).then((films) => {
+        if (!mounted.current) return;
+        setEigenCands((prev) => ({ ...prev, [rij.id]: { sig, films, page: 1 } }));
+      }).finally(() => eigenBezig.current.delete(`${rij.id}:${sig}`));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actief, tmdbKey, eigenSig, regioDiensten.length]);
+  // Voor de scoring: alleen de films die bij de huidige versie van elke rij horen
+  const eigenFilms = useMemo(() => Object.fromEntries(eigenRijen
+    .filter((r) => eigenCands[r.id]?.sig === handtekening(r))
+    .map((r) => [r.id, eigenCands[r.id].films])), [eigenRijen, eigenCands]);
+  const eigenGeladen = (id) => !!eigenCands[id] && eigenCands[id].sig === handtekening(eigenRijen.find((r) => r.id === id) || {});
+
   // Verse instroom: een volgende discover-pagina op je profiel
   const laadVers = async () => {
     if (!tmdbKey || versLaden) return;
@@ -366,6 +417,12 @@ export function useForYou(app, actief) {
       const { films } = await jaag(tmdbKey, page);
       setThemeCands((prev) => voegNieuweToe(prev, films));
       setThemaPage(page);
+    } else if (rij.type === 'eigen') {
+      const huidig = eigenCands[rij.id];
+      if (!huidig) return;
+      const page = (huidig.page || 1) + 1;
+      const films = await haalEigen(rij.rij, page);
+      setEigenCands((prev) => (prev[rij.id] ? { ...prev, [rij.id]: { ...prev[rij.id], films: voegNieuweToe(prev[rij.id].films, films), page } } : prev));
     } else if (rij.type === 'dienst') {
       if (!dienstIds.length) return;
       const page = dienstPage + 1;
@@ -381,15 +438,16 @@ export function useForYou(app, actief) {
   const { recs, seededOnRatings, seedFilms } = useMemo(
     () => scoorKandidaten({
       watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped,
-      oeuvres, profielCands, themeCands, dienstCands, details, regio,
+      oeuvres, profielCands, themeCands, dienstCands, eigenCands: eigenFilms, details, regio,
       taste, seeds, regisseurs, uitleg: tr,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, dienstCands, taste, details, regio, lang],
+    [watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, dienstCands, eigenFilms, taste, details, regio, lang],
   );
 
   return {
     taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden,
     mijnDiensten, setMijnDiensten, dienstenKeuze,
+    seeds, eigenRijen, setEigenRijen, eigenGeladen,
   };
 }

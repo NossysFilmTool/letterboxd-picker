@@ -416,6 +416,19 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 .rec-row-head .row-actie:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px; border-radius: 4px; }
 /* De dienstenkiezer tussen de rijen */
 .dienst-kiezer { border-color: rgba(0, 224, 84, 0.3); }
+/* Eigen rijen: de maker en een rij zonder films */
+.eigen-maker { margin-bottom: 22px; border-color: rgba(64, 188, 244, 0.35); }
+.eigen-sectie { margin-bottom: 14px; }
+.eigen-kop { font-size: 12.5px; color: var(--fog); font-weight: 600; margin-bottom: 8px; }
+.eigen-chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.eigen-zoek { display: flex; gap: 8px; }
+.eigen-zoek .field { flex: 1; min-width: 0; }
+.eigen-rij-velden { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.eigen-rij-velden select.field { width: auto; max-width: 100%; }
+.eigen-knoppen { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.eigen-beheer { display: inline-flex; gap: 4px; margin-left: auto; }
+.rij-leeg { font-size: 13px; color: var(--fog-dim); padding: 6px 0 4px; }
+.fy-toolbar .btn.actief { color: var(--dot-b); }
 .rec-strip { display: flex; gap: 14px; overflow-x: auto; max-width: 100%; scroll-snap-type: x proximity; padding: 2px 2px 12px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .rec-strip::-webkit-scrollbar { height: 8px; }
 .rec-strip::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }

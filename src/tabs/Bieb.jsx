@@ -139,7 +139,7 @@ export default function Bieb({ app }) {
         <div>
           <h1 className="page-title">{tr('bieb.title')}</h1>
           <p className="page-sub">
-            {scope === 'watchlist' ? tr('bieb.yourWatchlist') : tr('bieb.yourHistory')} \u2014 {tr('bieb.header', { shown: films.length, count: base.length })}{filtersActief ? tr('bieb.filtered') : ''}.
+            {scope === 'watchlist' ? tr('bieb.yourWatchlist') : tr('bieb.yourHistory')}{' \u00b7 '}{tr('bieb.header', { shown: films.length, count: base.length })}{filtersActief ? tr('bieb.filtered') : ''}.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

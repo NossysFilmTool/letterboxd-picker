@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, useRef, useEffect } from 'react';
-import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw } from 'lucide-react';
+import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw, Plus } from 'lucide-react';
 import { GENRES, genreLabelById, fetchDetailById } from '../lib/tmdb.js';
 import { sorteerOpSterkte } from '../lib/rows.js';
 import { bouwRecept, degelijk, pastFilter, RAAM } from '../lib/foryou.js';
@@ -13,6 +13,8 @@ import Winner from '../components/Winner.jsx';
 import RecRow from '../components/RecRow.jsx';
 import RecCard from '../components/RecCard.jsx';
 import DienstKiezer from '../components/DienstKiezer.jsx';
+import EigenRijMaker from '../components/EigenRijMaker.jsx';
+import { bouwEigenRijen, stelRijenVoor, normaliseer, autoNaam } from '../lib/eigenrijen.js';
 
 // Sorteeropties in "Alles bekijken"
 const SORTS = [['sterkte', 'verken.strongestRec'], ['match', 'sort.bestMatch'], ['score', 'sort.highestScore'], ['nieuw', 'sort.newest'], ['oud', 'sort.oldest']];
@@ -31,7 +33,10 @@ export default function Verken({ app }) {
   const {
     taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden,
     mijnDiensten, setMijnDiensten, dienstenKeuze,
+    seeds, eigenRijen, setEigenRijen, eigenGeladen,
   } = useForYou(app, mode === 'voorJou');
+  // Eigen rijen: welke rij staat open in de maker ('nieuw' of een rij-id)
+  const [maker, setMaker] = useState(null);
   // De dienstenkiezer: verschijnt zolang je nog geen diensten koos (tot "Niet
   // nu"), en opnieuw via "Diensten wijzigen" op de dienstrij
   const [kiezerWeg, setKiezerWeg] = useLS('dienstKiezerWeg', false);
@@ -77,9 +82,24 @@ export default function Verken({ app }) {
     const top = Object.entries(tel).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([p]) => p);
     return dienst && !['*', '~mijn'].includes(dienst) && !top.includes(dienst) ? [...top, dienst] : top;
   }, [meta, recs, dienst]);
+  // Wat je als eigen rij vastzette, krijgt geen automatische dubbelganger
+  const vastFilms = useMemo(() => new Set(eigenRijen.filter((r) => r.basis === 'film').map((r) => r.film?.id)), [eigenRijen]);
+  const vastMakers = useMemo(() => new Set(eigenRijen.filter((r) => r.basis === 'maker' && r.maker?.rol !== 'cast').map((r) => r.maker?.naam)), [eigenRijen]);
   const rijen = useMemo(
-    () => bouwRecept(gefilterd, { seedFilms, regisseurs: regisseurs.map((r) => r.naam), taste, mijnDiensten, ronde }),
-    [gefilterd, seedFilms, regisseurs, taste, mijnDiensten, ronde],
+    () => bouwRecept(gefilterd, {
+      seedFilms: seedFilms.filter((s) => !vastFilms.has(meta[s.key]?.id)),
+      regisseurs: regisseurs.map((r) => r.naam).filter((n) => !vastMakers.has(n)),
+      taste, mijnDiensten, ronde,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [gefilterd, seedFilms, regisseurs, taste, mijnDiensten, ronde, vastFilms, vastMakers],
+  );
+  // Je eigen rijen staan direct onder Top voor jou, in jouw volgorde
+  const eigen = useMemo(() => bouwEigenRijen(gefilterd, eigenRijen, { mijnDiensten }), [gefilterd, eigenRijen, mijnDiensten]);
+  const weergaveRijen = rijen[0]?.type === 'top' ? [rijen[0], ...eigen, ...rijen.slice(1)] : [...eigen, ...rijen];
+  const voorstellen = useMemo(
+    () => stelRijenVoor({ seeds, meta, taste, regisseurs, bestaande: eigenRijen }),
+    [seeds, meta, taste, regisseurs, eigenRijen],
   );
   // Welke dienst noemt een tegel als eerste: de gefilterde, anders een van jouw diensten
   const voorkeur = dienst && !['*', '~mijn'].includes(dienst) ? [dienst] : mijnDiensten;
@@ -87,7 +107,7 @@ export default function Verken({ app }) {
   // De lijstweergave: "Alles bekijken" van één rij (live uit de kandidaten,
   // dus met wat je net ophaalde en zonder wat je afwees), of alles als er
   // te weinig kandidaten voor rijen zijn.
-  const lijstModus = !!alles || (rijen.length === 0 && gefilterd.length > 0);
+  const lijstModus = !!alles || (weergaveRijen.length === 0 && gefilterd.length > 0);
   const lijst = useMemo(() => {
     if (!lijstModus) return [];
     const basis = sorteerOpSterkte(alles ? gefilterd.filter(degelijk).filter(alles.past) : gefilterd);
@@ -107,9 +127,12 @@ export default function Verken({ app }) {
     // thema-vondsten: pas met trefwoorden blijkt of ze echt je thema's delen
     recs.filter((f) => f.bronnen.includes('thema')).slice(0, 40).forEach((f) => ids.add(f.id));
     rijen.forEach((rij) => rij.films.slice(0, RAAM).forEach((f) => ids.add(f.id)));
+    // eigen rijen: ook films die (nog) niet door hun filters komen, want een
+    // filter op looptijd of dienst kan pas oordelen met details
+    eigenRijen.forEach((r) => recs.filter((f) => f.bronnen.includes(`eigen:${r.id}`)).slice(0, 40).forEach((f) => ids.add(f.id)));
     lijst.slice(0, shown).forEach((f) => ids.add(f.id));
     return [...ids];
-  }, [mode, recs, rijen, lijst, shown, filterActief]);
+  }, [mode, recs, rijen, eigenRijen, lijst, shown, filterActief]);
   const nodigSig = nodigIds.join(',');
   useEffect(() => {
     if (nodigIds.length) vraagDetails(nodigIds);
@@ -199,9 +222,63 @@ export default function Verken({ app }) {
         const d = rij.diensten || [];
         return tr('verken.rowServices', { services: d.length > 2 ? `${d.slice(0, 2).join(', ')} +${d.length - 2}` : d.join(tr('verken.and')) });
       }
+      case 'eigen': return rij.naam;
       default: return tr('verken.rowProfile');
     }
   };
+
+  // Eigen rijen beheren
+  const opslaanEigen = (r) => {
+    const bestaat = eigenRijen.some((x) => x.id === r.id);
+    setEigenRijen((lijstR) => (bestaat ? lijstR.map((x) => (x.id === r.id ? r : x)) : [...lijstR, r]));
+    setMaker(null);
+    setNudge(tr(bestaat ? 'verken.eigenBijgewerkt' : 'verken.eigenToegevoegd', { naam: r.naam }));
+  };
+  const verwijderEigen = (id) => { setEigenRijen((l) => l.filter((x) => x.id !== id)); setMaker(null); };
+  const schuifEigen = (id, richting) => setEigenRijen((l) => {
+    const i = l.findIndex((x) => x.id === id);
+    const j = i + richting;
+    if (i < 0 || j < 0 || j >= l.length) return l;
+    const kopie = [...l];
+    [kopie[i], kopie[j]] = [kopie[j], kopie[i]];
+    return kopie;
+  });
+  // Een automatische rij vastzetten: "Omdat je X..." wordt "lijkt op X",
+  // "Meer van Y" wordt "van Y", en beide wisselen niet meer mee met de dag
+  const vastzetten = (rij) => {
+    const id = `e${Date.now().toString(36)}`;
+    if (rij.type === 'seed') {
+      const m = meta[rij.id.slice(5)];
+      if (!m?.id) return;
+      opslaanEigen({ id, naam: rijTitel(rij), basis: 'film', film: { id: m.id, title: rij.naam, year: m.year } });
+    } else if (rij.type === 'oeuvre') {
+      const reg = regisseurs.find((r) => r.naam === rij.naam);
+      if (!reg?.id) return;
+      opslaanEigen({ id, naam: rijTitel(rij), basis: 'maker', maker: { id: reg.id, naam: reg.naam, rol: 'regie' } });
+    }
+  };
+  const kopActie = (rij) => {
+    if (rij.type === 'dienst') return kiesDiensten ? null : { label: tr('verken.servicesEdit'), onClick: () => setKiesDiensten(true) };
+    if (rij.type === 'eigen') return { label: tr('verken.eigenBewerk'), onClick: () => { setMaker(rij.id); topRef.current?.scrollIntoView?.({ block: 'start' }); } };
+    if (rij.type === 'seed' || (rij.type === 'oeuvre' && regisseurs.find((r) => r.naam === rij.naam)?.id)) {
+      return { label: tr('verken.eigenVastzetten'), onClick: () => vastzetten(rij) };
+    }
+    return null;
+  };
+  const makerPaneel = maker ? (() => {
+    const start = maker === 'nieuw' ? null : eigenRijen.find((x) => x.id === maker);
+    const i = start ? eigenRijen.findIndex((x) => x.id === start.id) : -1;
+    return (
+      <EigenRijMaker
+        key={maker} start={start} tmdbKey={tmdbKey} mijnDiensten={mijnDiensten} diensten={dienstenKeuze}
+        voorstellen={voorstellen}
+        onOpslaan={opslaanEigen} onAnnuleer={() => setMaker(null)}
+        onVerwijder={start ? () => verwijderEigen(start.id) : undefined}
+        onOmhoog={start && i > 0 ? () => schuifEigen(start.id, -1) : undefined}
+        onOmlaag={start && i < eigenRijen.length - 1 ? () => schuifEigen(start.id, 1) : undefined}
+      />
+    );
+  })() : null;
   const kiezer = toonKiezer ? (
     <DienstKiezer
       key="kiezer"
@@ -338,24 +415,40 @@ export default function Verken({ app }) {
               <RefreshCw size={14} className={versLaden ? 'spin' : ''} /> {tr('verken.otherSuggestions')}
             </button>
           )}
+          {tmdbKey && (
+            <button className={`btn ghost ${maker === 'nieuw' ? 'actief' : ''}`} onClick={() => setMaker(maker === 'nieuw' ? null : 'nieuw')} aria-expanded={maker === 'nieuw'}>
+              <Plus size={14} /> {tr('verken.eigenNieuw')}
+            </button>
+          )}
           {(blendBusy || wachtOpDetails) && (
             <span className="fy-busy">{wachtOpDetails ? tr('verken.detailsLoadingFilter') : tr('verken.blending')}</span>
           )}
         </div>
-        {rijen.length > 0 ? (
+        {makerPaneel}
+        {weergaveRijen.length > 0 ? (
           <div className="rec-rows">
-            {rijen.map((rij, i) => (
+            {weergaveRijen.map((rij, i) => (
               <Fragment key={rij.id}>
                 {/* de dienstenkiezer staat direct onder de eerste rij */}
                 {i === 1 && kiezer}
-                <RecRow
-                  titel={rijTitel(rij)} rij={rij} totaal={totaalVan(rij)} voorkeur={voorkeur}
-                  actie={rij.type === 'dienst' && !kiesDiensten ? { label: tr('verken.servicesEdit'), onClick: () => setKiesDiensten(true) } : null}
-                  onAlles={openAlles} onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip}
-                />
+                {rij.type === 'eigen' && rij.films.length === 0 ? (
+                  // een eigen rij zonder (passende) films: laat zien wat er aan de hand is
+                  <section className="rec-row">
+                    <div className="rec-row-head">
+                      <h3>{rij.naam}</h3>
+                      <button type="button" className="row-actie" onClick={() => setMaker(rij.id)}>{tr('verken.eigenBewerk')}</button>
+                    </div>
+                    <p className="rij-leeg">{eigenGeladen(rij.id) && !wachtOpDetails ? tr('verken.eigenLeeg') : tr('verken.eigenLaden')}</p>
+                  </section>
+                ) : (
+                  <RecRow
+                    titel={rijTitel(rij)} rij={rij} totaal={totaalVan(rij)} voorkeur={voorkeur} actie={kopActie(rij)}
+                    onAlles={openAlles} onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip}
+                  />
+                )}
               </Fragment>
             ))}
-            {rijen.length === 1 && kiezer}
+            {weergaveRijen.length === 1 && kiezer}
           </div>
         ) : gefilterd.length > 0 ? lijstWeergave : (
           <div className="empty card">
@@ -422,6 +515,7 @@ export default function Verken({ app }) {
             app={app} taste={taste} openDetail={openDetail}
             addToShortlist={addToShortlist} shortIds={shortIds}
             ownIdsAll={ownIdsAll} ownKeysAll={ownKeysAll} seenIds={seenIds}
+            onBewaarRij={(r) => opslaanEigen({ ...normaliseer(r), id: `e${Date.now().toString(36)}`, naam: autoNaam(r, { tr }) })}
           />
         )}
 
