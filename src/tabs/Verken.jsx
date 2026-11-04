@@ -5,7 +5,7 @@ import { IMG, GENRES, genreLabelById, fetchDetailById, searchPersons, personFilm
 import { useLS } from '../lib/storage.js';
 import { buildTaste, matchScore } from '../lib/taste.js';
 import { MOODS, applyMoods, filterMoods } from '../lib/moods.js';
-import { vensterVan, voegNieuweToe } from '../lib/rows.js';
+import { vensterVan, voegNieuweToe, plekGewicht, rangschikRegisseurs, pastInOeuvre, bouwRijen } from '../lib/rows.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { shortlistToCsv, downloadText } from '../lib/csv.js';
 import { useT } from '../lib/i18n.js';
@@ -19,18 +19,26 @@ import ImdbA from '../components/ImdbA.jsx';
 // Zonder ratings.csv: op basis van je watchlist zelf.
 export default function Verken({ app }) {
   const { t: tr, lang } = useT();
-  const { watchlist, meta, setMeta, ratings, ratedFilms, watchedLb, shortlist, setShortlist, skipped, setSkipped, settings, startEnrich, enrich, tmdbKey, seenSet } = app;
-  // Mengmotor-instroom: oeuvres van je favoriete regisseurs (blijvend gecachet),
-  // profiel-discover (per sessie) en similar-lijsten (in meta gecachet)
+  const { watchlist, meta, setMeta, ratings, ratedFilms, shortlist, setShortlist, skipped, setSkipped, startEnrich, enrich, metaReady, tmdbKey, seenSet } = app;
+  // Mengmotor-instroom: oeuvres van je favoriete regisseurs (gecachet met een
+  // houdbaarheid), profiel-discover (per sessie) en similar-lijsten (in meta)
   const [oeuvres, setOeuvres] = useLS('oeuvres', {});
   const [profielCands, setProfielCands] = useState([]);
   const [themeCands, setThemeCands] = useState([]);
-  const themaAutoRef = useRef(false);
-  const [huntBusy, setHuntBusy] = useState(false);
   const [profielPage, setProfielPage] = useState(1);
   const [versLaden, setVersLaden] = useState(false);
   const [blendBusy, setBlendBusy] = useState(false);
-  const blendRan = useRef(false);
+  // Bijhouden wat de motor deze sessie al geprobeerd heeft, zodat hij na elke
+  // ronde kan kijken of er nieuw werk is zonder mislukte calls eindeloos te herhalen.
+  const blendRunning = useRef(false);
+  const [blendTick, setBlendTick] = useState(0);
+  const histTried = useRef(new Set());
+  const simTried = useRef(new Set());
+  const dirTried = useRef(new Set());
+  const profielGeladen = useRef(false);
+  const themaGeladen = useRef(''); // signatuur van de top-thema's waarop al gejaagd is
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   // Live uit TMDB tappen: elke klik haalt 3 verse discover-pagina's op je
   // profiel op en giet ze in de mengmotor — de pool raakt nooit meer op
@@ -172,103 +180,140 @@ export default function Verken({ app }) {
     return [...uit.values()].sort((a, b) => b.rating - a.rating);
   }, [watchlist, ratedFilms, ratings, meta]);
 
-  // De mengmotor vult de instroom bij: één keer per sessie, alles gecachet
+  // Kijkgeschiedenis verdiepen: je best beoordeelde films zonder filmdata
+  // worden seed. Dit draait los van de mengmotor: die heeft seeds nodig om te
+  // starten, dus binnen de motor kreeg een nieuwe gebruiker (ratings alleen
+  // buiten de watchlist) nooit seeds. We wachten tot een lopende verrijking
+  // klaar is, want startEnrich negeert een aanroep tijdens een andere run.
+  const HIST_PER_SESSIE = 60;
+  const historyCandidates = useMemo(
+    () => ratedFilms
+      .filter((f) => f.rating >= 4 && !(f.key in meta))
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 40),
+    [ratedFilms, meta],
+  );
   useEffect(() => {
-    const key = tmdbKey;
-    // De mengmotor draait alleen voor 'Voor jou' — niet als je puur de
-    // zoekmachine gebruikt. Zo blijft de Zoeken-tab instant.
-    if (mode !== 'voorJou' || !key || blendRan.current || !seeds.length) return;
-    blendRan.current = true;
-    let stop = false;
-    (async () => {
-      setBlendBusy(true);
-      // 0. Kijkgeschiedenis automatisch verdiepen: je best beoordeelde films
-      // zonder filmdata worden seed, zonder dat je ergens op hoeft te klikken
-      const histTodo = ratedFilms
-        .filter((f) => f.rating >= 4 && !(f.key in meta))
-        .sort((a, b) => b.rating - a.rating)
-        .slice(0, 40);
-      if (histTodo.length) startEnrich(histTodo);
-      // 1. Similar-lijsten voor je top-24 seeds (meta-cache; alleen wat ontbreekt)
-      const simTodo = seeds.slice(0, 24).filter((s) => !meta[s.key]?.sims);
-      for (const s of simTodo) {
-        if (stop) break;
-        try {
-          const sims = await fetchSimilar(meta[s.key].id, key);
-          setMeta((prev) => (prev[s.key] ? { ...prev, [s.key]: { ...prev[s.key], sims } } : prev));
-        } catch { /* similar is bonus */ }
-      }
-      // 2. Oeuvres van regisseurs achter je 4,5+ films (LS-cache, max 12)
-      const dirs = new Map();
-      seeds.filter((s) => s.rating >= 4.5).forEach((s) => {
-        const m = meta[s.key];
-        if (m?.director && !dirs.has(m.director)) dirs.set(m.director, m.directorId || null);
-      });
-      for (const [naam, id] of [...dirs.entries()].slice(0, 12)) {
-        if (stop) break;
-        if (oeuvres[naam]) continue;
-        try {
-          let pid = id;
-          if (!pid) {
-            const ppl = await searchPersons(key, naam);
-            pid = ppl.find((p) => p.dept === 'Directing')?.id || ppl[0]?.id;
-          }
-          if (!pid) continue;
-          const films = (await personFilms(key, pid)).filter((f) => f.rol === 'regie');
-          setOeuvres((prev) => ({ ...prev, [naam]: { films, at: Date.now() } }));
-        } catch { /* oeuvre is bonus */ }
-      }
-      // 3. Profiel-discover: instroom die aan géén bestaande film hangt
-      try {
-        const topG = Object.entries(taste.genres).filter(([, v]) => v > 0.3).sort((a, b) => b[1] - a[1]).slice(0, 2)
-          .map(([en]) => GENRES.find((g) => g.en === en)?.id).filter(Boolean);
-        const topD = Object.entries(taste.decades).sort((a, b) => b[1] - a[1])[0]?.[0];
-        const basis = { minScore: 7.0, minVotes: 300, maxVotes: 60000, minRuntime: 60, sortBy: 'vote_average.desc', page: 1 };
-        const queries = [
-          { ...basis, genreIds: topG, yearFrom: topD ? +topD : '', yearTo: topD ? +topD + 9 : '' },
-          { ...basis, genreIds: topG.slice(0, 1), lang: taste.nietEngels >= 0.35 ? 'niet-en' : 'alle' },
-          { ...basis, genreIds: topG, minVotes: 100, maxVotes: 5000 },
-        ];
-        const batches = await Promise.all(queries.map((q) => discoverGems(key, q).catch(() => ({ results: [] }))));
-        const gezien = new Set();
-        const cands = [];
-        batches.forEach((b) => b.results.forEach((r) => { if (!gezien.has(r.id)) { gezien.add(r.id); cands.push(r); } }));
-        if (!stop) setProfielCands(cands);
-      } catch { /* profiel-instroom is bonus */ }
-      setBlendBusy(false);
-    })();
-    return () => { stop = true; };
+    if (mode !== 'voorJou' || !tmdbKey || !metaReady || enrich.running) return;
+    const ruimte = HIST_PER_SESSIE - histTried.current.size;
+    const todo = historyCandidates.filter((f) => !histTried.current.has(f.key)).slice(0, Math.max(0, ruimte));
+    if (!todo.length) return;
+    todo.forEach((f) => histTried.current.add(f.key));
+    startEnrich(todo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seeds.length, tmdbKey, mode]);
+  }, [mode, tmdbKey, metaReady, enrich.running, historyCandidates]);
 
-  // Thema-jacht (optioneel): haalt films op die jouw top-thema's delen. Draait
-  // Draait automatisch (één keer per sessie) zodra je top-thema's bestaan:
-  // geen aparte knop meer, thema-films horen er gewoon bij.
+  // Regisseurs achter je favorieten, sterkste eerst (bron voor "Meer van X")
+  const regisseurs = useMemo(() => rangschikRegisseurs(seeds, meta), [seeds, meta]);
+
+  // De mengmotor vult de instroom bij, in rondes. Elke ronde doet alleen wat
+  // nog ontbreekt; na afloop kijkt hij opnieuw (blendTick), want ondertussen
+  // kunnen er via de kijkgeschiedenis nieuwe seeds en regisseurs bijgekomen
+  // zijn. Voorheen brak hij af zodra het aantal seeds veranderde (wat hij zelf
+  // veroorzaakte) en draaide hij die sessie nooit meer: geen oeuvres, geen
+  // profiel-instroom. Alleen bij unmount stoppen we nog.
+  const OEUVRE_TTL = 30 * 24 * 3600e3;
+  const seedSig = seeds.slice(0, 24).map((s) => s.key).join('|');
+  const dirSig = regisseurs.map((r) => r.naam).join('|');
   useEffect(() => {
     const key = tmdbKey;
-    if (themaAutoRef.current || !key || mode !== 'voorJou' || themeCands.length) return undefined;
-    themaAutoRef.current = true;
-    const ids = (taste.topThemes || []).map((t) => t.id).slice(0, 5);
-    if (!ids.length) return undefined;
-    let stop = false;
+    // Alleen voor 'Voor jou', zodat de Zoeken-tab instant blijft.
+    if (mode !== 'voorJou' || !key || !seeds.length || blendRunning.current) return;
+    const simTodo = seeds.slice(0, 24).filter((s) => meta[s.key]?.id && !meta[s.key].sims && !simTried.current.has(s.key));
+    const dirTodo = regisseurs.filter((r) => {
+      const o = oeuvres[r.naam];
+      const vers = o && Date.now() - (o.at || 0) < OEUVRE_TTL;
+      return !vers && !dirTried.current.has(r.naam);
+    });
+    // Profiel-discover pas als er niets meer verrijkt wordt: dan staat je
+    // smaakprofiel (genres, decennia) op z'n volledigst.
+    const profielTodo = !profielGeladen.current && !enrich.running;
+    if (!simTodo.length && !dirTodo.length && !profielTodo) return;
+    simTodo.forEach((s) => simTried.current.add(s.key));
+    dirTodo.forEach((r) => dirTried.current.add(r.naam));
+    if (profielTodo) profielGeladen.current = true;
+    blendRunning.current = true;
+    setBlendBusy(true);
     (async () => {
-      setHuntBusy(true);
       try {
-        const themeNamen = (taste.topThemes || []).slice(0, 5).map((t) => t.name);
+        // 1. Similar-lijsten voor je top-24 seeds (meta-cache)
+        for (const s of simTodo) {
+          if (!mounted.current) return;
+          try {
+            const sims = await fetchSimilar(meta[s.key].id, key);
+            setMeta((prev) => (prev[s.key] ? { ...prev, [s.key]: { ...prev[s.key], sims } } : prev));
+          } catch { /* similar is bonus */ }
+        }
+        // 2. Oeuvres van regisseurs achter je 4,5★+-films (LS-cache met houdbaarheid)
+        for (const r of dirTodo) {
+          if (!mounted.current) return;
+          try {
+            let pid = r.id;
+            if (!pid) {
+              const ppl = await searchPersons(key, r.naam);
+              pid = ppl.find((p) => p.dept === 'Directing')?.id || ppl[0]?.id;
+            }
+            if (!pid) continue;
+            const films = (await personFilms(key, pid)).filter((f) => f.rol === 'regie');
+            setOeuvres((prev) => ({ ...prev, [r.naam]: { films, at: Date.now() } }));
+          } catch { /* oeuvre is bonus */ }
+        }
+        // 3. Profiel-discover: instroom die aan géén bestaande film hangt
+        if (profielTodo && mounted.current) {
+          const topG = Object.entries(taste.genres).filter(([, v]) => v > 0.3).sort((a, b) => b[1] - a[1]).slice(0, 2)
+            .map(([en]) => GENRES.find((g) => g.en === en)?.id).filter(Boolean);
+          const topD = Object.entries(taste.decades).sort((a, b) => b[1] - a[1])[0]?.[0];
+          const basis = { minScore: 7.0, minVotes: 300, maxVotes: 60000, minRuntime: 60, sortBy: 'vote_average.desc', page: 1 };
+          const queries = [
+            { ...basis, genreIds: topG, yearFrom: topD ? +topD : '', yearTo: topD ? +topD + 9 : '' },
+            { ...basis, genreIds: topG.slice(0, 1), lang: taste.nietEngels >= 0.35 ? 'niet-en' : 'alle' },
+            { ...basis, genreIds: topG, minVotes: 100, maxVotes: 5000 },
+          ];
+          const batches = await Promise.all(queries.map((q) => discoverGems(key, q).catch(() => ({ results: [] }))));
+          const cands = batches.reduce((acc, b) => voegNieuweToe(acc, b.results), []);
+          // vooraan zetten, maar wat "Vers uit TMDB" intussen al ophaalde behouden
+          if (mounted.current) setProfielCands((prev) => voegNieuweToe(cands, prev));
+        }
+      } catch { /* instroom is bonus */ } finally {
+        blendRunning.current = false;
+        if (mounted.current) { setBlendBusy(false); setBlendTick((t) => t + 1); }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, tmdbKey, seedSig, dirSig, enrich.running, blendTick]);
+
+  // Thema-jacht: haalt films op die jouw top-thema's delen, automatisch zodra
+  // die bestaan. Voorheen werd de jacht als 'gedaan' gemarkeerd vóórdat er
+  // gecontroleerd werd of er al thema's waren; laadde je profiel nog, dan kwam
+  // de thema-rij die sessie nooit. Nu jagen we per thema-signatuur, en pas als
+  // er niets meer verrijkt wordt (tijdens het verrijken schuiven de thema's nog).
+  const themaSig = (taste.topThemes || []).slice(0, 5).map((t) => t.id).join(',');
+  useEffect(() => {
+    const key = tmdbKey;
+    if (!key || mode !== 'voorJou' || !themaSig || enrich.running || themaGeladen.current === themaSig) return;
+    const sig = themaSig;
+    themaGeladen.current = sig;
+    const ids = sig.split(',').map(Number);
+    const themeNamen = (taste.topThemes || []).slice(0, 5).map((t) => t.name);
+    (async () => {
+      try {
         const [a, b] = await Promise.all([
           discoverByKeywords(key, ids, { minVotes: 40, page: 1 }),
           discoverByKeywords(key, ids, { minVotes: 40, page: 2 }).catch(() => ({ results: [] })),
         ]);
-        // Merk elke treffer als 'via thema-jacht' met de thema's waarop gejaagd is,
-        // zodat de kaart kan uitleggen wáárom het is aanbevolen.
+        if (!mounted.current || themaGeladen.current !== sig) return; // ingehaald door nieuwere thema's
+        // Merk elke treffer met de thema's waarop gejaagd is, zodat de kaart
+        // kan uitleggen wáárom hij is aanbevolen.
         const merk = (r) => ({ ...r, viaTheme: themeNamen });
-        if (!stop) setThemeCands([...a.results.map(merk), ...b.results.map(merk)]);
-      } catch { /* thema-jacht is bonus */ }
-      if (!stop) setHuntBusy(false);
+        setThemeCands([...a.results.map(merk), ...b.results.map(merk)]);
+        setThemaPage(2);
+      } catch {
+        // mislukt: bij een volgende aanleiding (bijv. einde verrijking) opnieuw proberen
+        if (themaGeladen.current === sig) themaGeladen.current = '';
+      }
     })();
-    return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tmdbKey, mode, themeCands.length, (taste.topThemes || []).map((t) => t.id).join(',')]);
+  }, [tmdbKey, mode, themaSig, enrich.running]);
 
   const { recs, seededOnRatings, rijen } = useMemo(() => {
     const ownKeys = new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]);
@@ -302,11 +347,19 @@ export default function Verken({ app }) {
 
     gewogenSeeds.forEach((seed) => {
       const w = (seed.rating || 3.5) - 3; // 4★ = 1, 5★ = 2
-      meta[seed.key]?.recs?.forEach((r) => voegToe(r, 1 + w, 'aanbevolen', seed.name));
-      meta[seed.key]?.sims?.forEach((r) => voegToe(r, 0.8 + w * 0.8, 'vergelijkbaar', seed.name));
+      // /recommendations (kijkgedrag) is de hoofdbron; /similar (metadata) is
+      // veel ruiser en weegt daarom half zo zwaar. De plek in TMDB's lijst telt mee.
+      const recs = meta[seed.key]?.recs || [];
+      recs.forEach((r, i) => voegToe(r, (1 + w) * plekGewicht(i, recs.length), 'aanbevolen', seed.name));
+      const sims = meta[seed.key]?.sims || [];
+      sims.forEach((r, i) => voegToe(r, (0.4 + w * 0.4) * plekGewicht(i, sims.length), 'vergelijkbaar', seed.name));
     });
-    Object.entries(oeuvres).forEach(([naam, o]) => {
-      o.films?.forEach((r) => voegToe(r, 1.6, `oeuvre:${naam}`, null));
+    // Alleen oeuvres van je huidige favoriete regisseurs (de cache kan oude
+    // bevatten), en alleen films die een genre delen met wat jij van ze waardeert.
+    regisseurs.forEach((reg) => {
+      oeuvres[reg.naam]?.films?.forEach((r) => {
+        if (pastInOeuvre(r, reg.genres)) voegToe(r, 1.6, `oeuvre:${reg.naam}`, null);
+      });
     });
     profielCands.forEach((r) => voegToe(r, 0.7, 'profiel', null));
     themeCands.forEach((r) => voegToe(r, 0.85, 'thema', null));
@@ -323,46 +376,16 @@ export default function Verken({ app }) {
       return { ...r, match: m.score, redenen, recept: m.recept };
     });
 
-    // Rijen-met-reden: dezelfde kandidaten, gegroepeerd op waaróm ze er zijn.
-    // Elke rij bewaart zijn vólledige kandidatenpoel (alleFilms), zodat de UI
-    // er een venster overheen kan schuiven ("andere films" per rij). Een film
-    // hoort bij hooguit één rij, bepaald door de eerst-passende bron.
-    const opMatch = (a, b) => b.match - a.match;
-    const rijen = [];
-    const gebruikt = new Set();
-    const neem = (films, min = 4) => {
-      const vers = films.filter((r) => !gebruikt.has(r.id)).sort(opMatch);
-      if (vers.length < min) return null;
-      vers.forEach((r) => gebruikt.add(r.id)); // hele poel claimen, niet enkel top-18
-      return vers;
-    };
-
-    // 1. Per regisseur: "Meer van {naam}"
-    Object.keys(oeuvres).forEach((naam) => {
-      const films = list.filter((r) => r.bronnen.includes(`oeuvre:${naam}`));
-      const rij = neem(films);
-      if (rij) rijen.push({ id: `oeuvre:${naam}`, type: 'oeuvre', naam, films: rij });
+    // Rijen-met-reden: dezelfde kandidaten, gegroepeerd op waaróm ze er zijn,
+    // binnen elke rij op aanbevelingssterkte, en met afwisselende rijsoorten
+    // (zie bouwRijen in lib/rows.js).
+    const rijen = bouwRijen(list, {
+      regisseurs: regisseurs.map((r) => r.naam),
+      seedFilms: gewogenSeeds.filter((s) => (s.rating || 0) >= 4.5),
     });
-    // 2. Gedeelde thema's
-    const themaFilms = list.filter((r) => r.bronnen.includes('thema') || r.viaTheme?.length);
-    const themaRij = neem(themaFilms);
-    if (themaRij) {
-      const topThemas = [...new Set(themaFilms.flatMap((r) => r.viaTheme || []))].slice(0, 3);
-      rijen.push({ id: 'thema', type: 'thema', themas: topThemas, films: themaRij });
-    }
-    // 3. Omdat je een specifieke film hoog gaf (sterkste seeds eerst)
-    const seedNamen = [...gewogenSeeds].filter((s) => (s.rating || 0) >= 4.5).slice(0, 10);
-    seedNamen.forEach((seed) => {
-      const films = list.filter((r) => r.seeds.includes(seed.name));
-      const rij = neem(films);
-      if (rij) rijen.push({ id: `seed:${seed.key}`, type: 'seed', naam: seed.name, films: rij });
-    });
-    // 4. Profiel-restrij: passende parels die nog niet in een rij staan
-    const restRij = neem(list.filter((r) => !gebruikt.has(r.id)), 6);
-    if (restRij) rijen.push({ id: 'profiel', type: 'profiel', films: restRij });
 
     return { recs: list, seededOnRatings: onRatings, rijen };
-  }, [watchlist, meta, ratings, ratedFilms, seenSet, shortlist, skipped, seeds, oeuvres, profielCands, themeCands, lang]);
+  }, [watchlist, meta, ratings, ratedFilms, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, lang]);
 
   const genreNaam = (ids) => (ids || []).map((id) => genreLabelById(id)).filter(Boolean)[0];
   const addToShortlist = (r) => {
@@ -378,15 +401,6 @@ export default function Verken({ app }) {
   const unskip = (id) => setSkipped((s) => s.filter((x) => (typeof x === 'object' ? x.id : x) !== id));
   const removeShort = (id) => setShortlist((s) => s.filter((x) => x.id !== id));
 
-  // Kijkgeschiedenis verdiepen: haal filmdata op voor je best beoordeelde
-  // gezien-films die nog geen meta hebben (max 40 per keer, API-vriendelijk)
-  const historyCandidates = useMemo(
-    () => ratedFilms
-      .filter((f) => f.rating >= 4 && !(f.key in meta))
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, 40),
-    [ratedFilms, meta],
-  );
   const skippedObjects = skipped.filter((s) => typeof s === 'object');
   // Het smaakprofiel: één keer berekend, overal in Verken toegepast
 

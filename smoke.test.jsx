@@ -135,6 +135,126 @@ describe('V2 smoke', () => {
     expect(voegNieuweToe([{ id: 1 }, { id: 2 }], [{ id: 2 }, { id: 3 }]).map((f) => f.id)).toEqual([1, 2, 3]);
   });
 
+  it('rijen: bouwRijen wisselt rijsoorten af en laat regisseurs niet domineren', async () => {
+    const { bouwRijen } = await import('./src/lib/rows.js');
+    let id = 0;
+    const film = (extra) => ({ id: ++id, match: 70, waarde: 1, bronnen: [], seeds: [], ...extra });
+    const list = [];
+    ['R1', 'R2', 'R3', 'R4', 'R5', 'R6'].forEach((naam) => { for (let i = 0; i < 5; i++) list.push(film({ bronnen: [`oeuvre:${naam}`] })); });
+    ['S1', 'S2', 'S3'].forEach((naam) => { for (let i = 0; i < 5; i++) list.push(film({ bronnen: ['aanbevolen'], seeds: [naam] })); });
+    for (let i = 0; i < 8; i++) list.push(film({ bronnen: ['profiel'] }));
+    const rijen = bouwRijen(list, {
+      regisseurs: ['R1', 'R2', 'R3', 'R4', 'R5', 'R6'],
+      seedFilms: ['S1', 'S2', 'S3'].map((n) => ({ key: n, name: n })),
+    });
+    const types = rijen.map((r) => r.type);
+    // afwisselend in plaats van zes regisseursrijen bovenaan; daarna reserves
+    expect(types.slice(0, 6)).toEqual(['seed', 'oeuvre', 'seed', 'oeuvre', 'seed', 'profiel']);
+    // hooguit vier regisseursrijen; de films van de rest vallen naar de profielrij
+    expect(types.filter((t) => t === 'oeuvre').length).toBe(4);
+    expect(rijen.find((r) => r.type === 'profiel').films.length).toBe(8 + 10);
+    // geen film staat in twee rijen
+    const ids = rijen.flatMap((r) => r.films.map((f) => f.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('rijen: binnen een rij wint aanbevelingssterkte van een hoge match op een zwakke route', async () => {
+    const { sorteerOpSterkte, plekGewicht } = await import('./src/lib/rows.js');
+    expect(plekGewicht(0, 10)).toBe(1);
+    expect(plekGewicht(9, 10)).toBeCloseTo(0.55);
+    // sterke aanbeveling (5★-seed via recommendations) met middelmatige match
+    const sterk = { id: 1, waarde: 3, match: 60 };
+    // zwakke similar-treffer (halve weging, staart van de lijst) met hoge match
+    const zwak = { id: 2, waarde: 1.2 * 0.6, match: 80 };
+    expect(sorteerOpSterkte([zwak, sterk]).map((f) => f.id)).toEqual([1, 2]);
+    // bij gelijke sterkte beslist de match
+    expect(sorteerOpSterkte([{ id: 3, waarde: 2, match: 50 }, { id: 4, waarde: 2, match: 90 }]).map((f) => f.id)).toEqual([4, 3]);
+  });
+
+  it('rijen: regisseurs op sterkte, en een uitstapje buiten hun genre valt uit "Meer van"', async () => {
+    const { rangschikRegisseurs, pastInOeuvre } = await import('./src/lib/rows.js');
+    const meta = {
+      a: { director: 'Een', directorId: 1, genres: ['Drama'] },
+      b: { director: 'Twee', genres: ['Drama', 'Romance'] },
+      c: { director: 'Twee', genres: ['Drama'] },
+      d: { director: 'Vier', genres: ['Comedy'] },
+    };
+    const seeds = [{ key: 'a', rating: 5 }, { key: 'b', rating: 4.5 }, { key: 'c', rating: 4.5 }, { key: 'd', rating: 4 }];
+    const r = rangschikRegisseurs(seeds, meta);
+    // Twee: twee films die je hoog gaf (3 punten) wint van Een (2 punten);
+    // Vier heeft geen 4,5★-film en telt niet mee
+    expect(r.map((x) => x.naam)).toEqual(['Twee', 'Een']);
+    expect(r[1].id).toBe(1);
+    // Mufasa-regel: animatie/familie/avontuur deelt geen genre met een drama-regisseur
+    expect(pastInOeuvre({ genre_ids: [16, 10751, 12] }, new Set(['Drama']))).toBe(false);
+    expect(pastInOeuvre({ genre_ids: [18, 36] }, new Set(['Drama']))).toBe(true);
+    expect(pastInOeuvre({ genre_ids: [] }, new Set(['Drama']))).toBe(true);
+  });
+
+  it('voor jou: alleen ratings buiten de watchlist geeft toch seed-, regisseur- en themarijen', async () => {
+    // Het scenario van de drie motorbugs: de echte smaak zit in ratings zónder
+    // filmdata (1), de motor start al op één watchlist-seed terwijl de
+    // geschiedenis nog verrijkt wordt (2), en de thema's bestaan pas ná die
+    // verrijking (3). Plus een oude oeuvre-cache van een niet-favoriet (4).
+    const calls = [];
+    const rec = (id, title) => ({ id, title, release_date: '2015-03-01', poster_path: `/p${id}.jpg`, vote_average: 7.4, vote_count: 2500, original_language: 'en', overview: '', genre_ids: [18] });
+    global.fetch = async (url) => {
+      const u = new URL(String(url));
+      const p = u.pathname.replace(/^\/3/, '');
+      calls.push(p);
+      const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+      if (p === '/search/movie') {
+        const q = u.searchParams.get('query');
+        const n = Number(q.slice(3));
+        return json({ results: [{ id: 100 + n, title: q, release_date: `${2010 + n}-01-01` }] });
+      }
+      if (p === '/person/77/movie_credits') {
+        return json({ crew: [1, 2, 3, 4, 5].map((k) => ({ ...rec(700 + k, `Regiefilm ${k}`), job: 'Director' })), cast: [] });
+      }
+      if (u.searchParams.get('with_keywords')) {
+        return json({ total_pages: 1, results: [1, 2, 3, 4].map((k) => rec(800 + k, `Themafilm ${k}`)) });
+      }
+      const detail = p.match(/^\/movie\/(\d+)$/);
+      if (detail) {
+        const id = Number(detail[1]);
+        const n = id - 100;
+        return json({
+          id, title: `Fav${n}`, release_date: `${2010 + n}-01-01`, runtime: 100, genres: [{ id: 18, name: 'Drama' }],
+          vote_average: 7.8, vote_count: 4000, poster_path: null, backdrop_path: null, overview: '',
+          credits: { crew: [{ job: 'Director', name: 'Regisseur X', id: 77 }] }, videos: { results: [] },
+          'watch/providers': { results: {} }, keywords: { keywords: [{ id: 90, name: 'loneliness' }] },
+          production_countries: [], recommendations: { results: [1, 2, 3, 4, 5].map((k) => rec(id * 10 + k, `Aanrader ${n}-${k}`)) },
+        });
+      }
+      return json({ results: [], total_pages: 1 });
+    };
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'w|2019', name: 'W', year: 2019, uri: '' }]));
+    localStorage.setItem('nossyV2.ratings', JSON.stringify({ 'w|2019': 4 }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'w|2019': { id: 1, title: 'W', year: 2019, genres: ['Drama'], vote: 7, votes: 3000, at: Date.now(), recs: [] } }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([1, 2, 3].map((n) => ({ key: `fav${n}|${2010 + n}`, name: `Fav${n}`, year: 2010 + n, uri: '', rating: 5 }))));
+    const oud = [1, 2, 3, 4, 5].map((k) => ({ id: 950 + k, title: `Oud ${k}`, year: 2000, vote: 7.5, votes: 2000, genre_ids: [18] }));
+    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ 'Oude Regisseur': { at: Date.now(), films: oud } }));
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getByText('Voor jou'));
+      const koppen = () => [...document.querySelectorAll('.rec-row-head h3')].map((h) => h.textContent);
+      await waitFor(() => expect(koppen()).toEqual([
+        'Omdat je Fav1 hoog waardeerde',
+        'Meer van Regisseur X',
+        'Deelt loneliness met je favorieten',
+        'Omdat je Fav2 hoog waardeerde',
+        'Omdat je Fav3 hoog waardeerde',
+      ]), { timeout: 3000 });
+      expect(calls).toContain('/person/77/movie_credits');
+      expect(document.body.textContent).not.toContain('Oude Regisseur');
+    } finally {
+      delete global.fetch;
+    }
+  });
+
   it('rijen: elke rij heeft een wissel-knop en wisselen verbergt de rij', () => {
     localStorage.clear();
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
@@ -144,8 +264,8 @@ describe('V2 smoke', () => {
     ]));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
     const oeuvreFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18] }));
-    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms } }));
-    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now() } }));
+    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms, at: Date.now() } }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], director: 'Testregisseur', at: Date.now() } }));
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
@@ -275,8 +395,8 @@ describe('V2 smoke', () => {
     ]));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
     const oeuvreFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18] }));
-    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms } }));
-    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now() } }));
+    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms, at: Date.now() } }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], director: 'Testregisseur', at: Date.now() } }));
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
@@ -299,9 +419,9 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
     // een oeuvre van "Testregisseur" met vijf films -> genoeg voor een rij
     const oeuvreFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18] }));
-    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms } }));
+    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms, at: Date.now() } }));
     localStorage.setItem('nossyV2.meta', JSON.stringify({
-      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], at: Date.now() },
+      'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], director: 'Testregisseur', at: Date.now() },
     }));
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
