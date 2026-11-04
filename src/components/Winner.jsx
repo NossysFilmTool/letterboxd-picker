@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Play, RefreshCw, Eye, EyeOff, Share2, ExternalLink, Clapperboard, Plus, Check } from 'lucide-react';
+import { Play, RefreshCw, Eye, EyeOff, Share2, ExternalLink, Clapperboard, Plus, Check, X } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { imdbLink, jwLink } from '../lib/links.js';
 import { nossyScore, fmtScore, getNossyWeights } from '../lib/pick.js';
@@ -8,7 +8,7 @@ import { useT } from '../lib/i18n.js';
 
 const fmtVotes = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : n);
 
-export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onWantScores }) {
+export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onWantScores }) {
   const { t: tr, lang } = useT();
   const [sharing, setSharing] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
@@ -130,6 +130,9 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
               <button className={`btn ${inShortlist ? '' : 'green'}`} onClick={onShortlist} disabled={inShortlist}>
                 {inShortlist ? <><Check size={15} /> {tr('winner.onShortlist')}</> : <><Plus size={15} /> {tr('common.shortlist')}</>}
               </button>
+            )}
+            {onSkip && (
+              <button className="btn" onClick={onSkip}><X size={15} /> {tr('verken.notForMe')}</button>
             )}
             <button className="btn" onClick={share} disabled={sharing}>
               <Share2 size={15} /> {sharing ? tr('winner.makingCard') : tr('winner.share')}

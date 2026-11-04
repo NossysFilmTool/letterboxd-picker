@@ -397,33 +397,51 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 .rec-rows { display: grid; gap: 26px; min-width: 0; max-width: 100%; }
 .rec-rows > section { min-width: 0; max-width: 100%; overflow: hidden; }
 .rec-row-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
-.rec-row-head h3 { font-family: var(--font-display); font-size: 21px; font-weight: 400; color: var(--paper); }
-.rec-row-head .cnt { font-size: 12.5px; color: var(--fog-dim); }
+.rec-row-head h3 { font-family: var(--font-display); font-size: 21px; font-weight: 400; color: var(--paper); min-width: 0; }
+.rec-row-head .row-title { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.rec-row-head .row-title:hover { color: var(--dot-o); }
+.rec-row-head .row-title:focus-visible, .rec-row-head .row-all:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px; border-radius: 4px; }
+.rec-row-head .row-all { margin-left: auto; flex-shrink: 0; background: none; border: none; padding: 2px 0; color: var(--fog); font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
+.rec-row-head .row-all:hover { color: var(--paper); }
 .rec-strip { display: flex; gap: 14px; overflow-x: auto; max-width: 100%; scroll-snap-type: x proximity; padding: 2px 2px 12px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .rec-strip::-webkit-scrollbar { height: 8px; }
 .rec-strip::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
-.rec-tile { flex: 0 0 132px; scroll-snap-align: start; background: none; border: none; padding: 0; cursor: pointer; text-align: left; animation: tileIn 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
-.rec-tile .poster { width: 132px; height: 198px; border-radius: 10px; overflow: hidden; background: var(--ink); display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); transition: transform 0.16s ease, box-shadow 0.16s ease; }
-.rec-tile:hover .poster { transform: translateY(-4px); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45); }
-.rec-tile:focus-visible .poster { outline: 2px solid var(--dot-b); outline-offset: 2px; }
-.rec-tile img { width: 100%; height: 100%; object-fit: cover; }
-.rec-tile .t { display: block; color: var(--paper); font-size: 13px; font-weight: 600; margin-top: 7px; line-height: 1.25; max-width: 132px; }
+
+/* De tegel: poster opent de kaart, + en x geven direct feedback */
+.rec-tile { flex: 0 0 132px; scroll-snap-align: start; animation: tileIn 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+.rec-tile .poster { position: relative; width: 132px; height: 198px; border-radius: 10px; overflow: hidden; background: var(--ink); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); transition: transform 0.16s ease, box-shadow 0.16s ease; }
+.rec-tile:hover .poster, .rec-tile:focus-within .poster { transform: translateY(-4px); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45); }
+.rec-tile .tile-open { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: none; background: none; color: var(--fog-dim); cursor: pointer; }
+.rec-tile .tile-open:focus-visible { outline: 2px solid var(--dot-b); outline-offset: -2px; border-radius: 10px; }
+.rec-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rec-tile .tile-score { position: absolute; top: 6px; right: 6px; background: rgba(10, 13, 16, 0.82); color: var(--dot-o); font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px; display: inline-flex; align-items: center; gap: 2px; backdrop-filter: blur(3px); pointer-events: none; }
+.rec-tile .tile-acts { position: absolute; left: 6px; right: 6px; bottom: 6px; display: flex; justify-content: space-between; opacity: 0; transform: translateY(4px); transition: opacity 0.15s ease, transform 0.15s ease; }
+.rec-tile:hover .tile-acts, .rec-tile:focus-within .tile-acts { opacity: 1; transform: none; }
+@media (hover: none) { .rec-tile .tile-acts { opacity: 1; transform: none; } }
+.rec-tile .tile-acts button { width: 30px; height: 30px; border-radius: 999px; border: 1px solid rgba(238, 242, 245, 0.25); background: rgba(10, 13, 16, 0.82); color: var(--paper); display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(3px); transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.rec-tile .tile-acts button:first-child:hover { background: var(--dot-g); border-color: var(--dot-g); color: #0a2313; }
+.rec-tile .tile-acts button:last-child:hover { background: var(--dot-o); border-color: var(--dot-o); color: #14181c; }
+.rec-tile .tile-acts button:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 1px; }
+.rec-tile .tile-cap { display: block; width: 132px; background: none; border: none; padding: 0; text-align: left; cursor: pointer; }
+.rec-tile .t { display: block; color: var(--paper); font-size: 13px; font-weight: 600; margin-top: 7px; line-height: 1.25; }
 .rec-tile .yr { display: block; color: var(--fog-dim); font-size: 11.5px; margin-top: 1px; }
-.rec-tile .mt { color: var(--dot-b); }
 @keyframes tileIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .rec-tile { animation: none; } .rec-tile:hover .poster { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .rec-tile { animation: none; }
+  .rec-tile:hover .poster, .rec-tile:focus-within .poster { transform: none; }
+  .rec-tile .tile-acts { transition: none; }
+}
 
-/* Score-badge op de aanbevelingstegel */
-.rec-tile .poster { position: relative; }
-.rec-tile .tile-score { position: absolute; top: 6px; right: 6px; background: rgba(10, 13, 16, 0.82); color: var(--dot-o); font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px; display: inline-flex; align-items: center; gap: 2px; backdrop-filter: blur(3px); }
-
-/* Verken: "waar zoek je nu naar" stemmingsbalk */
-.mood-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 4px; }
-.mood-bar .mood-prompt { font-size: 13px; color: var(--fog); font-weight: 600; margin-right: 2px; }
-
-/* "Andere films" knop in de rij-kop */
-.row-more { margin-left: auto; background: none; border: 1px solid var(--line); color: var(--fog); font-size: 12px; padding: 3px 10px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: border-color 0.15s, color 0.15s; }
-.row-more:hover { border-color: var(--dot-o); color: var(--dot-o); }
+/* Voor jou: werkbalk, laadstatus, skelet en "Alles bekijken" */
+.fy-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.fy-busy { font-size: 12.5px; color: var(--fog-dim); }
+.fy-alles-title { font-family: var(--font-display); font-size: 26px; font-weight: 400; color: var(--paper); }
+.fy-alles-title .cnt { font-size: 15px; color: var(--fog-dim); }
+.skel { background: linear-gradient(90deg, var(--char) 0%, rgba(153, 170, 187, 0.1) 50%, var(--char) 100%); background-size: 200% 100%; animation: skel 1.4s ease-in-out infinite; border-radius: 10px; }
+.skel-head { width: 220px; max-width: 60%; height: 22px; margin-bottom: 12px; border-radius: 6px; }
+.skel-tile { flex: 0 0 132px; height: 198px; }
+@keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 
 /* Het transparante score-recept */
 .why-score { background: none; border: none; color: var(--dot-b); font-size: 12.5px; cursor: pointer; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; }
@@ -436,10 +454,7 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 .recept-pts { font-size: 12px; color: var(--paper); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .recept-bar > span { transition: none; } }
 
-/* Rustige icoon-knoppen in de rijkoppen */
-.row-more.icon { padding: 4px 8px; }
-.row-more.icon + .row-more.icon { margin-left: 4px; }
-.row-more:first-of-type { margin-left: auto; }
+/* Draai-icoon tijdens ophalen */
 .spin { animation: spinR 0.9s linear infinite; }
 @keyframes spinR { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

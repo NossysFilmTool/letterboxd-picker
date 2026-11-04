@@ -40,6 +40,16 @@ function seed() {
   }));
 }
 
+// Verken onthoudt de laatst gekozen modus; zonder keuze opent het met
+// filmdata op Voor jou. Zoektests kiezen vóór het renderen Zoeken, zodat de
+// Voor jou-motor niet eerst met hun nep-fetch aan de slag gaat.
+const startOpZoeken = () => localStorage.setItem('nossyV2.verkenMode', JSON.stringify('zoeken'));
+// Open Verken, optioneel met het (standaard ingeklapte) filterpaneel open.
+function naarZoeken({ filters = false } = {}) {
+  fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+  if (filters) fireEvent.click(screen.getByText('Toon filters'));
+}
+
 describe('V2 smoke', () => {
   beforeEach(() => { cleanup(); seed(); });
 
@@ -112,8 +122,8 @@ describe('V2 smoke', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
-    // naar de vlakke lijst, waar het recept woont
-    fireEvent.click(screen.getByText('Toon als één lijst'));
+    // naar "Alles bekijken" van de rij, waar de kaarten met het recept wonen
+    fireEvent.click(screen.getByText(/Alles bekijken/));
     fireEvent.click(screen.getAllByText(/Waarom \d+%\?/)[0]);
     expect(screen.getByText('Kwaliteit (gedempt op stemmen)')).toBeTruthy();
     expect(screen.getByText('Genre-affiniteit')).toBeTruthy();
@@ -122,40 +132,42 @@ describe('V2 smoke', () => {
     expect(screen.queryByText('Kwaliteit (gedempt op stemmen)')).toBeNull();
   });
 
-  it('rijen: vensterVan wrapt netjes rond en voegNieuweToe dedupliceert', async () => {
-    const { vensterVan, voegNieuweToe } = await import('./src/lib/rows.js');
-    const films = Array.from({ length: 20 }, (_, i) => ({ id: i + 1 }));
-    // eerste venster: 1..12
-    expect(vensterVan(films, 0).map((f) => f.id)).toEqual([1,2,3,4,5,6,7,8,9,10,11,12]);
-    // offset 12: 13..20 + wrap 1..4
-    expect(vensterVan(films, 12).map((f) => f.id)).toEqual([13,14,15,16,17,18,19,20,1,2,3,4]);
-    // kleine poel: alles, geen wrap-gedoe
-    expect(vensterVan(films.slice(0, 5), 12).map((f) => f.id)).toEqual([1,2,3,4,5]);
-    // dedup op id
+  it('rijen: voegNieuweToe dedupliceert op id', async () => {
+    const { voegNieuweToe } = await import('./src/lib/rows.js');
     expect(voegNieuweToe([{ id: 1 }, { id: 2 }], [{ id: 2 }, { id: 3 }]).map((f) => f.id)).toEqual([1, 2, 3]);
   });
 
-  it('rijen: bouwRijen wisselt rijsoorten af en laat regisseurs niet domineren', async () => {
-    const { bouwRijen } = await import('./src/lib/rows.js');
+  it('voor jou: het rijrecept geeft top, favorieten, regisseur, parels en bubbel, zonder dubbele films', async () => {
+    const { bouwRecept } = await import('./src/lib/foryou.js');
     let id = 0;
-    const film = (extra) => ({ id: ++id, match: 70, waarde: 1, bronnen: [], seeds: [], ...extra });
+    const film = (extra) => ({ id: ++id, vote: 7.4, votes: 3000, match: 70, waarde: 1, bronnen: [], seeds: [], genre_ids: [18], ...extra });
     const list = [];
-    ['R1', 'R2', 'R3', 'R4', 'R5', 'R6'].forEach((naam) => { for (let i = 0; i < 5; i++) list.push(film({ bronnen: [`oeuvre:${naam}`] })); });
-    ['S1', 'S2', 'S3'].forEach((naam) => { for (let i = 0; i < 5; i++) list.push(film({ bronnen: ['aanbevolen'], seeds: [naam] })); });
-    for (let i = 0; i < 8; i++) list.push(film({ bronnen: ['profiel'] }));
-    const rijen = bouwRijen(list, {
-      regisseurs: ['R1', 'R2', 'R3', 'R4', 'R5', 'R6'],
-      seedFilms: ['S1', 'S2', 'S3'].map((n) => ({ key: n, name: n })),
-    });
-    const types = rijen.map((r) => r.type);
-    // afwisselend in plaats van zes regisseursrijen bovenaan; daarna reserves
-    expect(types.slice(0, 6)).toEqual(['seed', 'oeuvre', 'seed', 'oeuvre', 'seed', 'profiel']);
-    // hooguit vier regisseursrijen; de films van de rest vallen naar de profielrij
-    expect(types.filter((t) => t === 'oeuvre').length).toBe(4);
-    expect(rijen.find((r) => r.type === 'profiel').films.length).toBe(8 + 10);
-    // geen film staat in twee rijen
+    // sterke aanbevelingen via drie favorieten
+    ['S1', 'S2', 'S3'].forEach((n) => { for (let i = 0; i < 8; i++) list.push(film({ waarde: 3 - i * 0.2, bronnen: ['aanbevolen'], seeds: [n] })); });
+    // twee regisseurs
+    ['R1', 'R2'].forEach((n) => { for (let i = 0; i < 5; i++) list.push(film({ waarde: 1.6, bronnen: [`oeuvre:${n}`] })); });
+    // parels: weinig stemmen, hoog cijfer
+    for (let i = 0; i < 5; i++) list.push(film({ votes: 400, vote: 7.6, waarde: 0.7, bronnen: ['profiel'] }));
+    // buiten de bubbel: komedie, sterk beoordeeld
+    for (let i = 0; i < 5; i++) list.push(film({ genre_ids: [35], vote: 7.8, votes: 5000, waarde: 0.7, bronnen: ['profiel'] }));
+    // rommel onder de kwaliteitsdrempel (een 9 met 30 stemmen)
+    for (let i = 0; i < 5; i++) list.push(film({ votes: 30, vote: 9, bronnen: ['profiel'] }));
+    const taste = { genres: { Drama: 0.9, Comedy: 0 } };
+    const seedFilms = ['S1', 'S2', 'S3'].map((n) => ({ key: n, name: n }));
+    const rijen = bouwRecept(list, { seedFilms, regisseurs: ['R1', 'R2'], taste, dag: 0 });
+    expect(rijen.map((r) => r.type)).toEqual(['top', 'seed', 'oeuvre', 'parels', 'seed', 'bubbel']);
+    // geen film in twee rijen, en niets onder de drempel
     const ids = rijen.flatMap((r) => r.films.map((f) => f.id));
     expect(new Set(ids).size).toBe(ids.length);
+    expect(rijen.some((r) => r.films.some((f) => f.votes === 30))).toBe(false);
+    // de top begint met de sterkste aanbeveling
+    expect(rijen[0].films[0].waarde).toBe(3);
+    // een andere dag (of "Andere suggesties") kiest andere favorieten en een andere regisseur
+    const morgen = bouwRecept(list, { seedFilms, regisseurs: ['R1', 'R2'], taste, dag: 1 });
+    expect(morgen.filter((r) => r.type === 'seed').map((r) => r.naam)).not.toEqual(rijen.filter((r) => r.type === 'seed').map((r) => r.naam));
+    expect(morgen.find((r) => r.type === 'oeuvre').naam).not.toBe(rijen.find((r) => r.type === 'oeuvre').naam);
+    // te weinig voor één echte rij: geen rijen (Voor jou toont dan de lijst)
+    expect(bouwRecept(list.slice(0, 3), { seedFilms, taste, dag: 0 })).toEqual([]);
   });
 
   it('rijen: binnen een rij wint aanbevelingssterkte van een hoge match op een zwakke route', async () => {
@@ -223,7 +235,7 @@ describe('V2 smoke', () => {
           vote_average: 7.8, vote_count: 4000, poster_path: null, backdrop_path: null, overview: '',
           credits: { crew: [{ job: 'Director', name: 'Regisseur X', id: 77 }] }, videos: { results: [] },
           'watch/providers': { results: {} }, keywords: { keywords: [{ id: 90, name: 'loneliness' }] },
-          production_countries: [], recommendations: { results: [1, 2, 3, 4, 5].map((k) => rec(id * 10 + k, `Aanrader ${n}-${k}`)) },
+          production_countries: [], recommendations: { results: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => rec(id * 10 + k, `Aanrader ${n}-${k}`)) },
         });
       }
       return json({ results: [], total_pages: 1 });
@@ -241,13 +253,14 @@ describe('V2 smoke', () => {
       fireEvent.click(screen.getAllByLabelText('Verken')[0]);
       fireEvent.click(screen.getByText('Voor jou'));
       const koppen = () => [...document.querySelectorAll('.rec-row-head h3')].map((h) => h.textContent);
-      await waitFor(() => expect(koppen()).toEqual([
-        'Omdat je Fav1 hoog waardeerde',
-        'Meer van Regisseur X',
-        'Deelt loneliness met je favorieten',
-        'Omdat je Fav2 hoog waardeerde',
-        'Omdat je Fav3 hoog waardeerde',
-      ]), { timeout: 3000 });
+      // Recept: top, favoriet, regisseur, favoriet, thema. Welke twee van de
+      // drie favorieten een rij krijgen, wisselt per dag.
+      await waitFor(() => expect(koppen().length).toBe(5), { timeout: 3000 });
+      const k = koppen();
+      expect(k[0]).toBe('Top voor jou');
+      expect(k[2]).toBe('Meer van Regisseur X');
+      expect(k[4]).toBe('Deelt loneliness met je favorieten');
+      expect(k.filter((x) => /^Omdat je Fav\d hoog waardeerde$/.test(x)).length).toBe(2);
       expect(calls).toContain('/person/77/movie_credits');
       expect(document.body.textContent).not.toContain('Oude Regisseur');
     } finally {
@@ -255,7 +268,7 @@ describe('V2 smoke', () => {
     }
   });
 
-  it('rijen: elke rij heeft een wissel-knop en wisselen verbergt de rij', () => {
+  it('tegels: + zet op de shortlist, x wijst af, en de rij vult zichzelf aan', () => {
     localStorage.clear();
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
     localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
@@ -263,18 +276,27 @@ describe('V2 smoke', () => {
       { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
     ]));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
-    const oeuvreFilms = [1, 2, 3, 4, 5].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18] }));
+    const oeuvreFilms = [1, 2, 3, 4, 5, 6].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18] }));
     localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms, at: Date.now() } }));
     localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], director: 'Testregisseur', at: Date.now() } }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
-    fireEvent.click(screen.getByText('Voor jou'));
+    fireEvent.click(screen.getAllByLabelText('Verken')[0]); // opent op Voor jou
     expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Vervang deze rij door een andere categorie'));
-    expect(screen.queryByText('Meer van Testregisseur')).toBeNull();
+    // x: weg uit de rij, met een zichtbare nudge
+    fireEvent.click(screen.getByLabelText('Niet voor mij: Reg Film 1'));
+    expect(screen.queryByText('Reg Film 1')).toBeNull();
+    expect(document.body.textContent).toMatch(/je ziet nu iets minder/i);
+    // +: naar de shortlist, die als uitklapknop in de kop verschijnt
+    fireEvent.click(screen.getByLabelText('Zet Reg Film 2 op je shortlist'));
+    expect(screen.queryByText('Reg Film 2')).toBeNull();
+    fireEvent.click(screen.getByText('Shortlist (1)'));
+    expect(document.body.textContent).toContain('Exporteer voor Letterboxd');
+    // de rij blijft staan met de overige films
+    expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
+    expect(screen.getByText('Reg Film 3')).toBeTruthy();
   });
 
-  it('rijen: "andere films" op een seed-rij haalt echt pagina 2 op en toont de vondst', async () => {
+  it('rijen: "Meer ophalen" in Alles bekijken van een seed-rij haalt echt pagina 2 op', async () => {
     const calls = [];
     global.fetch = async (url) => {
       const u = String(url);
@@ -304,8 +326,10 @@ describe('V2 smoke', () => {
       fireEvent.click(screen.getAllByLabelText('Verken')[0]);
       fireEvent.click(screen.getByText('Voor jou'));
       expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
-      fireEvent.click(screen.getByLabelText('Haal andere films voor deze rij'));
-      // de diepere pagina is echt opgevraagd én de nieuwe film staat in de rij
+      fireEvent.click(screen.getByText(/Alles bekijken/));
+      expect(screen.getByText('Terug naar Voor jou')).toBeTruthy();
+      fireEvent.click(screen.getByText('Meer ophalen uit TMDB'));
+      // de diepere pagina is echt opgevraagd én de nieuwe film staat in de lijst
       expect(await screen.findByText('Diepere Vondst')).toBeTruthy();
       expect(calls.some((u) => u.includes('page=2') && u.includes('/1/similar'))).toBe(true);
       expect(calls.some((u) => u.includes('page=2') && u.includes('/1/recommendations'))).toBe(true);
@@ -386,7 +410,7 @@ describe('V2 smoke', () => {
     expect(r.every((f) => typeof f.moodScore === 'number')).toBe(true);
   });
 
-  it('stemmingen: de balk staat in Verken en "Wis" verschijnt na een keuze', () => {
+  it('voor jou: het genre-filter beperkt de rijen en is terug te zetten', () => {
     localStorage.clear();
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
     localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
@@ -400,12 +424,14 @@ describe('V2 smoke', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
-    expect(screen.getByText('Waar zoek je nu naar?')).toBeTruthy();
-    expect(screen.queryByText('Wis')).toBeNull();
-    fireEvent.click(screen.getByText(/Iets luchtigs/));
-    expect(screen.getByText('Wis')).toBeTruthy();
-    fireEvent.click(screen.getByText('Wis'));
-    expect(screen.queryByText('Wis')).toBeNull();
+    expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
+    // alleen komedie: de drama-regisseur valt weg, met een duidelijke melding
+    fireEvent.change(screen.getByLabelText('Filter op genre'), { target: { value: '35' } });
+    expect(screen.queryByText('Meer van Testregisseur')).toBeNull();
+    expect(screen.getByText('Geen suggesties in dit genre')).toBeTruthy();
+    // terug naar alle genres
+    fireEvent.click(screen.getByRole('button', { name: 'Alle genres' }));
+    expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
   });
 
   it('verken: rijen-met-reden tonen een oeuvre-rij met kop en posters', () => {
@@ -426,13 +452,15 @@ describe('V2 smoke', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Verken')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
-    // de rij-kop verschijnt met de regisseursnaam
+    // de rij-kop verschijnt met de regisseursnaam, met posters
     expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
-    // en de toggle om naar één lijst te wisselen staat er
-    expect(screen.getByText('Toon als één lijst')).toBeTruthy();
-    // wisselen naar vlakke lijst laat de kop verdwijnen
-    fireEvent.click(screen.getByText('Toon als één lijst'));
-    expect(screen.queryByText('Meer van Testregisseur')).toBeNull();
+    expect(document.querySelectorAll('.rec-tile').length).toBe(5);
+    // "Alles bekijken" opent de kaarten met reden; terug brengt de rijen terug
+    fireEvent.click(screen.getByText(/Alles bekijken \(5\)/));
+    expect(document.querySelector('.rec-row-head')).toBeNull();
+    expect(screen.getAllByText(/Uit het oeuvre van Testregisseur/).length).toBe(5);
+    fireEvent.click(screen.getByText('Terug naar Voor jou'));
+    expect(document.querySelector('.rec-row-head')).toBeTruthy();
   });
 
   it('verken toont aanbevelingen op ratings-basis en shortlist-export', () => {
@@ -442,6 +470,8 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('4+ sterren');
     expect(document.body.textContent).toContain('Aanrader');
     fireEvent.click(screen.getAllByText('Shortlist')[0]);
+    // de shortlist klapt uit vanuit de kop
+    fireEvent.click(screen.getByText('Shortlist (1)'));
     expect(document.body.textContent).toContain('Exporteer voor Letterboxd');
   });
 
@@ -539,13 +569,15 @@ describe('V2 smoke', () => {
         ],
       }),
     });
+    startOpZoeken();
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]); // start op Zoeken
+    naarZoeken();
     fireEvent.click(screen.getByText('Zoek'));
     expect(await screen.findByText('Onbekende Parel')).toBeTruthy();
     expect(document.body.textContent).toContain('42 resultaten');
     expect(document.body.textContent).toContain('Frans');
     fireEvent.click(screen.getAllByText('Shortlist')[0]);
+    fireEvent.click(screen.getByText('Shortlist (1)'));
     expect(document.body.textContent).toContain('Exporteer voor Letterboxd');
     delete global.fetch;
   });
@@ -573,8 +605,9 @@ describe('V2 smoke', () => {
         ? { results: [{ id: 777, title: 'Zoekfilm', release_date: '2018-03-01', poster_path: null, vote_average: 7.2, vote_count: 900, original_language: 'da', overview: 'Deens juweel.' }] }
         : { id: 777, title: 'Zoekfilm', release_date: '2018-03-01', runtime: 101, genres: [{ name: 'Drama' }], vote_average: 7.2, vote_count: 900, poster_path: null, backdrop_path: null, overview: 'Deens juweel.', imdb_id: 'tt777', production_countries: [{ iso_3166_1: 'DK' }], credits: { crew: [{ job: 'Director', name: 'Test Regisseur' }] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } }),
     });
+    startOpZoeken();
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    naarZoeken();
     fireEvent.change(screen.getByLabelText('Zoek op titel of maker'), { target: { value: 'zoekfilm' } });
     fireEvent.click(screen.getByText('Zoek'));
     expect(await screen.findByText('Zoekfilm')).toBeTruthy();
@@ -794,7 +827,7 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).not.toContain('Junk Short'); // 5 stemmen: eruit
   });
 
-  it('vers uit tmdb laden voegt live kandidaten toe', async () => {
+  it('"Andere suggesties" haalt live nieuwe kandidaten uit TMDB', async () => {
     // alleen de tweede discover-pagina (de klik) levert de vondst;
     // de automatische instroom bij het openen krijgt lege resultaten
     global.fetch = async (url) => ({
@@ -808,12 +841,9 @@ describe('V2 smoke', () => {
     fireEvent.click(screen.getByText('Voor jou'));
     await new Promise((r) => setTimeout(r, 30)); // automatische instroom laten settelen
     expect(document.body.textContent).not.toContain('Verse Vondst');
-    fireEvent.click(screen.getAllByText(/Vers uit TMDB laden/)[0]);
+    fireEvent.click(screen.getByText('Andere suggesties'));
     expect(await screen.findByText('Verse Vondst')).toBeTruthy();
-    // de reden-tekst staat in de vlakke lijst; schakel ernaartoe als de
-    // rijen-weergave actief is (die toont posters zonder redenzin)
-    const toggle = screen.queryByText('Toon als één lijst');
-    if (toggle) fireEvent.click(toggle);
+    // te weinig kandidaten voor rijen: de kaartenlijst toont de reden
     expect(document.body.textContent).toContain('Via jouw smaakprofiel gevonden');
     delete global.fetch;
   });
@@ -827,8 +857,9 @@ describe('V2 smoke', () => {
         results: [{ id: 5000, title: 'Servergevonden', release_date: '1994-01-01', poster_path: null, vote_average: 7.8, vote_count: 3000, original_language: 'fr', overview: 'x', genre_ids: [18] }],
       }) };
     };
+    startOpZoeken();
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    naarZoeken({ filters: true });
     // criteria zetten: genre Drama (18) + niet-Engels, geen tekst
     fireEvent.click(screen.getByText('Drama'));
     fireEvent.change(screen.getByLabelText('Taal'), { target: { value: 'niet-en' } });
@@ -903,8 +934,9 @@ describe('V2 smoke', () => {
   it('zoekmachine: vrije stemmen-invoer wordt server-side vote_count', async () => {
     const calls = [];
     global.fetch = async (url) => { calls.push(String(url)); return { ok: true, status: 200, json: async () => ({ total_pages: 2, total_results: 30, results: [{ id: 6001, title: 'Breedgezien', release_date: '2010-01-01', poster_path: null, vote_average: 8.1, vote_count: 90000, original_language: 'en', overview: 'x', genre_ids: [18] }] }) }; };
+    startOpZoeken();
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    naarZoeken({ filters: true });
     fireEvent.change(screen.getByLabelText('Minimaal aantal stemmen'), { target: { value: '50000' } });
     fireEvent.click(screen.getByText('Zoek'));
     expect(await screen.findByText('Breedgezien')).toBeTruthy();
@@ -915,8 +947,9 @@ describe('V2 smoke', () => {
   });
 
   it('zoekmachine: preset-chip vult de stemmen-velden', () => {
+    startOpZoeken();
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    naarZoeken({ filters: true });
     fireEvent.click(screen.getByText('Onder de radar'));
     expect(screen.getByLabelText('Minimaal aantal stemmen').value).toBe('400');
     expect(screen.getByLabelText('Maximaal aantal stemmen').value).toBe('2500');
@@ -940,8 +973,9 @@ describe('V2 smoke', () => {
       if (u.includes('/search/person')) return { ok: true, status: 200, json: async () => ({ results: [] }) };
       return { ok: true, status: 200, json: async () => ({ id: 4242, title: 'Blijverfilm', release_date: '2011-01-01', runtime: 100, genres: [{ name: 'Drama' }], vote_average: 7.3, vote_count: 5000, poster_path: null, backdrop_path: null, overview: 'x', imdb_id: 'tt4242', production_countries: [], credits: { crew: [{ job: 'Director', name: 'Regisseur X' }] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } }) };
     };
+    startOpZoeken();
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    naarZoeken();
     fireEvent.change(screen.getByLabelText('Zoek op titel of maker'), { target: { value: 'blijver' } });
     fireEvent.click(screen.getByText('Zoek'));
     expect(await screen.findByText('Blijverfilm')).toBeTruthy();
@@ -979,8 +1013,9 @@ describe('V2 smoke', () => {
   });
 
   it('zoekmachine: ruime talenlijst met o.a. Noors', () => {
+    startOpZoeken();
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    naarZoeken({ filters: true });
     const sel = screen.getByLabelText('Taal');
     const opties = [...sel.querySelectorAll('option')].map((o) => o.textContent);
     expect(opties).toContain('Noors');
@@ -1346,6 +1381,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
     render(<App />);
     fireEvent.click(screen.getAllByText('Explore')[0]);
+    fireEvent.click(screen.getByText('Show filters'));
     const sel = screen.getByLabelText('Language');
     const opties = [...sel.querySelectorAll('option')].map((o) => o.textContent);
     expect(opties).toContain('Norwegian');
@@ -1879,8 +1915,9 @@ describe('V2 smoke', () => {
       }),
     });
     try {
+      startOpZoeken();
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      naarZoeken();
       fireEvent.change(screen.getByPlaceholderText(/Zoek op titel of maker/), { target: { value: 'aftersun' } });
       fireEvent.click(screen.getByText('Zoek'));
       expect(await screen.findByText(/Al gezien · jij gaf 4,0 ★/)).toBeTruthy();

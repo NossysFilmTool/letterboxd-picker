@@ -56,7 +56,8 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
   const [runtime, setRuntime] = useState('');
   const [sortBy, setSortBy] = useState('popularity.desc');
   const [hideKnown, setHideKnown] = useState(false);
-  const [toonFilters, setToonFilters] = useState(true);
+  // Filters standaard ingeklapt: eerst zoeken, dan pas verfijnen
+  const [toonFilters, setToonFilters] = useState(false);
 
   const [res, setRes] = useState(null); // { films, totalResults, totalPages, tekstZoek }
   const [personen, setPersonen] = useState([]);
