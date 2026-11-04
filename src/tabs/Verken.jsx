@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState, useRef, useEffect } from 'react';
-import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw, Plus } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw, Plus, Layers } from 'lucide-react';
 import { GENRES, genreLabelById, fetchDetailById } from '../lib/tmdb.js';
 import { sorteerOpSterkte } from '../lib/rows.js';
 import { bouwRecept, degelijk, pastFilter, RAAM } from '../lib/foryou.js';
@@ -7,11 +8,13 @@ import { useForYou } from '../lib/useForYou.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { shortlistToCsv, downloadText } from '../lib/csv.js';
 import { useT } from '../lib/i18n.js';
-import { useLS } from '../lib/storage.js';
+import { useLS, filmKey } from '../lib/storage.js';
 import Zoekmachine from './Zoekmachine.jsx';
 import Winner from '../components/Winner.jsx';
 import RecRow from '../components/RecRow.jsx';
 import RecCard from '../components/RecCard.jsx';
+import Sterren from '../components/Sterren.jsx';
+import SnelBeoordelen from '../components/SnelBeoordelen.jsx';
 import DienstKiezer from '../components/DienstKiezer.jsx';
 import EigenRijMaker from '../components/EigenRijMaker.jsx';
 import { bouwEigenRijen, stelRijenVoor, normaliseer, autoNaam } from '../lib/eigenrijen.js';
@@ -52,6 +55,16 @@ export default function Verken({ app }) {
     const t = setTimeout(() => setNudge(null), 3500);
     return () => clearTimeout(t);
   }, [nudge]);
+  // Na ✕: waarom niet? Eén keuze stuurt de motor gerichter dan "minder van
+  // dit genre". stap 'reden' verdwijnt vanzelf, stap 'sterren' (het bleek
+  // "al gezien") wacht op je keuze.
+  const [laatsteSkip, setLaatsteSkip] = useState(null); // { r, stap: 'reden' | 'sterren' }
+  useEffect(() => {
+    if (laatsteSkip?.stap !== 'reden') return undefined;
+    const t = setTimeout(() => setLaatsteSkip(null), 12000);
+    return () => clearTimeout(t);
+  }, [laatsteSkip]);
+  const [snel, setSnel] = useState(false); // Snel beoordelen open
   const [showSkipped, setShowSkipped] = useState(false);
   const [shortOpen, setShortOpen] = useState(false);
   // Filters op Voor jou. De streamingkeuze wordt onthouden (je diensten
@@ -117,6 +130,8 @@ export default function Verken({ app }) {
     if (sortAlles === 'oud') return [...basis].sort((a, b) => (a.year || 9999) - (b.year || 9999));
     return basis;
   }, [lijstModus, alles, gefilterd, sortAlles]);
+  // Snel beoordelen: de sterkste kandidaten, één voor één
+  const snelLijst = useMemo(() => (snel ? sorteerOpSterkte(gefilterd.filter(degelijk)).slice(0, 80) : []), [snel, gefilterd]);
 
   // Details ophalen voor wat je ziet plus de sterkste kandidaten (met een
   // filter aan wat ruimer, anders blijven de gefilterde rijen leeg).
@@ -131,8 +146,9 @@ export default function Verken({ app }) {
     // filter op looptijd of dienst kan pas oordelen met details
     eigenRijen.forEach((r) => recs.filter((f) => f.bronnen.includes(`eigen:${r.id}`)).slice(0, 40).forEach((f) => ids.add(f.id)));
     lijst.slice(0, shown).forEach((f) => ids.add(f.id));
+    snelLijst.slice(0, 8).forEach((f) => ids.add(f.id));
     return [...ids];
-  }, [mode, recs, rijen, eigenRijen, lijst, shown, filterActief]);
+  }, [mode, recs, rijen, eigenRijen, lijst, shown, filterActief, snelLijst]);
   const nodigSig = nodigIds.join(',');
   useEffect(() => {
     if (nodigIds.length) vraagDetails(nodigIds);
@@ -178,12 +194,51 @@ export default function Verken({ app }) {
     const g = genreNaam(r.genre_ids);
     if (g) setNudge(tr('verken.nudgeMore', { genre: g }));
   };
-  const skip = (r) => {
-    setSkipped((s) => [...s, { id: r.id, title: r.title, year: r.year, genre_ids: r.genre_ids || [] }]);
-    const g = genreNaam(r.genre_ids);
-    if (g) setNudge(tr('verken.nudgeLess', { genre: g }));
+  // Regisseur van een kandidaat: uit de details, of uit de oeuvre-route
+  const regisseurVan = (r) => r.director || detailCache.current.get(r.id)?.director
+    || r.bronnen?.find((b) => b.startsWith('oeuvre:'))?.slice(7) || null;
+  const skip = (r, { vraag = true } = {}) => {
+    setSkipped((s) => [...s, {
+      id: r.id, title: r.title, year: r.year, genre_ids: r.genre_ids || [],
+      director: regisseurVan(r), votes: r.votes ?? null,
+    }]);
+    if (vraag) { setNudge(null); setLaatsteSkip({ r, stap: 'reden' }); }
   };
   const unskip = (id) => setSkipped((s) => s.filter((x) => (typeof x === 'object' ? x.id : x) !== id));
+  const geefReden = (reden) => {
+    const r = laatsteSkip?.r;
+    if (!r) return;
+    if (reden === 'gezien') {
+      // geen afwijzing maar een film die je al kent: terug uit de afgewezen
+      // films en als gezien bewaren (met sterren als je wilt)
+      unskip(r.id);
+      setLaatsteSkip({ r, stap: 'sterren' });
+      return;
+    }
+    setSkipped((s) => s.map((x) => (typeof x === 'object' && x.id === r.id ? { ...x, reden } : x)));
+    setLaatsteSkip(null);
+    if (reden === 'genre') setNudge(tr('verken.redenGenreOk', { genre: genreNaam(r.genre_ids) || tr('verken.ditGenre') }));
+    else if (reden === 'mainstream') setNudge(tr('verken.redenMainstreamOk'));
+    else if (reden === 'regisseur') setNudge(tr('verken.redenRegisseurOk', { name: regisseurVan(r) }));
+  };
+  // Al gezien: telt als gezien (en met sterren als beoordeling), zodat hij
+  // uit de aanbevelingen verdwijnt en je smaakprofiel ervan leert
+  const fmtSter = (n) => (lang === 'nl' ? String(n).replace('.', ',') : String(n));
+  const gezien = async (r, sterren = null) => {
+    const film = { key: filmKey(r.title, r.year), name: r.title, year: r.year };
+    const bekend = detailCache.current.get(r.id) || null;
+    app.markeerGezien(film, sterren, bekend);
+    setLaatsteSkip(null);
+    setNudge(sterren ? tr('verken.gezienMetSterren', { title: r.title, n: fmtSter(sterren) }) : tr('verken.gezienZonder', { title: r.title }));
+    // de details erbij, zodat genres en thema's in je profiel tellen
+    if (!bekend && tmdbKey) {
+      try {
+        const d = await fetchDetailById(r.id, tmdbKey);
+        detailCache.current.set(r.id, d);
+        app.markeerGezien(film, null, d);
+      } catch { /* zonder details telt hij alleen als gezien */ }
+    }
+  };
   const removeShort = (id) => setShortlist((s) => s.filter((x) => x.id !== id));
   const openSimilar = (r) => app.openSimilar(
     { key: `tmdb:${r.id}`, name: r.title, year: r.year },
@@ -320,6 +375,7 @@ export default function Verken({ app }) {
           meta={m} context={detail ? tr('verken.fromOutside') : tr('verken.detailsLoading')}
           onShortlist={() => addToShortlist({ ...light, seeds: [], count: 0 })} inShortlist={shortIds.has(light.id)}
           onSkip={mode === 'voorJou' ? () => { skip(light); setOpenFilm(null); } : undefined}
+          onGezien={(n) => { gezien(light, n); setOpenFilm(null); }}
           onSimilar={() => openSimilar(light)}
           onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
         />
@@ -344,7 +400,7 @@ export default function Verken({ app }) {
           detail={detailCache.current.get(r.id) || (r.jwLink || r.imdbId ? { jwLink: r.jwLink, imdbId: r.imdbId } : undefined)}
           tmdbKey={tmdbKey} voorkeur={voorkeur}
           receptOpen={receptOpen === r.id} onToggleRecept={(id) => setReceptOpen(receptOpen === id ? null : id)}
-          onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip} onSimilar={openSimilar}
+          onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip} onSimilar={openSimilar} onGezien={gezien}
         />
       ))}
       {lijst.length > shown && (
@@ -386,6 +442,15 @@ export default function Verken({ app }) {
         </div>
       );
     }
+    if (snel) {
+      return (
+        <SnelBeoordelen
+          kandidaten={snelLijst} seededOnRatings={seededOnRatings}
+          onWil={addToShortlist} onNiet={(r) => skip(r, { vraag: false })} onGezien={gezien}
+          onSluit={() => setSnel(false)}
+        />
+      );
+    }
     if (alles) {
       return (
         <div>
@@ -420,6 +485,9 @@ export default function Verken({ app }) {
               <Plus size={14} /> {tr('verken.eigenNieuw')}
             </button>
           )}
+          <button className="btn ghost" onClick={() => { setSnel(true); setLaatsteSkip(null); topRef.current?.scrollIntoView?.({ block: 'start' }); }} title={tr('verken.snelUitleg')}>
+            <Layers size={14} /> {tr('verken.snelKnop')}
+          </button>
           {(blendBusy || wachtOpDetails) && (
             <span className="fy-busy">{wachtOpDetails ? tr('verken.detailsLoadingFilter') : tr('verken.blending')}</span>
           )}
@@ -443,7 +511,7 @@ export default function Verken({ app }) {
                 ) : (
                   <RecRow
                     titel={rijTitel(rij)} rij={rij} totaal={totaalVan(rij)} voorkeur={voorkeur} actie={kopActie(rij)}
-                    onAlles={openAlles} onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip}
+                    onAlles={openAlles} onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip} onGezien={gezien}
                   />
                 )}
               </Fragment>
@@ -519,11 +587,41 @@ export default function Verken({ app }) {
           />
         )}
 
-        {nudge && (
-          <div className="notice" style={{ marginBottom: 14, borderColor: 'rgba(255,128,0,0.35)', color: 'var(--fog)' }}>
-            {nudge}
+        {/* Meldingen onderin beeld, zodat je ze ziet waar je ook scrolt */}
+        {/* via een portal: de tab-animatie laat een transform achter die position: fixed breekt */}
+        {createPortal(!snel && laatsteSkip ? (
+          <div className="notice fy-toast" role="status">
+            {laatsteSkip.stap === 'reden' ? (
+              <>
+                <span className="fy-toast-tekst">
+                  {genreNaam(laatsteSkip.r.genre_ids) ? `${tr('verken.nudgeLess', { genre: genreNaam(laatsteSkip.r.genre_ids) })} ` : ''}
+                  {tr('verken.waaromNiet')}
+                </span>
+                <span className="reden-chips">
+                  <button type="button" className="chip" onClick={() => geefReden('genre')}>{tr('verken.redenGenre')}</button>
+                  <button type="button" className="chip" onClick={() => geefReden('mainstream')}>{tr('verken.redenMainstream')}</button>
+                  {regisseurVan(laatsteSkip.r) && (
+                    <button type="button" className="chip" onClick={() => geefReden('regisseur')}>{tr('verken.redenRegisseur', { name: regisseurVan(laatsteSkip.r) })}</button>
+                  )}
+                  <button type="button" className="chip" onClick={() => geefReden('gezien')}>{tr('verken.redenGezien')}</button>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="fy-toast-tekst">{tr('verken.gezienVraag', { title: laatsteSkip.r.title })}</span>
+                <span className="reden-chips">
+                  <Sterren onKies={(n) => gezien(laatsteSkip.r, n)} />
+                  <button type="button" className="linkbtn" onClick={() => gezien(laatsteSkip.r, null)}>{tr('verken.zonderSterren')}</button>
+                </span>
+              </>
+            )}
+            <button type="button" className="fy-toast-sluit" onClick={() => setLaatsteSkip(null)} aria-label={tr('verken.sluiten')}><X size={14} /></button>
           </div>
-        )}
+        ) : !snel && nudge ? (
+          <div className="notice fy-toast" role="status">
+            <span className="fy-toast-tekst">{nudge}</span>
+          </div>
+        ) : null, document.body)}
 
         {mode === 'voorJou' && voorJou}
 

@@ -447,6 +447,61 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 .rec-tile .tile-acts button { width: 30px; height: 30px; border-radius: 999px; border: 1px solid rgba(238, 242, 245, 0.25); background: rgba(10, 13, 16, 0.82); color: var(--paper); display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(3px); transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
 .rec-tile .tile-acts button:first-child:hover { background: var(--dot-g); border-color: var(--dot-g); color: #0a2313; }
 .rec-tile .tile-acts button:last-child:hover { background: var(--dot-o); border-color: var(--dot-o); color: #14181c; }
+.rec-tile .tile-acts button.tile-gezien:hover { background: var(--dot-b); border-color: var(--dot-b); color: #0a1a24; }
+/* Al gezien op de tegel: sterren over de poster heen */
+.rec-tile .tile-sterren { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 10px 6px; background: rgba(10, 13, 16, 0.88); backdrop-filter: blur(3px); text-align: center; animation: noticeIn 0.18s ease both; }
+.rec-tile .tile-sterren-vraag { font-size: 12px; color: var(--paper); font-weight: 600; }
+.rec-tile .tile-sterren .linkbtn { font-size: 11.5px; }
+.rec-tile .tile-sterren-sluit { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 999px; border: none; background: none; color: var(--fog); display: grid; place-items: center; cursor: pointer; }
+.rec-tile .tile-sterren-sluit:hover { color: var(--paper); }
+
+/* Sterren kiezen met halve sterren: elke ster heeft twee onzichtbare helften */
+.sterren { display: inline-flex; gap: 2px; line-height: 1; }
+.sterren .ster { position: relative; display: inline-block; font-size: 24px; width: 1em; height: 1em; }
+.sterren.klein .ster { font-size: 21px; }
+.sterren .ster-vul { position: absolute; inset: 0; display: grid; place-items: center; color: var(--line-strong); pointer-events: none; transition: color 0.1s ease; }
+.sterren .ster-vul.vol { color: var(--dot-g); }
+.sterren .ster-vul.half { background: linear-gradient(90deg, var(--dot-g) 50%, var(--line-strong) 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sterren .ster-links, .sterren .ster-rechts { position: absolute; top: 0; bottom: 0; width: 50%; padding: 0; border: none; background: none; cursor: pointer; }
+.sterren .ster-links { left: 0; }
+.sterren .ster-rechts { right: 0; }
+.sterren .ster-links:focus-visible, .sterren .ster-rechts:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 1px; border-radius: 3px; }
+.kaart-sterren { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--fog); }
+
+/* Meldingen onderin beeld (na ✕ ook: waarom niet?) */
+.fy-toast { position: fixed; z-index: 45; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(620px, calc(100% - 32px)); display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; padding-right: 40px; border-left-color: var(--dot-o); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); animation: toastIn 0.25s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.fy-toast-tekst { flex: 1 1 220px; }
+.reden-chips { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.reden-chips .chip { cursor: pointer; }
+.fy-toast-sluit { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border: none; background: none; color: var(--fog-dim); display: grid; place-items: center; cursor: pointer; border-radius: 999px; }
+.fy-toast-sluit:hover { color: var(--paper); }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 720px) { .fy-toast { bottom: calc(78px + env(safe-area-inset-bottom)); } }
+
+/* Snel beoordelen: één grote kaart, vegen of knoppen */
+.snel { max-width: 640px; margin: 0 auto; }
+.snel-kop { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.snel-teller { font-size: 13px; color: var(--fog-dim); font-variant-numeric: tabular-nums; }
+.snel-uitleg { font-size: 13px; color: var(--fog-dim); margin: 8px 0 16px; }
+.snel-kaart { display: flex; gap: 18px; padding: 16px; background: var(--char); border: 1px solid var(--line); border-radius: 16px; touch-action: pan-y; user-select: none; cursor: grab; transition: transform 0.2s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.snel-kaart.sleept { cursor: grabbing; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.snel-kaart.naar-wil { border-color: var(--dot-g); box-shadow: 0 0 0 1px var(--dot-g); }
+.snel-kaart.naar-niet { border-color: var(--dot-o); box-shadow: 0 0 0 1px var(--dot-o); }
+.snel-poster { flex: 0 0 180px; height: 270px; border-radius: 12px; overflow: hidden; background: var(--ink); display: grid; place-items: center; color: var(--fog-dim); }
+.snel-poster img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.snel-info { min-width: 0; }
+.snel-info h2 { font-family: var(--font-display); font-size: 28px; font-weight: 400; color: var(--paper); line-height: 1.15; }
+.snel-meta { font-size: 13px; color: var(--fog); margin-top: 4px; }
+.snel-plot { font-size: 13.5px; color: var(--fog); margin-top: 10px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.snel-knoppen { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+.snel-knoppen .snel-niet:hover { border-color: var(--dot-o); color: var(--dot-o); }
+.snel-sterren { justify-content: center; margin-top: 16px; }
+@media (max-width: 560px) {
+  .snel-kaart { flex-direction: column; align-items: center; text-align: center; }
+  .snel-poster { flex-basis: auto; width: 170px; height: 255px; }
+  .snel-knoppen .btn { flex: 1 1 40%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) { .snel-kaart, .fy-toast, .rec-tile .tile-sterren { transition: none; animation: none; } }
 .rec-tile .tile-acts button:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 1px; }
 .rec-tile .tile-cap { display: block; width: 132px; background: none; border: none; padding: 0; text-align: left; cursor: pointer; }
 .rec-tile .t { display: block; color: var(--paper); font-size: 13px; font-weight: 600; margin-top: 7px; line-height: 1.25; }

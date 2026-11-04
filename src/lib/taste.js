@@ -77,9 +77,14 @@ export function buildTaste({ watchlist, ratedFilms, meta, shortlist = [], skippe
   shortlist.forEach((s) => {
     (s.genre_ids || []).forEach((id) => { if (idNaam[id]) add(gRaw, idNaam[id], 0.5); });
   });
+  // De reden bij 'niet voor mij' bepaalt hoe hard het genre zakt: "niet mijn
+  // genre" drie keer zo hard, "te mainstream" of "de regisseur" nauwelijks
+  // (dan lag het niet aan het genre).
+  const skipGewicht = { genre: -1.5, mainstream: -0.15, regisseur: -0.15 };
   skipped.forEach((s) => {
     if (typeof s !== 'object') return;
-    (s.genre_ids || []).forEach((id) => { if (idNaam[id]) add(gRaw, idNaam[id], -0.5); });
+    const w = skipGewicht[s.reden] ?? -0.5;
+    (s.genre_ids || []).forEach((id) => { if (idNaam[id]) add(gRaw, idNaam[id], w); });
   });
 
   const normalize = (raw) => {

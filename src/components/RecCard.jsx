@@ -1,28 +1,21 @@
-import { Plus, X, Clapperboard, Star, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, X, Eye, Clapperboard, Star, Sparkles } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
 import { lbLink, jwLink } from '../lib/links.js';
+import { hoofdreden as maakHoofdreden } from '../lib/redenen.js';
 import ImdbA from './ImdbA.jsx';
+import Sterren from './Sterren.jsx';
 
 // De uitgebreide aanbevelingskaart van "Alles bekijken": waarom de film er
 // staat, de match met het uitklapbare recept, en alle acties.
-export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdbKey, voorkeur = [], receptOpen, onToggleRecept, onOpen, onShortlist, onSkip, onSimilar }) {
+export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdbKey, voorkeur = [], receptOpen, onToggleRecept, onOpen, onShortlist, onSkip, onSimilar, onGezien }) {
   const { t: tr, lang } = useT();
   const fmt = (v) => (lang === 'nl' ? String(v).replace('.', ',') : String(v));
+  const [sterrenOpen, setSterrenOpen] = useState(false);
 
   // Hoofdreden: welke route bracht deze film binnen
-  const hoofdreden = (() => {
-    const oeuvreBron = r.bronnen.find((b) => b.startsWith('oeuvre:'));
-    if (oeuvreBron) return tr('verken.fromOeuvre', { name: oeuvreBron.slice(7) });
-    if (r.seeds.length) {
-      const soort = r.bronnen.includes('vergelijkbaar') && !r.bronnen.includes('aanbevolen') ? tr('verken.likeThis') : tr('verken.becauseYou');
-      const namen = `${r.seeds.slice(0, 2).join(tr('verken.and'))}${r.seeds.length > 2 ? tr('verken.andOthers', { count: r.seeds.length - 2 }) : ''}`;
-      const staart = r.bronnen.includes('aanbevolen') ? (seededOnRatings ? tr('verken.ratedHigh') : tr('verken.onYourList')) : '';
-      return `${soort} ${namen}${staart}`;
-    }
-    if (r.viaTheme?.length) return tr('verken.foundOnThemes', { themes: r.viaTheme.slice(0, 3).join(', ') });
-    return tr('verken.viaProfile');
-  })();
+  const hoofdreden = maakHoofdreden(r, tr, seededOnRatings);
   // De match-redenen, behalve de thema-reden die hierboven al de hoofdreden was
   const themeReason = r.viaTheme?.length ? tr('verken.foundOnThemes', { themes: r.viaTheme.slice(0, 3).join(', ') }) : null;
   const extra = (r.redenen || []).filter((x) => x !== themeReason);
@@ -77,6 +70,7 @@ export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdb
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn green" onClick={() => onShortlist(r)}><Plus size={14} /> {tr('common.shortlist')}</button>
           <button className="btn ghost" onClick={() => onSkip(r)}><X size={14} /> {tr('verken.notForMe')}</button>
+          {onGezien && <button className="btn ghost" onClick={() => setSterrenOpen((v) => !v)} aria-expanded={sterrenOpen}><Eye size={14} /> {tr('verken.gezienKort')}</button>}
           <button className="btn ghost" onClick={() => onSimilar(r)}><Sparkles size={14} /> {tr('winner.moreLikeThis')}</button>
           <span style={{ display: 'inline-flex', gap: 12, marginLeft: 4, fontSize: 12.5 }}>
             <a href={lbLink({ name: r.title }, r.id)} target="_blank" rel="noreferrer">Letterboxd</a>
@@ -84,6 +78,13 @@ export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdb
             <a href={jwLink(detail, { name: r.title })} target="_blank" rel="noreferrer">JustWatch</a>
           </span>
         </div>
+        {sterrenOpen && (
+          <div className="kaart-sterren">
+            <span>{tr('verken.welkeSterren')}</span>
+            <Sterren onKies={(n) => { setSterrenOpen(false); onGezien(r, n); }} />
+            <button type="button" className="linkbtn" onClick={() => { setSterrenOpen(false); onGezien(r, null); }}>{tr('verken.zonderSterren')}</button>
+          </div>
+        )}
       </div>
     </div>
   );

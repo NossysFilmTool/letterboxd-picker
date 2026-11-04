@@ -1,12 +1,15 @@
-import { Plus, X, Clapperboard, Star } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, X, Eye, Clapperboard, Star } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
+import Sterren from './Sterren.jsx';
 
-// Eén aanbeveling als poster-tegel. Klik opent de filmkaart; ＋ en ✕ geven
-// direct feedback (shortlist / niet voor mij), waarna de volgende film uit
-// dezelfde rij vanzelf op deze plek schuift.
-export default function RecTile({ film: r, i = 0, voorkeur = [], onOpen, onShortlist, onSkip }) {
+// Eén aanbeveling als poster-tegel. Klik opent de filmkaart; ＋, 👁 en ✕ geven
+// direct feedback (shortlist / al gezien, met sterren / niet voor mij),
+// waarna de volgende film uit dezelfde rij vanzelf op deze plek schuift.
+export default function RecTile({ film: r, i = 0, voorkeur = [], onOpen, onShortlist, onSkip, onGezien }) {
   const { t: tr, lang } = useT();
+  const [sterrenOpen, setSterrenOpen] = useState(false);
   const score = r.vote ? (lang === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote)) : null;
   // Waar is hij nu te streamen? Bij voorkeur op een van jouw diensten, anders de eerste.
   const prov = r.flat?.length ? (r.flat.find((p) => voorkeur.includes(p)) || r.flat[0]) : null;
@@ -19,14 +22,29 @@ export default function RecTile({ film: r, i = 0, voorkeur = [], onOpen, onShort
             : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
         </button>
         {score && <span className="tile-score" aria-hidden="true"><Star size={10} style={{ verticalAlign: -1 }} /> {score}</span>}
-        <div className="tile-acts">
-          <button type="button" onClick={() => onShortlist(r)} aria-label={tr('verken.tileShortAria', { title: r.title })} title={tr('common.shortlist')}>
-            <Plus size={15} />
-          </button>
-          <button type="button" onClick={() => onSkip(r)} aria-label={tr('verken.tileSkipAria', { title: r.title })} title={tr('verken.notForMe')}>
-            <X size={15} />
-          </button>
-        </div>
+        {sterrenOpen ? (
+          // Al gezien: hoeveel sterren? (of zonder)
+          <div className="tile-sterren">
+            <span className="tile-sterren-vraag">{tr('verken.welkeSterren')}</span>
+            <Sterren klein onKies={(n) => { setSterrenOpen(false); onGezien(r, n); }} />
+            <button type="button" className="linkbtn" onClick={() => { setSterrenOpen(false); onGezien(r, null); }}>{tr('verken.zonderSterren')}</button>
+            <button type="button" className="tile-sterren-sluit" aria-label={tr('verken.eigenAnnuleer')} onClick={() => setSterrenOpen(false)}><X size={13} /></button>
+          </div>
+        ) : (
+          <div className="tile-acts">
+            <button type="button" onClick={() => onShortlist(r)} aria-label={tr('verken.tileShortAria', { title: r.title })} title={tr('common.shortlist')}>
+              <Plus size={15} />
+            </button>
+            {onGezien && (
+              <button type="button" className="tile-gezien" onClick={() => setSterrenOpen(true)} aria-label={tr('verken.tileSeenAria', { title: r.title })} title={tr('verken.gezienKort')}>
+                <Eye size={15} />
+              </button>
+            )}
+            <button type="button" onClick={() => onSkip(r)} aria-label={tr('verken.tileSkipAria', { title: r.title })} title={tr('verken.notForMe')}>
+              <X size={15} />
+            </button>
+          </div>
+        )}
       </div>
       <button type="button" className="tile-cap" onClick={() => onOpen(r)} tabIndex={-1}>
         <span className="t">{r.title}</span>

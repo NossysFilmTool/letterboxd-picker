@@ -133,6 +133,14 @@ export function scoorKandidaten({
     });
   }
 
+  // Wat je met een reden afwees: "te mainstream" zet een grens op bekendheid
+  // (70% van de minst bekende film die je zo afwees), "de regisseur" zet die
+  // regisseur flink lager.
+  const metReden = (reden) => skipped.filter((s) => typeof s === 'object' && s.reden === reden);
+  const mainstreamStemmen = metReden('mainstream').map((s) => s.votes).filter((v) => v > 0);
+  const mainstreamGrens = mainstreamStemmen.length ? Math.min(...mainstreamStemmen) * 0.7 : null;
+  const afgewezenRegisseurs = new Set(metReden('regisseur').map((s) => s.director).filter(Boolean));
+
   const topThemaNamen = new Map((taste.topThemes || []).map((t) => [t.id, t.name]));
   const recs = [...agg.values()].map(({ seedSet, ...kaal }) => {
     // Met details: echte looptijd, genres, trefwoorden (thema-match) en aanbod
@@ -158,9 +166,20 @@ export function scoorKandidaten({
       redenen = [uitleg('verken.foundOnThemes', { themes: r.viaTheme.slice(0, 3).join(', ') }), ...redenen];
     }
     if (a) redenen = [...redenen, uitleg('verken.antiReason', { names: a.namen.join(', ') })];
+    let match = m.score;
+    if (mainstreamGrens && (r.votes || 0) >= mainstreamGrens) {
+      match = Math.max(0, match - 12);
+      redenen = [...redenen, uitleg('verken.redenMainstreamUitleg')];
+    }
+    const regisseurWeg = (r.director && afgewezenRegisseurs.has(r.director))
+      || r.bronnen.some((b) => b.startsWith('oeuvre:') && afgewezenRegisseurs.has(b.slice(7)));
+    if (regisseurWeg) {
+      waarde *= 0.2;
+      match = Math.max(0, match - 25);
+    }
     // Welke van jouw top-thema's deze film aantoonbaar deelt (alleen met details)
     const gedeeldeThemas = r.keywords ? r.keywords.filter((k) => topThemaNamen.has(k.id)).map((k) => topThemaNamen.get(k.id)) : null;
-    return { ...r, waarde, routes, bevestigd: routes >= 2, anti: a ? a.namen : null, match: m.score, redenen, recept: m.recept, gedeeldeThemas };
+    return { ...r, waarde, routes, bevestigd: routes >= 2, anti: a ? a.namen : null, match, redenen, recept: m.recept, gedeeldeThemas };
   });
 
   return {

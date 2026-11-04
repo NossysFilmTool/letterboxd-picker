@@ -164,6 +164,15 @@ export default function App() {
   const toggleSeen = (key) => {
     setSeen((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
   };
+  // Een film van buiten je lijst als gezien markeren, desgewenst met sterren
+  // (bijv. vanuit Voor jou). Sterren tellen als eigen beoordeling en voeden zo
+  // je smaakprofiel; de filmdata (`detail`) zetten we er direct bij, met het
+  // exacte TMDB-id, zodat er niets op titel geraden hoeft te worden.
+  const markeerGezien = (film, sterren = null, detail = null) => {
+    setSeen((s) => (s.includes(film.key) ? s : [...s, film.key]));
+    if (sterren) setOwnRatings((prev) => ({ ...prev, [film.key]: { rating: sterren, name: film.name, year: film.year, at: Date.now() } }));
+    if (detail) setMeta((prev) => (prev[film.key] ? prev : { ...prev, [film.key]: detail }));
+  };
 
   const startEnrich = async (films, force = false) => {
     const key = tmdbKey;
@@ -351,7 +360,7 @@ export default function App() {
     ratedFilms: mergedRatedFilms, setRatedFilms,
     ownRatings, setOwnRatings, followups, answerFollowup,
     diary, setDiary, lbLists, setLbLists,
-    seen, seenSet, toggleSeen,
+    seen, seenSet, toggleSeen, markeerGezien,
     meta, setMeta,
     history, setHistory,
     shortlist, setShortlist,

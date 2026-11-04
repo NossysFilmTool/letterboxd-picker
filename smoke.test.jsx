@@ -321,6 +321,157 @@ describe('V2 smoke', () => {
     expect(screen.getByText('Reg Film 3')).toBeTruthy();
   });
 
+  // Fase 6: dezelfde opzet als hierboven, met een nep-TMDB die details geeft
+  const regFixture = () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify([
+      { key: 'a|2020', name: 'A', year: 2020, rating: 5 }, { key: 'b|2019', name: 'B', year: 2019, rating: 5 },
+      { key: 'c|2018', name: 'C', year: 2018, rating: 4.5 }, { key: 'd|2017', name: 'D', year: 2017, rating: 4.5 },
+    ]));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
+    const oeuvreFilms = [1, 2, 3, 4, 5, 6].map((n) => ({ id: 900 + n, title: `Reg Film ${n}`, year: 2000 + n, poster: `/r${n}.jpg`, vote: 7.5, votes: 2000, genre_ids: [18], overview: `Plot ${n}` }));
+    localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms, at: Date.now() } }));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], director: 'Testregisseur', at: Date.now() } }));
+    const calls = [];
+    global.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      const m = u.match(/\/movie\/(9\d\d)\?/);
+      const body = m
+        ? { id: +m[1], title: `Reg Film ${+m[1] - 900}`, release_date: `${2000 + +m[1] - 900}-01-01`, runtime: 100, genres: [{ id: 18, name: 'Drama' }], vote_average: 7.5, vote_count: 2000, credits: { crew: [{ job: 'Director', name: 'Testregisseur', id: 77 }] } }
+        : { results: [] };
+      return { ok: true, status: 200, json: async () => body };
+    };
+    return calls;
+  };
+  const ls = (k) => JSON.parse(localStorage.getItem(`nossyV2.${k}`) || 'null');
+
+  it('feedback: x vraagt waarom, de reden gaat mee, en "Al gezien" vraagt sterren', async () => {
+    const calls = regFixture();
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
+      // x: de film is weg, en onderin vraagt de app waarom
+      fireEvent.click(screen.getByLabelText('Niet voor mij: Reg Film 1'));
+      expect(screen.getByText(/Waarom niet\?/)).toBeTruthy();
+      expect(document.body.textContent).toMatch(/je ziet nu iets minder/i);
+      // de regisseur is bekend via het oeuvre, dus die keuze staat erbij
+      fireEvent.click(screen.getByText('Niet van Testregisseur'));
+      await waitFor(() => expect(ls('skipped')?.find((s) => s.id === 901)?.reden).toBe('regisseur'));
+      expect(ls('skipped').find((s) => s.id === 901).director).toBe('Testregisseur');
+      expect(document.body.textContent).toContain('Films van Testregisseur zakken naar achteren');
+      // x op een film die je eigenlijk al zag: terug uit de afwijzingen, als gezien met sterren
+      fireEvent.click(screen.getByLabelText('Niet voor mij: Reg Film 2'));
+      fireEvent.click(within(document.querySelector('.fy-toast')).getByText('Al gezien'));
+      expect(screen.getByText('Je zag Reg Film 2 al. Hoeveel sterren?')).toBeTruthy();
+      fireEvent.click(within(document.querySelector('.fy-toast')).getByLabelText('Geef 4 sterren'));
+      await waitFor(() => expect(ls('ownRatings')?.['reg film 2|2002']?.rating).toBe(4));
+      expect(ls('seen')).toContain('reg film 2|2002');
+      expect(ls('skipped').some((s) => s.id === 902)).toBe(false);
+      expect(screen.queryByText('Reg Film 2')).toBeNull();
+      // de details komen erbij, zodat genres en thema's in het profiel tellen
+      await waitFor(() => expect(calls.some((u) => u.includes('/movie/902?'))).toBe(true));
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('feedback: het oog op een tegel markeert als gezien, met halve sterren', async () => {
+    regFixture();
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getByLabelText('Al gezien: Reg Film 3'));
+      // de knoppen maken plaats voor de sterren
+      expect(screen.queryByLabelText('Al gezien: Reg Film 3')).toBeNull();
+      expect(screen.getByText('Hoeveel sterren?')).toBeTruthy();
+      fireEvent.click(screen.getByLabelText('Geef 4,5 sterren'));
+      await waitFor(() => expect(ls('ownRatings')?.['reg film 3|2003']?.rating).toBe(4.5));
+      expect(document.body.textContent).toContain('Reg Film 3 staat als gezien met 4,5 sterren');
+      expect(screen.queryByText('Reg Film 3')).toBeNull();
+      // zonder sterren kan ook: alleen gezien, geen beoordeling
+      fireEvent.click(screen.getByLabelText('Al gezien: Reg Film 4'));
+      fireEvent.click(screen.getByText('Zonder sterren'));
+      await waitFor(() => expect(ls('seen')).toContain('reg film 4|2004'));
+      expect(ls('ownRatings')['reg film 4|2004']).toBeUndefined();
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('snel beoordelen: een film per keer, met knoppen en pijltjestoetsen', async () => {
+    regFixture();
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getByText('Snel beoordelen'));
+      const titel = () => document.querySelector('.snel-info h2')?.textContent;
+      const eerste = titel();
+      expect(eerste).toMatch(/^Reg Film \d$/);
+      // wil ik zien: naar de shortlist, en de volgende film schuift door
+      fireEvent.click(screen.getByText('Wil ik zien'));
+      await waitFor(() => expect(ls('shortlist')?.length).toBe(1));
+      expect(titel()).not.toBe(eerste);
+      expect(screen.getByText('1 film beoordeeld')).toBeTruthy();
+      // pijl links: niet voor mij (zonder tussenvraag, het moet snel)
+      const tweede = titel();
+      fireEvent.keyDown(window, { key: 'ArrowLeft' });
+      await waitFor(() => expect(ls('skipped')?.length).toBe(1));
+      expect(titel()).not.toBe(tweede);
+      expect(document.querySelector('.fy-toast')).toBeNull();
+      // weet niet: overslaan telt niet mee
+      const derde = titel();
+      fireEvent.click(screen.getByText('Weet niet'));
+      expect(titel()).not.toBe(derde);
+      expect(screen.getByText('2 films beoordeeld')).toBeTruthy();
+      // klaar: terug naar de rijen
+      fireEvent.click(screen.getByText('Klaar'));
+      expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('feedback: redenen sturen de motor (genre, mainstream, regisseur)', async () => {
+    const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
+    const { rangschikRegisseurs } = await import('./src/lib/rows.js');
+    const { buildTaste } = await import('./src/lib/taste.js');
+    const f = (id, title, votes = 2000) => ({ id, title, year: 2010, vote: 7.5, votes, genre_ids: [18] });
+    const meta = {
+      'a|2000': { id: 1, genres: ['Drama'], director: 'D', recs: [f(10, 'Klein'), f(11, 'Groot', 60000)] },
+      'b|2001': { id: 2, genres: ['Drama'], director: 'D', recs: [] },
+      'e|2003': { id: 4, genres: ['Drama'], recs: [] },
+    };
+    const ratedFilms = [
+      { key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 5 },
+      { key: 'e|2003', name: 'E', year: 2003, rating: 4.5 },
+    ];
+    const oeuvres = { D: { at: Date.now(), films: [f(20, 'Oeuvrefilm')] } };
+    const seeds = bepaalSeeds({ watchlist: [], ratedFilms, meta });
+    const taste = buildTaste({ watchlist: [], ratedFilms, meta });
+    const basis = { watchlist: [], meta, ratedFilms, oeuvres, seeds, regisseurs: rangschikRegisseurs(seeds, meta), taste };
+    const scoor = (skipped) => Object.fromEntries(scoorKandidaten({ ...basis, skipped }).recs.map((r) => [r.title, r]));
+    const zonder = scoor([]);
+    // te mainstream: wat minstens zo bekend is als de afgewezen film zakt, de rest niet
+    const mainstream = scoor([{ id: 99, genre_ids: [18], votes: 50000, reden: 'mainstream' }]);
+    expect(mainstream.Groot.match).toBe(Math.max(0, zonder.Groot.match - 12));
+    expect(mainstream.Groot.redenen).toContain('verken.redenMainstreamUitleg');
+    expect(mainstream.Klein.match).toBe(zonder.Klein.match);
+    // de regisseur: zijn oeuvre zakt ver weg
+    const regisseur = scoor([{ id: 98, genre_ids: [18], director: 'D', reden: 'regisseur' }]);
+    expect(regisseur.Oeuvrefilm.waarde).toBeLessThan(zonder.Oeuvrefilm.waarde * 0.3);
+    expect(regisseur.Klein.waarde).toBe(zonder.Klein.waarde);
+    // niet mijn genre weegt zwaarder dan een kale x
+    const basisT = { watchlist: [], ratedFilms: [{ key: 'x|2000', year: 2000, rating: 4 }], meta: { 'x|2000': { genres: ['Drama'], votes: 100 } } };
+    const kaal = buildTaste({ ...basisT, skipped: [{ id: 1, genre_ids: [35] }] });
+    const genre = buildTaste({ ...basisT, skipped: [{ id: 1, genre_ids: [35], reden: 'genre' }] });
+    const mainstreamT = buildTaste({ ...basisT, skipped: [{ id: 1, genre_ids: [35], reden: 'mainstream' }] });
+    expect(genre.genres.Comedy ?? 0).toBeLessThan(kaal.genres.Comedy ?? 0);
+    expect(mainstreamT.genres.Comedy ?? 0).toBeGreaterThan(kaal.genres.Comedy ?? 0);
+  });
+
   it('rijen: "Meer ophalen" in Alles bekijken van een seed-rij haalt echt pagina 2 op', async () => {
     const calls = [];
     global.fetch = async (url) => {

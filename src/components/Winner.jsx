@@ -5,14 +5,17 @@ import { imdbLink, jwLink } from '../lib/links.js';
 import { nossyScore, fmtScore, getNossyWeights } from '../lib/pick.js';
 import { renderShareCard, shareOrDownload } from '../lib/extra.js';
 import { useT } from '../lib/i18n.js';
+import Sterren from './Sterren.jsx';
 
 const fmtVotes = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : n);
 
-export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onWantScores }) {
+// onGezien(sterren | null): een film van buiten je lijst als gezien markeren
+export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onGezien, onWantScores }) {
   const { t: tr, lang } = useT();
   const [sharing, setSharing] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
-  useEffect(() => { setPlotOpen(false); }, [film?.key]);
+  const [sterrenOpen, setSterrenOpen] = useState(false);
+  useEffect(() => { setPlotOpen(false); setSterrenOpen(false); }, [film?.key]);
 
   const share = async () => {
     setSharing(true);
@@ -134,6 +137,9 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
             {onSkip && (
               <button className="btn" onClick={onSkip}><X size={15} /> {tr('verken.notForMe')}</button>
             )}
+            {onGezien && (
+              <button className="btn" onClick={() => setSterrenOpen((v) => !v)} aria-expanded={sterrenOpen}><Eye size={15} /> {tr('verken.gezienKort')}</button>
+            )}
             <button className="btn" onClick={share} disabled={sharing}>
               <Share2 size={15} /> {sharing ? tr('winner.makingCard') : tr('winner.share')}
             </button>
@@ -143,6 +149,13 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
             <a className="btn ghost" href={imdbLink(meta, film)} target="_blank" rel="noreferrer"><ExternalLink size={15} /> IMDb</a>
             <a className="btn ghost" href={jwLink(meta, film)} target="_blank" rel="noreferrer"><ExternalLink size={15} /> JustWatch</a>
           </div>
+          {sterrenOpen && onGezien && (
+            <div className="kaart-sterren" style={{ marginTop: 12 }}>
+              <span>{tr('verken.welkeSterren')}</span>
+              <Sterren onKies={(n) => { setSterrenOpen(false); onGezien(n); }} />
+              <button type="button" className="linkbtn" onClick={() => { setSterrenOpen(false); onGezien(null); }}>{tr('verken.zonderSterren')}</button>
+            </div>
+          )}
           {onReroll && (
             <div style={{ marginTop: 18 }}>
               <button className="btn ghost" onClick={onReroll}>{tr('winner.rerollMood')}</button>
