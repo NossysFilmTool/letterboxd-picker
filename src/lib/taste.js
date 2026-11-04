@@ -30,7 +30,7 @@ const KEYWORD_STOPLIST = new Set([
   'children', 'woman', 'man', 'girl', 'boy',
 ]);
 
-export function buildTaste({ watchlist, ratedFilms, meta, shortlist = [], skipped = [], idf = false }) {
+export function buildTaste({ watchlist, ratedFilms, meta, shortlist = [], skipped = [], idf = false, profielUitFavorieten = false }) {
   const gRaw = {}; const dRaw = {}; const kRaw = {}; const kName = {}; const kFilms = {};
   const add = (obj, k, v) => { obj[k] = (obj[k] || 0) + v; };
   // Zeldzaamheid (idf): een trefwoord dat op een groot deel van je hele
@@ -89,7 +89,12 @@ export function buildTaste({ watchlist, ratedFilms, meta, shortlist = [], skippe
     return out;
   };
 
-  const metas = Object.values(meta).filter(Boolean);
+  // Taal en bekendheid: uit de films die je hoog gaf als dat er genoeg zijn
+  // (bewezen smaak), anders uit alles. Een grote watchlist vol wensen trok
+  // het profiel anders richting obscuur, terwijl je favorieten bekender zijn.
+  const alleMetas = Object.values(meta).filter(Boolean);
+  const hoogMetas = ratedFilms.filter((f) => f.rating >= 4).map((f) => meta[f.key]).filter(Boolean);
+  const metas = profielUitFavorieten && hoogMetas.length >= 20 ? hoogMetas : alleMetas;
   const nonEn = metas.filter((m) => m.country && !['US', 'GB'].includes(m.country)).length;
   const votesSorted = metas.map((m) => m.votes).filter(Boolean).sort((a, b) => a - b);
 

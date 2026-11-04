@@ -75,19 +75,17 @@ export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, 
   const stap = dag + ronde;
 
   // 1. Top voor jou: de sterkste films, met een strengere kwaliteitslat. Hooguit
-  // een derde van de poel, zodat de andere rijen ook iets overhouden. Films die
-  // via meerdere routes binnenkomen (kruisbevestiging) gaan voor; zijn dat er
-  // te weinig, dan vult de rest aan.
+  // een derde van de poel, zodat de andere rijen ook iets overhouden. (Films
+  // met meerdere routes gingen eerst voor, maar op een echt profiel voorspelde
+  // het aantal routes favorieten juist slecht; die voorrang is eruit.)
   let top = null;
   const topGrootte = Math.min(RAAM, Math.floor(pool.length / 3));
-  const topKandidaten = pool.filter((f) => gedempt(f) >= 6.8);
-  const bevestigd = sorteerOpSterkte(topKandidaten.filter((f) => f.bevestigd));
-  const overig = sorteerOpSterkte(topKandidaten.filter((f) => !f.bevestigd));
+  const topKandidaten = sorteerOpSterkte(pool.filter((f) => gedempt(f) >= 6.8));
   // Spreiding: hooguit 3 films per regisseur of per favoriet, anders is de
   // Top bij een geliefde regisseur alleen nog zijn oeuvre
   const perBron = {};
   const topFilms = [];
-  for (const f of [...bevestigd, ...overig]) {
+  for (const f of topKandidaten) {
     if (topFilms.length >= topGrootte) break;
     const bron = f.bronnen?.find((b) => b.startsWith('oeuvre:')) || (f.seeds?.[0] ? `seed:${f.seeds[0]}` : 'overig');
     if ((perBron[bron] || 0) >= 3 && bron !== 'overig') continue;

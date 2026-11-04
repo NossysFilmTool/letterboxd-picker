@@ -194,17 +194,18 @@ describe('V2 smoke', () => {
     expect(alles.filter(rij.past).some((f) => f.gedeeldeThemas.includes('florida') && f.gedeeldeThemas.length === 1)).toBe(false);
   });
 
-  it('rijen: binnen een rij wint aanbevelingssterkte van een hoge match op een zwakke route', async () => {
+  it('rijen: de match beslist, de aanbevelingssterkte breekt een gelijkspel', async () => {
+    // Gemeten met de meetlat op een echt profiel: de match zet verborgen
+    // favorieten veruit het hoogst; de aanbevelingssterkte voorspelde ze slecht.
     const { sorteerOpSterkte, plekGewicht } = await import('./src/lib/rows.js');
     expect(plekGewicht(0, 10)).toBe(1);
     expect(plekGewicht(9, 10)).toBeCloseTo(0.55);
-    // sterke aanbeveling (5★-seed via recommendations) met middelmatige match
+    // sterk aangeraden maar middelmatige match, tegen zwak aangeraden met hoge match
     const sterk = { id: 1, waarde: 3, match: 60 };
-    // zwakke similar-treffer (halve weging, staart van de lijst) met hoge match
     const zwak = { id: 2, waarde: 1.2 * 0.6, match: 80 };
-    expect(sorteerOpSterkte([zwak, sterk]).map((f) => f.id)).toEqual([1, 2]);
-    // bij gelijke sterkte beslist de match
-    expect(sorteerOpSterkte([{ id: 3, waarde: 2, match: 50 }, { id: 4, waarde: 2, match: 90 }]).map((f) => f.id)).toEqual([4, 3]);
+    expect(sorteerOpSterkte([sterk, zwak]).map((f) => f.id)).toEqual([2, 1]);
+    // bij gelijke match beslist de sterkte
+    expect(sorteerOpSterkte([{ id: 3, waarde: 0.5, match: 70 }, { id: 4, waarde: 3, match: 70 }]).map((f) => f.id)).toEqual([4, 3]);
   });
 
   it('rijen: regisseurs op sterkte, en een uitstapje buiten hun genre valt uit "Meer van"', async () => {
@@ -537,6 +538,13 @@ describe('V2 smoke', () => {
     expect(aan.Y.redenen.join(' ')).toContain('verken.antiReason:C');
     // twee 5★-films van D: zijn oeuvre telt zwaarder dan de vaste 1,6
     expect(aan.Oeuvrefilm.waarde).toBeGreaterThan(uit.Oeuvrefilm.waarde);
+    // je watchlist als zwakke bron: aanbevelingen bij een (onbeoordeelde) watchlistfilm doen mee
+    const metaWl = { ...meta, 'w|2015': { id: 9, genres: ['Drama'], recs: [f(30, 'Via watchlist')] } };
+    const wl = [{ key: 'w|2015', name: 'W', year: 2015 }];
+    const metWl = scoorKandidaten({ ...basis, meta: metaWl, watchlist: wl, opties: { watchlist: 0.4 } }).recs;
+    expect(metWl.find((r) => r.title === 'Via watchlist')?.bronnen).toEqual(['watchlist']);
+    const zonderWl = scoorKandidaten({ ...basis, meta: metaWl, watchlist: wl, opties: { watchlist: 0 } }).recs;
+    expect(zonderWl.some((r) => r.title === 'Via watchlist')).toBe(false);
   });
 
   it('meetlat: verborgen favorieten die via andere favorieten bereikbaar zijn, komen terug', async () => {

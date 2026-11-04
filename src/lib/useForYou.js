@@ -106,7 +106,7 @@ export function useForYou(app, actief) {
   };
 
   const taste = useMemo(
-    () => buildTaste({ watchlist, ratedFilms, meta, shortlist, skipped, idf: STANDAARD_OPTIES.idf }),
+    () => buildTaste({ watchlist, ratedFilms, meta, shortlist, skipped, idf: STANDAARD_OPTIES.idf, profielUitFavorieten: STANDAARD_OPTIES.profielFav }),
     [watchlist, ratedFilms, meta, shortlist, skipped],
   );
 

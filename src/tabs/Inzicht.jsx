@@ -96,7 +96,7 @@ export default function Inzicht({ app }) {
   }));
 
   const smaak = useMemo(() => {
-    const tp = buildTaste({ watchlist, ratedFilms: ratedFilms || [], meta, shortlist: shortlist || [], skipped: skipped || [], idf: STANDAARD_OPTIES.idf });
+    const tp = buildTaste({ watchlist, ratedFilms: ratedFilms || [], meta, shortlist: shortlist || [], skipped: skipped || [], idf: STANDAARD_OPTIES.idf, profielUitFavorieten: STANDAARD_OPTIES.profielFav });
     const lblFromEn = (en) => { const gg = GENRES.find((x) => x.en === en); return gg ? genreLabel(gg) : en; };
     const g = Object.entries(tp.genres).map(([en, v]) => [lblFromEn(en), v]).sort((a, b) => b[1] - a[1]);
     const d = Object.entries(tp.decades).sort((a, b) => b[1] - a[1]);

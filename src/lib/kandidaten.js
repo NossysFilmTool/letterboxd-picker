@@ -11,7 +11,9 @@ export const detailVers = (d, regio, nu = Date.now()) => !!d && d.regio === regi
 
 // Standaard staan alle onderdelen aan; de meetlat kan ze los uitzetten om te
 // zien wat elk onderdeel oplevert.
-export const STANDAARD_OPTIES = { kruis: true, anti: true, idf: true, regisseur: true, regisseurs: 12 };
+// watchlist: gewicht van je watchlist als bron; profielFav: taal en bekendheid
+// van je smaak uit je hoog beoordeelde films (beide gemeten op een echt profiel).
+export const STANDAARD_OPTIES = { kruis: true, anti: true, idf: true, regisseur: true, regisseurs: 12, watchlist: 0.4, profielFav: true };
 
 // Al je beoordelingen op één hoop: Letterboxd-ratings van films op je
 // watchlist plus je ratings.csv (die laatste wint bij dubbel).
@@ -86,6 +88,18 @@ export function scoorKandidaten({
     const sims = opties.sims === false ? [] : (meta[seed.key]?.sims || []);
     sims.forEach((r, i) => voegToe(r, (0.4 + w * 0.4) * plekGewicht(i, sims.length), 'vergelijkbaar', seed.name));
   });
+  // Je watchlist als zwakke bron: wat jij wilt zien zegt ook iets over je
+  // smaak, en de aanbevelingen bij die films staan al in de cache. Alleen
+  // films die je (nog) niet beoordeelde; met een laag gewicht per film, maar
+  // een kandidaat die bij veel watchlistfilms opduikt, telt flink op.
+  if (onRatings && opties.watchlist) {
+    const beoordeeld = new Set(alleRatings({ watchlist, ratings, ratedFilms }).map((f) => f.key));
+    watchlist.forEach((f) => {
+      if (beoordeeld.has(f.key)) return;
+      const recsW = meta[f.key]?.recs || [];
+      recsW.forEach((r, i) => voegToe(r, opties.watchlist * plekGewicht(i, recsW.length), 'watchlist', null));
+    });
+  }
   // Alleen oeuvres van je huidige favoriete regisseurs (de cache kan oude
   // bevatten), en alleen films die een genre delen met wat jij van ze waardeert.
   // Hoe meer films van een regisseur jij hoog gaf, hoe zwaarder zijn oeuvre
@@ -177,7 +191,7 @@ export function meetlat({
     const rf = ratedFilms.filter((f) => !weg.has(f.key));
     const rt = Object.fromEntries(Object.entries(ratings).filter(([k]) => !weg.has(k)));
     const seen = new Set([...seenSet].filter((k) => !weg.has(k)));
-    const taste = buildTaste({ watchlist: wl, ratedFilms: rf, meta: metaZonder, idf: opties.idf });
+    const taste = buildTaste({ watchlist: wl, ratedFilms: rf, meta: metaZonder, idf: opties.idf, profielUitFavorieten: opties.profielFav });
     const seeds = bepaalSeeds({ watchlist: wl, ratings: rt, ratedFilms: rf, meta: metaZonder });
     const regisseurs = rangschikRegisseurs(seeds, metaZonder, opties.regisseurs || 12);
     const { recs } = scoorKandidaten({

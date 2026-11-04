@@ -14,16 +14,19 @@ export function voegNieuweToe(bestaand, nieuw) {
 // de staart van de lijst half.
 export const plekGewicht = (i, n) => 1 - 0.5 * (i / Math.max(n, 1));
 
-// Sorteer op aanbevelingssterkte, met de match als tweede signaal.
-// `waarde` is hoe hard de bronnen een film aanraden (meerdere routes, 5★-seeds,
-// bovenaan in TMDB's lijst); `match` gaat vooral over genre en kwaliteit. Op
-// match alleen sorteren liet zwakke /similar-treffers boven sterke
-// aanbevelingen uitkomen. Log-schaal: één film die via vijf routes binnenkomt
-// drukt de rest niet plat.
-export function sorteerOpSterkte(films) {
+// Sorteer op jouw match, met de aanbevelingssterkte als klein extra signaal.
+// `match` is je smaakprofiel (genre, tijdperk, taal, thema's, kwaliteit);
+// `waarde` is hoe hard de bronnen een film aanraden. Gemeten met de meetlat
+// op een echt profiel (545 beoordelingen): de match zet verborgen favorieten
+// veruit het hoogst, de aanbevelingssterkte voorspelt ze slecht (TMDB's
+// aanbevelingen zijn populariteitsgekleurd). Vroeger was dit 60/40 andersom;
+// 10/90 bracht dat profiel van 2 naar 9 van de 40 in de top 50.
+// Log-schaal: één film die via vijf routes binnenkomt drukt de rest niet plat.
+export const STERKTE_AANDEEL = 0.1;
+export function sorteerOpSterkte(films, aandeel = STERKTE_AANDEEL) {
   const max = Math.max(0, ...films.map((f) => f.waarde || 0));
   const norm = max > 0 ? Math.log1p(max) : 1;
-  const score = new Map(films.map((f) => [f.id, 0.6 * (Math.log1p(f.waarde || 0) / norm) + 0.4 * ((f.match || 0) / 100)]));
+  const score = new Map(films.map((f) => [f.id, aandeel * (Math.log1p(f.waarde || 0) / norm) + (1 - aandeel) * ((f.match || 0) / 100)]));
   return [...films].sort((a, b) => score.get(b.id) - score.get(a.id));
 }
 
