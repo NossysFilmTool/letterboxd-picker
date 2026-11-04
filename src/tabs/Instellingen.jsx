@@ -381,7 +381,9 @@ export default function Instellingen({ app }) {
           {tr('setup.storageUsage', { mb: (storageUsage() / 1024 / 1024).toFixed(1).replace('.', lang === 'nl' ? ',' : '.') })}
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn" onClick={() => downloadText('nossy-picker-backup.json', exportAll(), 'application/json')}>
+          {/* De filmcache staat in IndexedDB, niet in localStorage: geef hem mee,
+              anders mist de back-up alle filmdata */}
+          <button className="btn" onClick={() => downloadText('nossy-picker-backup.json', exportAll(app.meta), 'application/json')}>
             <Download size={15} /> {tr('setup.exportAll')}
           </button>
           <button className="btn" onClick={() => fileRef.current?.click()}><Upload size={15} /> {tr('setup.restoreBackup')}</button>
