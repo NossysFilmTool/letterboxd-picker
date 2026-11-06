@@ -11,7 +11,7 @@ import Avond from './tabs/Avond.jsx';
 import Inzicht from './tabs/Inzicht.jsx';
 import Instellingen from './tabs/Instellingen.jsx';
 import { useLS, useStorageHealth, useMetaStore } from './lib/storage.js';
-import { enrichAll, refreshProviders, resolveFilm, fetchDetailById, setRegion, DEFAULT_REGION, effectiveTmdbKey } from './lib/tmdb.js';
+import { enrichAll, refreshProviders, resolveFilm, fetchDetailById, setRegion, DEFAULT_REGION, effectiveTmdbKey, herstelFestivalJaar, FESTIVAL_DREMPEL } from './lib/tmdb.js';
 import { setNossyWeights } from './lib/pick.js';
 import { setThemeEmphasis } from './lib/taste.js';
 import { fetchExtRatings } from './lib/omdb.js';
@@ -316,6 +316,7 @@ export default function App() {
       const d = await fetchDetailById(tmdbId, key);
       if (!d) return;
       delete d.yearMismatch; // handmatig bevestigd → geen twijfel meer
+      d.handmatig = true; // en het festivaljaar-herstel blijft eraf
       let ext;
       for (const k of omdbKeys) {
         try { ext = await fetchExtRatings(d, { name: d.title, year: d.year }, k); if (ext) break; } catch { /* volgende sleutel */ }
@@ -324,6 +325,39 @@ export default function App() {
       setMeta((prev) => ({ ...prev, [filmKey]: full }));
     } catch { /* stil; oude data blijft staan */ }
   };
+
+  // Eenmalig herstel van koppelingen aan een obscure naamgenoot door het
+  // festivaljaar (Mud 2012 met 1 stem in plaats van Mud 2013). Alleen films
+  // met weinig stemmen, rustig op de achtergrond; een netwerkfout stelt het
+  // uit tot de volgende sessie.
+  const [koppelHerstel, setKoppelHerstel] = useLS('koppelHerstel', 0);
+  useEffect(() => {
+    const key = tmdbKey;
+    if (!key || !metaReady || koppelHerstel >= 1) return undefined;
+    const films = new Map();
+    [...watchlist, ...mergedRatedFilms, ...watchedFilms].forEach((f) => { if (f?.key && f.name && f.year) films.set(f.key, f); });
+    const todo = [...films.values()].filter((f) => {
+      const m = meta[f.key];
+      return m?.id && (m.votes ?? 0) < FESTIVAL_DREMPEL && !m.handmatig && !ignoredSet.has(f.key);
+    });
+    if (!todo.length) { setKoppelHerstel(1); return undefined; }
+    let stop = false;
+    (async () => {
+      // eerst de opstart (verrijken, Voor jou) voor laten gaan
+      await new Promise((r) => setTimeout(r, 4000));
+      for (const f of todo) {
+        if (stop) return;
+        try {
+          const beter = await herstelFestivalJaar(f, metaRef.current[f.key], key);
+          if (beter) setMeta((prev) => (prev[f.key] && !prev[f.key].handmatig ? { ...prev, [f.key]: beter } : prev));
+        } catch { return; }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      if (!stop) setKoppelHerstel(1);
+    })();
+    return () => { stop = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tmdbKey, metaReady]);
 
   // En op de achtergrond: per sessie de 80 oudste films stilletjes verversen
   useEffect(() => {

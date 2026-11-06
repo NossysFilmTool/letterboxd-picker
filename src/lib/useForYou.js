@@ -9,8 +9,11 @@ import { voegNieuweToe, rangschikRegisseurs } from './rows.js';
 import { bepaalSeeds, scoorKandidaten, detailVers, DETAIL_TTL, STANDAARD_OPTIES } from './kandidaten.js';
 import { normaliseer, handtekening, zoekVragen } from './eigenrijen.js';
 import { useT } from './i18n.js';
+import { PRIJSLIJSTEN } from './prijzen.js';
+import { KLASSIEK_TOT } from './foryou.js';
 
 const HIST_PER_SESSIE = 60;
+const GEEN = [];
 const OEUVRE_TTL = 30 * 24 * 3600e3;
 const DIENSTEN_TTL = 30 * 24 * 3600e3;
 const DETAIL_MAX = 300; // ~250 KB localStorage
@@ -325,6 +328,50 @@ export function useForYou(app, actief) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actief, tmdbKey, dienstSig, enrich.running]);
 
+  // Klassiekers die je mist: de best beoordeelde films met veel stemmen, in
+  // het algemeen en in jouw genres, tijdperk en (als je dat veel kijkt)
+  // buiten het Engels. Een maand bewaard; de rij toont wat je nog niet zag.
+  const [canon, setCanon] = useLS('canon', null); // { sig, at, films }
+  const canonQueries = () => {
+    const topG = Object.entries(taste.genres).filter(([, v]) => v > 0.3).sort((a, b) => b[1] - a[1]).slice(0, 2)
+      .map(([en]) => GENRES.find((g) => g.en === en)?.id).filter(Boolean);
+    const topD = Object.entries(taste.decades).sort((a, b) => b[1] - a[1])[0]?.[0];
+    // Een klassieker is minstens vier jaar oud en breed gewaardeerd: TMDB's
+    // toplijsten raken anders vervuild door nieuwe releases en films met een
+    // fanatieke fanbase (gezien op de demo: een film van dit jaar met een 8,6)
+    const tot = KLASSIEK_TOT();
+    const basis = { minRuntime: 60, sortBy: 'vote_average.desc', yearTo: tot };
+    return [
+      { ...basis, minVotes: 10000, minScore: 7.8, page: 1 },
+      { ...basis, minVotes: 10000, minScore: 7.8, page: 2 },
+      ...topG.map((g) => ({ ...basis, genreIds: [g], minVotes: 4000, minScore: 7.5, page: 1 })),
+      ...(topD && +topD <= tot ? [{ ...basis, yearFrom: +topD, yearTo: Math.min(+topD + 9, tot), minVotes: 3000, minScore: 7.5, page: 1 }] : []),
+      ...(taste.nietEngels >= 0.25 ? [{ ...basis, lang: 'niet-en', minVotes: 2000, minScore: 7.7, page: 1 }] : []),
+    ];
+  };
+  const canonSig = `v2|${Object.entries(taste.genres).filter(([, v]) => v > 0.3).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([g]) => g).join(',')}|${Object.entries(taste.decades).sort((a, b) => b[1] - a[1])[0]?.[0] || ''}|${taste.nietEngels >= 0.25}`;
+  const canonBezig = useRef(false);
+  useEffect(() => {
+    if (!actief || !tmdbKey || enrich.running || canonBezig.current) return;
+    if (canon && canon.sig === canonSig && Date.now() - (canon.at || 0) < OEUVRE_TTL) return;
+    canonBezig.current = true;
+    (async () => {
+      try {
+        const batches = await Promise.all(canonQueries().map((q) => discoverGems(tmdbKey, q).catch(() => null)));
+        if (!mounted.current || batches.every((b) => !b)) return;
+        const films = batches.filter(Boolean).reduce((acc, b) => voegNieuweToe(acc, b.results), []);
+        setCanon({ sig: canonSig, at: Date.now(), films });
+      } finally {
+        canonBezig.current = false;
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actief, tmdbKey, canonSig, enrich.running]);
+  const canonCands = canon?.films || [];
+  // Prijslijsten (lib/prijzen.js): pas als je profiel sterk genoeg is om de
+  // winnaars op jóuw smaak te sorteren, anders is het een willekeurige lijst
+  const prijsLijsten = taste.sterk ? PRIJSLIJSTEN : GEEN;
+
   // Eigen rijen: wat je zelf samenstelt (bewaard), en per rij de gevonden
   // films (per sessie, opnieuw zodra je de rij aanpast).
   const [eigenRijen, setEigenRijen] = useLS('eigenRijen', []);
@@ -440,11 +487,11 @@ export function useForYou(app, actief) {
   const { recs, seededOnRatings, seedFilms } = useMemo(
     () => scoorKandidaten({
       watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped,
-      oeuvres, profielCands, themeCands, dienstCands, eigenCands: eigenFilms, details, regio,
+      oeuvres, profielCands, themeCands, dienstCands, canonCands, prijsLijsten, eigenCands: eigenFilms, details, regio,
       taste, seeds, regisseurs, uitleg: tr, model,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, dienstCands, eigenFilms, taste, details, regio, lang, model],
+    [watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, dienstCands, canonCands, prijsLijsten, eigenFilms, taste, details, regio, lang, model],
   );
 
   return {

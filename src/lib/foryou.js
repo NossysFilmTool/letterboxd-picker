@@ -60,7 +60,7 @@ export function avondRuimte(nu = new Date()) {
 //   overslaan: id's die je via "Andere" wegklikte
 export function kiesVanavond(list, { mijnDiensten = [], nu = new Date(), overslaan = new Set(), max = 40 } = {}) {
   const kandidaten = sorteerOpSterkte(list.filter((f) => degelijk(f) && f.runtime && !overslaan.has(f.id)
-    && (f.bronnen || []).some((b) => !b.startsWith('eigen:')))).slice(0, max);
+    && !alleenApart(f))).slice(0, max);
   if (!kandidaten.length) return null;
   const mijn = new Set(mijnDiensten);
   const ruimte = avondRuimte(nu);
@@ -97,14 +97,24 @@ const draai = (lijst, start, n) => {
 
 const genreNamen = (f) => (f.genre_ids || []).map((id) => GENRE_EN[id]).filter(Boolean);
 
+// Alleen via een eigen rij, de canon of een prijslijst binnengekomen: niet in
+// de gewone rijen (die gaan over jouw smaak, niet over wat beroemd is)
+export const alleenApart = (f) => (f.bronnen || []).every((b) => b.startsWith('eigen:') || b === 'canon' || b.startsWith('lijst:'));
+// Een klassieker: uit de canon-bron, of een veelgeprezen film met heel veel
+// stemmen die via je eigen smaak binnenkwam. Minstens vier jaar oud.
+export const KLASSIEK_TOT = (nu = new Date()) => nu.getFullYear() - 4;
+export const isKlassieker = (f) => !!f.bronnen?.includes('canon')
+  || (!alleenApart(f) && (f.votes || 0) >= 8000 && (f.vote || 0) >= 7.7 && (!f.year || f.year <= KLASSIEK_TOT()));
+
 //   list:       gescoorde kandidaten [{ id, vote, votes, match, waarde, bronnen, seeds, viaTheme, genre_ids }]
 //   seedFilms:  je 4,5★+-favorieten [{ key, name }], sterkste eerst
 //   regisseurs: namen, sterkste eerst
 //   taste:      smaakprofiel (voor "Buiten je bubbel")
-export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, mijnDiensten = [], ronde = 0, dag = dagNummer(), max = 7 } = {}) {
-  // Films die alleen via een eigen rij binnenkwamen, horen in die rij en niet
-  // in de automatische rijen (anders vult "Koreaanse thrillers" je Top)
-  const pool = list.filter((f) => degelijk(f) && (f.bronnen || []).some((b) => !b.startsWith('eigen:')));
+export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, mijnDiensten = [], ronde = 0, dag = dagNummer(), max = 9 } = {}) {
+  // Films die alleen via een eigen rij of als klassieker binnenkwamen, horen
+  // in die rij en niet in de automatische rijen (anders vult "Koreaanse
+  // thrillers" of de canon je Top)
+  const pool = list.filter((f) => degelijk(f) && !alleenApart(f));
   const gebruikt = new Set();
   const vrij = (f) => !gebruikt.has(f.id);
   const maak = (id, type, past, extra = {}, min = 4) => {
@@ -155,6 +165,28 @@ export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, 
   const [dir] = draai(regisseurs.filter((n) => genoeg(vanRegisseur(n))), stap, 1);
   const oeuvre = dir ? maak(`oeuvre:${dir}`, 'oeuvre', vanRegisseur(dir), { naam: dir }) : null;
 
+  // 3b. Klassiekers die je mist: de canon-bron, of een veelgeprezen film die
+  // via je favorieten binnenkwam. Hier mogen de canon-films wel in.
+  let canon = null;
+  const canonFilms = sorteerOpSterkte(list.filter((f) => degelijk(f) && vrij(f) && isKlassieker(f)));
+  if (canonFilms.length >= 4) {
+    canonFilms.forEach((f) => gebruikt.add(f.id));
+    canon = { id: 'canon', type: 'canon', films: canonFilms, past: isKlassieker };
+  }
+
+  // 3c. Een prijslijst (Gouden Palm, Oscars, ...), wisselend per dag: de
+  // winnaars die je nog niet zag, op jouw smaak gesorteerd
+  const uitLijst = (bron) => (f) => !!f.bronnen?.includes(bron);
+  const lijstBronnen = [...new Set(list.flatMap((f) => (f.bronnen || []).filter((b) => b.startsWith('lijst:'))))].sort();
+  const lijstVrij = (bron) => list.filter((f) => degelijk(f) && vrij(f) && uitLijst(bron)(f));
+  const [lijstBron] = draai(lijstBronnen.filter((b) => lijstVrij(b).length >= 4), stap, 1);
+  let prijs = null;
+  if (lijstBron) {
+    const films = sorteerOpSterkte(lijstVrij(lijstBron));
+    films.forEach((f) => gebruikt.add(f.id));
+    prijs = { id: lijstBron, type: 'lijst', lijst: lijstBron.slice(6), films, past: uitLijst(lijstBron) };
+  }
+
   // 4. Verborgen parels: hoog cijfer, weinig stemmen
   const parels = maak('parels', 'parels', (f) => f.votes != null && f.votes >= 80 && f.votes <= 1500 && (f.vote || 0) >= 7);
 
@@ -187,7 +219,10 @@ export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, 
     })
     : null;
 
-  let rijen = [top, dienst, seed1, oeuvre, parels, seed2, thema, bubbel].filter(Boolean);
+  // De klassiekers en de prijslijst horen naast je persoonlijke rijen, niet in
+  // plaats ervan: zonder één persoonlijke rij toont Voor jou de lijst
+  if (![top, dienst, seed1, oeuvre, parels, seed2, thema, bubbel].some(Boolean)) return [];
+  let rijen = [top, dienst, seed1, canon, oeuvre, prijs, parels, seed2, thema, bubbel].filter(Boolean);
   // Weinig rijen: vul aan met de rest. Zonder één echte rij geven we niets
   // terug; dan toont Voor jou de lijst met uitgebreide kaarten.
   if (rijen.length > 0 && rijen.length < 3) {

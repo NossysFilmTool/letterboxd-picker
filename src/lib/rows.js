@@ -39,7 +39,7 @@ export function sorteerOpSterkte(films, aandeel = STERKTE_AANDEEL) {
 // jij hoog gaf, hoe hoger. Alleen wie minstens één 4,5★+-film op zijn naam
 // heeft telt mee. Per regisseur bewaren we de genres van jouw films van hem of
 // haar, zodat "Meer van X" bij die smaak blijft.
-export function rangschikRegisseurs(seeds, meta, max = 12) {
+export function rangschikRegisseurs(seeds, meta, max = 12, minTop = 4.5) {
   const per = new Map();
   seeds.forEach((s) => {
     const m = meta[s.key];
@@ -52,7 +52,7 @@ export function rangschikRegisseurs(seeds, meta, max = 12) {
     per.set(m.director, cur);
   });
   return [...per.values()]
-    .filter((r) => r.top >= 4.5)
+    .filter((r) => r.top >= minTop)
     .sort((a, b) => b.score - a.score || b.top - a.top)
     .slice(0, max);
 }

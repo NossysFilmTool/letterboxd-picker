@@ -4,7 +4,7 @@ import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw, Plus, Layers, EyeOf
 import { maakHerkenner } from '../lib/gezien.js';
 import { GENRES, genreLabelById, fetchDetailById } from '../lib/tmdb.js';
 import { sorteerOpSterkte } from '../lib/rows.js';
-import { bouwRecept, degelijk, pastFilter, RAAM, kiesVanavond, beschrijfVanavond } from '../lib/foryou.js';
+import { bouwRecept, degelijk, pastFilter, RAAM, kiesVanavond, beschrijfVanavond, alleenApart } from '../lib/foryou.js';
 import { useForYou } from '../lib/useForYou.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { shortlistToCsv, downloadText } from '../lib/csv.js';
@@ -139,16 +139,19 @@ export default function Verken({ app }) {
   // De lijstweergave: "Alles bekijken" van één rij (live uit de kandidaten,
   // dus met wat je net ophaalde en zonder wat je afwees), of alles als er
   // te weinig kandidaten voor rijen zijn.
-  const lijstModus = !!alles || (weergaveRijen.length === 0 && voorRijen.length > 0);
+  // Zonder rijen: de lijst met je persoonlijke kandidaten (geen klassiekers of
+  // prijswinnaars die alleen daarom binnenkwamen)
+  const persoonlijk = useMemo(() => voorRijen.filter((f) => !alleenApart(f)), [voorRijen]);
+  const lijstModus = !!alles || (weergaveRijen.length === 0 && persoonlijk.length > 0);
   const lijst = useMemo(() => {
     if (!lijstModus) return [];
-    const basis = sorteerOpSterkte(alles ? gefilterd.filter(degelijk).filter(alles.past) : voorRijen);
+    const basis = sorteerOpSterkte(alles ? gefilterd.filter(degelijk).filter(alles.past) : persoonlijk);
     if (sortAlles === 'match') return [...basis].sort((a, b) => b.match - a.match);
     if (sortAlles === 'score') return [...basis].sort((a, b) => (b.vote || 0) - (a.vote || 0));
     if (sortAlles === 'nieuw') return [...basis].sort((a, b) => (b.year || 0) - (a.year || 0));
     if (sortAlles === 'oud') return [...basis].sort((a, b) => (a.year || 9999) - (b.year || 9999));
     return basis;
-  }, [lijstModus, alles, gefilterd, voorRijen, sortAlles]);
+  }, [lijstModus, alles, gefilterd, persoonlijk, sortAlles]);
   // Snel beoordelen: de sterkste kandidaten, één voor één
   const snelLijst = useMemo(() => (snel ? sorteerOpSterkte(gefilterd.filter(degelijk)).slice(0, 80) : []), [snel, gefilterd]);
 
@@ -312,6 +315,8 @@ export default function Verken({ app }) {
       case 'seed': return tr('verken.rowSeed', { name: rij.naam });
       case 'oeuvre': return tr('verken.rowOeuvre', { name: rij.naam });
       case 'parels': return tr('verken.rowGems');
+      case 'canon': return tr('verken.rowCanon');
+      case 'lijst': return tr('verken.rowLijst', { lijst: tr(`verken.lijst${rij.lijst.charAt(0).toUpperCase()}${rij.lijst.slice(1)}`) });
       case 'thema': return rij.themas?.length ? tr('verken.rowTheme', { themes: rij.themas.join(', ') }) : tr('verken.rowThemePlain');
       case 'bubbel': return tr('verken.rowBubble');
       case 'dienst': {
@@ -567,7 +572,7 @@ export default function Verken({ app }) {
             ))}
             {weergaveRijen.length === 1 && kiezer}
           </div>
-        ) : voorRijen.length > 0 ? lijstWeergave : vanavond ? null : (
+        ) : persoonlijk.length > 0 ? lijstWeergave : vanavond ? null : (
           <div className="empty card">
             <p className="big">{wachtOpDetails ? tr('verken.detailsLoadingFilter') : tr('verken.filterEmpty')}</p>
             <button className="btn" style={{ marginTop: 12 }} onClick={wisFilters}>{tr('zoek.clearFilters')}</button>

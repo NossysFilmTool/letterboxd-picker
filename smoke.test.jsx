@@ -149,13 +149,18 @@ describe('V2 smoke', () => {
     // parels: weinig stemmen, hoog cijfer
     for (let i = 0; i < 5; i++) list.push(film({ votes: 400, vote: 7.6, waarde: 0.7, bronnen: ['profiel'] }));
     // buiten de bubbel: komedie, sterk beoordeeld
-    for (let i = 0; i < 5; i++) list.push(film({ genre_ids: [35], vote: 7.8, votes: 5000, waarde: 0.7, bronnen: ['profiel'] }));
+    for (let i = 0; i < 5; i++) list.push(film({ genre_ids: [35], vote: 7.6, votes: 5000, waarde: 0.7, bronnen: ['profiel'] }));
+    // klassiekers die je mist: alleen via de canon-bron, met een hoog cijfer
+    for (let i = 0; i < 5; i++) list.push(film({ vote: 8.4, votes: 20000, match: 90, waarde: 0.5, bronnen: ['canon'] }));
     // rommel onder de kwaliteitsdrempel (een 9 met 30 stemmen)
     for (let i = 0; i < 5; i++) list.push(film({ votes: 30, vote: 9, bronnen: ['profiel'] }));
     const taste = { genres: { Drama: 0.9, Comedy: 0 } };
     const seedFilms = ['S1', 'S2', 'S3'].map((n) => ({ key: n, name: n }));
     const rijen = bouwRecept(list, { seedFilms, regisseurs: ['R1', 'R2'], taste, dag: 0 });
-    expect(rijen.map((r) => r.type)).toEqual(['top', 'seed', 'oeuvre', 'parels', 'seed', 'bubbel']);
+    expect(rijen.map((r) => r.type)).toEqual(['top', 'seed', 'canon', 'oeuvre', 'parels', 'seed', 'bubbel']);
+    // de canon-films (hoogste match!) staan alleen in hun eigen rij, niet in de Top
+    expect(rijen[0].films.some((f) => f.bronnen.includes('canon'))).toBe(false);
+    expect(rijen.find((r) => r.type === 'canon').films.every((f) => f.bronnen.includes('canon'))).toBe(true);
     // geen film in twee rijen, en niets onder de drempel
     const ids = rijen.flatMap((r) => r.films.map((f) => f.id));
     expect(new Set(ids).size).toBe(ids.length);
@@ -171,6 +176,31 @@ describe('V2 smoke', () => {
     expect(morgen.find((r) => r.type === 'oeuvre').naam).not.toBe(rijen.find((r) => r.type === 'oeuvre').naam);
     // te weinig voor één echte rij: geen rijen (Voor jou toont dan de lijst)
     expect(bouwRecept(list.slice(0, 3), { seedFilms, taste, dag: 0 })).toEqual([]);
+  });
+
+  it('prijslijsten: één rij per dag met winnaars die je niet zag, naast je persoonlijke rijen', async () => {
+    const { bouwRecept } = await import('./src/lib/foryou.js');
+    const { PRIJSLIJSTEN } = await import('./src/lib/prijzen.js');
+    // de meegeleverde lijsten: compleet, zonder dubbele films per lijst
+    expect(PRIJSLIJSTEN.map((l) => l.id)).toEqual(['palme', 'oscar', 'leeuw', 'beer', 'internationaal']);
+    PRIJSLIJSTEN.forEach((l) => {
+      expect(l.films.length).toBeGreaterThanOrEqual(20);
+      expect(new Set(l.films.map((f) => f.id)).size).toBe(l.films.length);
+      l.films.forEach((f) => { expect(f.id).toBeGreaterThan(0); expect(f.title).toBeTruthy(); expect(f.prijsjaar).toBeGreaterThanOrEqual(1990); });
+    });
+    let id = 0;
+    const film = (extra) => ({ id: ++id, vote: 7.4, votes: 3000, match: 70, waarde: 1, bronnen: [], seeds: [], genre_ids: [18], ...extra });
+    const persoonlijk = Array.from({ length: 16 }, (_, i) => film({ waarde: 3 - i * 0.1, bronnen: ['aanbevolen'], seeds: [`S${i % 4}`] }));
+    const palme = Array.from({ length: 5 }, () => film({ vote: 7.5, votes: 2000, match: 95, bronnen: ['lijst:palme'] }));
+    const oscar = Array.from({ length: 5 }, () => film({ vote: 7.5, votes: 2000, match: 95, bronnen: ['lijst:oscar'] }));
+    const lijstRij = (dag) => bouwRecept([...persoonlijk, ...palme, ...oscar], { seedFilms: [], dag }).find((r) => r.type === 'lijst');
+    // wisselend per dag, en de winnaars (met de hoogste match!) blijven uit de Top
+    expect(new Set([lijstRij(0).lijst, lijstRij(1).lijst])).toEqual(new Set(['oscar', 'palme']));
+    const rijen = bouwRecept([...persoonlijk, ...palme, ...oscar], { dag: 0 });
+    expect(rijen[0].type).toBe('top');
+    expect(rijen[0].films.some((f) => f.bronnen.some((b) => b.startsWith('lijst:')))).toBe(false);
+    // zonder één persoonlijke rij geen lijstrij (Voor jou toont dan de lijst)
+    expect(bouwRecept([...persoonlijk.slice(0, 3), ...palme], { dag: 0 })).toEqual([]);
   });
 
   it('voor jou: de thema-rij vraagt twee gedeelde thema\'s, en het label noemt ze', async () => {
@@ -430,6 +460,33 @@ describe('V2 smoke', () => {
       fireEvent.click(screen.getByText('Klaar'));
       expect(document.querySelector('.snel')).toBeNull();
       expect(screen.getByText('Snel beoordelen')).toBeTruthy();
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('klassiekers die je mist: een eigen rij uit de canon, zonder wat je al zag', async () => {
+    const calls = regFixture();
+    const klassiek = [1, 2, 3, 4, 5, 6].map((n) => ({ id: 7700 + n, title: `Klassieker ${n}`, release_date: `${1950 + n}-01-01`, poster_path: `/k${n}.jpg`, vote_average: 8.3, vote_count: 20000, original_language: 'en', overview: '', genre_ids: [18] }));
+    const oud = global.fetch;
+    global.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/discover/') && u.includes('vote_count.gte=10000') && u.includes('page=1')) {
+        calls.push(u);
+        return { ok: true, status: 200, json: async () => ({ total_pages: 1, results: klassiek }) };
+      }
+      return oud(url);
+    };
+    // Klassieker 1 zag je al (gelogd op Letterboxd)
+    localStorage.setItem('nossyV2.watchedLb', JSON.stringify(['klassieker 1|1951']));
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      expect(await screen.findByText('Klassiekers die je mist')).toBeTruthy();
+      expect(screen.getByText('Klassieker 2')).toBeTruthy();
+      expect(screen.queryByText('Klassieker 1')).toBeNull();
+      // opgeslagen voor een maand: geen nieuwe aanvragen bij de volgende keer
+      expect(JSON.parse(localStorage.getItem('nossyV2.canon')).films.length).toBe(6);
     } finally {
       delete global.fetch;
     }
@@ -1485,10 +1542,11 @@ describe('V2 smoke', () => {
 
   it('"Andere suggesties" haalt live nieuwe kandidaten uit TMDB', async () => {
     // alleen de tweede discover-pagina (de klik) levert de vondst;
-    // de automatische instroom bij het openen krijgt lege resultaten
+    // de automatische instroom bij het openen (ook de klassiekers, met hun
+    // eigen tweede pagina vanaf 10000 stemmen) krijgt lege resultaten
     global.fetch = async (url) => ({
       ok: true, status: 200,
-      json: async () => (String(url).includes('/discover/') && String(url).includes('page=2')
+      json: async () => (String(url).includes('/discover/') && String(url).includes('page=2') && !String(url).includes('vote_count.gte=10000')
         ? { total_pages: 5, results: [{ id: 8800, title: 'Verse Vondst', release_date: '2016-02-01', poster_path: null, vote_average: 7.4, vote_count: 4200, original_language: 'fr', overview: 'Live getapt.', genre_ids: [18] }] }
         : { total_pages: 1, results: [] }),
     });
@@ -1554,6 +1612,53 @@ describe('V2 smoke', () => {
     expect(meta.yearMismatch).toBeUndefined();
     delete global.fetch;
   });
+
+  // Festivaljaar: Letterboxd zegt Mud (2012), TMDB kent de echte Mud als 2013
+  const mudFetch = (calls) => async (url) => {
+    const u = String(url);
+    calls.push(u);
+    const json = (obj) => ({ ok: true, status: 200, json: async () => obj });
+    if (u.includes('/search/movie')) {
+      const obscuur = { id: 999, title: 'Mud', release_date: '2012-06-01', vote_count: 1 };
+      const echt = { id: 103731, title: 'Mud', release_date: '2013-04-26', vote_count: 3193 };
+      return json({ results: u.includes('primary_release_year=2012') ? [obscuur] : [echt, obscuur] });
+    }
+    const id = +u.match(/movie\/(\d+)/)[1];
+    return json({ id, title: 'Mud', release_date: id === 103731 ? '2013-04-26' : '2012-06-01', runtime: 130, genres: [], vote_average: 7.1, vote_count: id === 103731 ? 3193 : 1, credits: { crew: [] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } });
+  };
+
+  it('resolveFilm: festivaljaar, de bekende film een jaar later wint van een obscure naamgenoot', async () => {
+    const calls = [];
+    global.fetch = mudFetch(calls);
+    try {
+      const { resolveFilm, herstelFestivalJaar } = await import('./src/lib/tmdb.js');
+      const m = await resolveFilm({ name: 'Mud', year: 2012, key: 'mud|2012' }, 'k');
+      expect(m.id).toBe(103731);
+      expect(m.year).toBe(2013);
+      expect(m.yearMismatch).toBeUndefined(); // een jaar verschil is normaal, geen twijfelgeval
+      // een bestaande foute koppeling herstellen, een goede met stemmen laten staan
+      expect((await herstelFestivalJaar({ name: 'Mud', year: 2012 }, { id: 999, votes: 1 }, 'k')).id).toBe(103731);
+      expect(await herstelFestivalJaar({ name: 'Mud', year: 2012 }, { id: 103731, votes: 3193 }, 'k')).toBeNull();
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('festivaljaar: bestaande foute koppelingen worden eenmalig op de achtergrond hersteld', async () => {
+    const calls = [];
+    global.fetch = mudFetch(calls);
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'mud|2012', name: 'Mud', year: 2012, uri: '' }]));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ 'mud|2012': { id: 999, title: 'Mud', year: 2012, votes: 1, at: Date.now(), trailer: null } }));
+    try {
+      render(<App />);
+      await waitFor(() => expect(JSON.parse(localStorage.getItem('nossyV2.koppelHerstel'))).toBe(1), { timeout: 8000 });
+      expect(calls.some((u) => u.includes('/movie/103731'))).toBe(true);
+    } finally {
+      delete global.fetch;
+    }
+  }, 12000);
 
   it('matchcontrole: een correcte match met kloppend jaar wordt NIET gevlagd (ook bij net andere titel)', async () => {
     // Regressie V4.4.3: een exacte-titel-check vlagde massa's goede matches

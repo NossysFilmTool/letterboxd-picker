@@ -45,7 +45,7 @@ export function bepaalAntiSeeds({ watchlist, ratings, ratedFilms, meta }) {
 //   uitleg(key, vars): vertaalfunctie voor redenen (de meetlat geeft een dummy)
 export function scoorKandidaten({
   watchlist, meta, ratedFilms, ratings = {}, seenSet = new Set(), shortlist = [], skipped = [],
-  oeuvres = {}, profielCands = [], themeCands = [], dienstCands = [], eigenCands = {}, details = {}, regio = 'NL',
+  oeuvres = {}, profielCands = [], themeCands = [], dienstCands = [], canonCands = [], prijsLijsten = [], eigenCands = {}, details = {}, regio = 'NL',
   taste, seeds, regisseurs, uitleg = (k) => k, opties = STANDAARD_OPTIES, model = null,
 }) {
   const geleerd = modelGeldig(model) ? model : null;
@@ -118,6 +118,9 @@ export function scoorKandidaten({
   profielCands.forEach((r) => voegToe(r, 0.7, 'profiel', null));
   themeCands.forEach((r) => voegToe(r, 0.85, 'thema', null));
   dienstCands.forEach((r) => voegToe(r, 0.8, 'dienst', null));
+  // Klassiekers en prijslijsten: zwak gewicht, ze moeten het van je smaak hebben
+  canonCands.forEach((r) => voegToe(r, 0.5, 'canon', null));
+  prijsLijsten.forEach((l) => l.films.forEach((r) => voegToe(r, 0.4, `lijst:${l.id}`, null)));
   // Eigen rijen: elke rij is een eigen bron (eigen:<id>), zodat de rij precies
   // weet welke films bij hem horen
   Object.entries(eigenCands).forEach(([id, films]) => (films || []).forEach((r) => voegToe(r, 0.6, `eigen:${id}`, null)));
@@ -225,7 +228,7 @@ export function bouwRonde({
   const seen = new Set([...seenSet].filter((k) => !weg.has(k)));
   const taste = buildTaste({ watchlist: wl, ratedFilms: rf, meta: metaZonder, idf: opties.idf, profielUitFavorieten: opties.profielFav });
   const seeds = bepaalSeeds({ watchlist: wl, ratings: rt, ratedFilms: rf, meta: metaZonder });
-  const regisseurs = rangschikRegisseurs(seeds, metaZonder, opties.regisseurs || 12);
+  const regisseurs = rangschikRegisseurs(seeds, metaZonder, opties.regisseurs || 12, opties.regisseurMin ?? 4.5);
   const { recs } = scoorKandidaten({
     watchlist: wl, meta: metaZonder, ratedFilms: rf, ratings: rt, seenSet: seen, oeuvres, details, regio,
     taste, seeds, regisseurs, opties, model,

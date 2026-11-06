@@ -96,6 +96,33 @@ async function fetchDetail(id, key) {
   };
 }
 
+// Een treffer met minder stemmen dan dit is verdacht als er een bekende film
+// met dezelfde titel een jaar ernaast bestaat (zie resolveFilm)
+export const FESTIVAL_DREMPEL = 100;
+const normTitel = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+// De veel bekendere film met dezelfde titel, een jaar voor of na het gevraagde
+// jaar: minstens 100 stemmen en tien keer zoveel als de huidige treffer.
+export function festivalAlternatief(results, film, huidigeStemmen = 0) {
+  const want = film.year;
+  if (!want) return null;
+  const titel = normTitel(film.name);
+  const jaar = (r) => (r.release_date ? parseInt(r.release_date.slice(0, 4), 10) : null);
+  return results
+    .filter((r) => normTitel(r.title) === titel && jaar(r) && Math.abs(jaar(r) - want) === 1)
+    .filter((r) => (r.vote_count || 0) >= Math.max(FESTIVAL_DREMPEL, 10 * huidigeStemmen))
+    .sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0))[0] || null;
+}
+
+// Herstel van een bestaande koppeling: geeft de volledige data van de juiste
+// film terug, of null als de huidige koppeling goed lijkt.
+export async function herstelFestivalJaar(film, huidig, key) {
+  if (!huidig?.id || (huidig.votes ?? 0) >= FESTIVAL_DREMPEL) return null;
+  const s = await get('/search/movie', key, { query: film.name, include_adult: 'false' });
+  const beter = festivalAlternatief(s.results || [], film, huidig.votes ?? 0);
+  if (!beter || beter.id === huidig.id) return null;
+  return fetchDetail(beter.id, key);
+}
+
 // Zoekt de juiste film bij naam + jaar. Belangrijk: TMDB's 'year'-parameter
 // matcht op élke release-datum (ook regionale her-uitgaves), dus een remake
 // kan een gelijknamige klassieker verdringen. We verifiëren daarom het jaar
@@ -134,6 +161,15 @@ export async function resolveFilm(film, key) {
       const db = yearOf(b) == null ? 999 : Math.abs(yearOf(b) - want);
       return da - db;
     })[0];
+    // Festivaljaar: Letterboxd noemt vaak het jaar van de première, TMDB het
+    // bioscoopjaar een jaar later. De zoek op het exacte jaar vindt dan een
+    // obscure naamgenoot (Mud 2012 met 1 stem, de echte Mud is 2013). Is de
+    // treffer onbekend, kijk dan breder.
+    if (!hit || (hit.vote_count ?? 0) < FESTIVAL_DREMPEL) {
+      const breed = await get('/search/movie', key, { query: film.name, include_adult: 'false' });
+      const beter = festivalAlternatief(breed.results || [], film, hit?.vote_count ?? 0);
+      if (beter) hit = beter;
+    }
   } else {
     hit = results.find((r) => norm(r.title) === wantTitle) || results[0];
   }
