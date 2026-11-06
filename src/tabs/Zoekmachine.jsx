@@ -31,7 +31,7 @@ const FAME_PRESETS = [
   ['breed', 'breed', 10000, ''],
 ];
 
-export default function Zoekmachine({ app, taste, openDetail, addToShortlist, shortIds, ownIdsAll, ownKeysAll, seenIds, onBewaarRij }) {
+export default function Zoekmachine({ app, taste, openDetail, addToShortlist, shortIds, ownIdsAll, ownKeysAll, seenIds, isGezien, isBekend, verbergGezien = false, onBewaarRij }) {
   const { t: tr, lang: uiLang } = useT();
   // Taalnamen in de UI-taal via de browser (Intl); geen woordenboek nodig.
   const langName = useMemo(() => {
@@ -163,15 +163,22 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
   const toggle = (setter, max) => (id) => setter((a) => (a.includes(id) ? a.filter((x) => x !== id) : (max ? [...a, id].slice(-max) : [...a, id])));
 
   // Client-side: bij tekstzoek de criteria als zeef; overal match-score + bekend/verberg
+  let verborgenGezien = 0; // hoeveel al geziene films "Verberg al gezien" wegliet
   const verwerk = (films) => {
     let list = films.map((r) => {
       const ext = scores[r.id] || (app.meta && Object.values(app.meta).find((m) => m && m.id === r.id)?.ext);
       const withExt = ext ? { ...r, ext } : r;
       const ns = nossyScore(withExt);
       const key = filmKey(r.title, r.year);
-      const gezien = app.seenSet.has(key) || seenIds.has(r.id);
-      return { ...withExt, ...matchScore(r, taste), nossy: ns, bekend: ownIdsAll.has(r.id) || ownKeysAll.has(key), gezien, jouwScore: gezien ? app.ratings[key] : null };
+      const gezien = app.seenSet.has(key) || seenIds.has(r.id) || !!isGezien?.(r);
+      const bekend = gezien || ownIdsAll.has(r.id) || ownKeysAll.has(key) || !!isBekend?.(r);
+      return { ...withExt, ...matchScore(r, taste), nossy: ns, bekend, gezien, jouwScore: gezien ? app.ratings[key] : null };
     });
+    if (verbergGezien) {
+      const voor = list.length;
+      list = list.filter((r) => !r.gezien);
+      verborgenGezien = voor - list.length;
+    }
     if (res?.tekstZoek) {
       list = list.filter((r) => {
         if (genres.length && !genres.some((g) => (r.genre_ids || []).includes(g))) return false;
@@ -300,6 +307,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
             ) : (
               <><strong style={{ color: 'var(--paper)' }}>{queryTekst()}</strong>{' \u00b7 '}{res.tekstZoek ? tr('zoek.resCount', { count: lijst.length }) : tr('zoek.resPage', { total: res.totalResults.toLocaleString(), page: page, pages: res.totalPages })}</>
             )}
+            {verborgenGezien > 0 && <span className="gezien-verborgen">{' \u00b7 '}{tr('zoek.gezienVerborgen', { count: verborgenGezien })}</span>}
           </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {app.omdbKeys.length > 0 && (
@@ -325,6 +333,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
         if (minScore) actief.push(tr('zoek.fScore'));
         if (runtime) actief.push(tr('zoek.fDuur'));
         if (hideKnown) actief.push(tr('zoek.fHide'));
+        if (verborgenGezien > 0) actief.push(tr('zoek.fGezien'));
         const raw = res.totalResults || 0;
         return (
           <div className="empty card">

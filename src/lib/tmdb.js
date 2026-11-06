@@ -208,6 +208,8 @@ const lightMovie = (r) => ({
   lang: r.original_language,
   genre_ids: (r.genre_ids || []).slice(0, 4),
   plot: r.overview || '',
+  // de originele titel, alleen als die afwijkt: helpt "al gezien" herkennen
+  ...(r.original_title && r.original_title !== r.title ? { orig: r.original_title } : {}),
 });
 
 export async function searchMovies(key, query) {

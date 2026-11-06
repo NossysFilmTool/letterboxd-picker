@@ -11,6 +11,7 @@
 // 5. Kwaliteit, gedempt op stemmenaantal, zodat een 9 met 12 stemmen niet
 //    boven een 7,9 met 40.000 stemmen uitkomt.
 import { fetchRecommendations, fetchSimilar, fetchKeywords, genreLabelById } from './tmdb.js';
+import { maakHerkenner } from './gezien.js';
 
 const damped = (vote, votes, m = 300) => (((vote || 0) * (votes || 0)) + 6.8 * m) / ((votes || 0) + m);
 
@@ -44,7 +45,8 @@ export async function smartSimilar(seed, seedMeta, opts) {
   voeg(sims, 'vergelijkbaar', 0.65);
 
   const filmKeyOf = (f) => `${(f.title || '').toLowerCase().trim()}|${f.year || ''}`;
-  const kandidaten = [...pool.values()].filter((k) => !seenKeys.has(filmKeyOf(k.film)));
+  const alGezien = maakHerkenner(seenKeys);
+  const kandidaten = [...pool.values()].filter((k) => !seenKeys.has(filmKeyOf(k.film)) && !alGezien(k.film));
 
   // Stap 3: voorronde op de gratis signalen
   kandidaten.forEach((k) => {

@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw, Plus, Layers } from 'lucide-react';
+import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw, Plus, Layers, EyeOff } from 'lucide-react';
+import { maakHerkenner } from '../lib/gezien.js';
 import { GENRES, genreLabelById, fetchDetailById } from '../lib/tmdb.js';
 import { sorteerOpSterkte } from '../lib/rows.js';
 import { bouwRecept, degelijk, pastFilter, RAAM } from '../lib/foryou.js';
@@ -167,6 +168,15 @@ export default function Verken({ app }) {
     [seenSet, meta],
   );
   const shortIds = useMemo(() => new Set(shortlist.map((s) => s.id)), [shortlist]);
+  // Herkenners met speling op titel en jaar (zie lib/gezien.js). Beoordeeld
+  // telt ook als gezien.
+  const isGezien = useMemo(
+    () => maakHerkenner([...seenSet, ...ratedFilms.map((f) => f.key)], seenIds),
+    [seenSet, ratedFilms, seenIds],
+  );
+  const isBekend = useMemo(() => maakHerkenner(ownKeysAll, ownIdsAll), [ownKeysAll, ownIdsAll]);
+  // Verberg al gezien (in Zoeken; Voor jou laat ze nooit zien). Standaard aan.
+  const [verbergGezien, setVerbergGezien] = useLS('verbergGezien', true);
 
   // Detailkaart voor elke film van buiten je lijst: volledige TMDB-data
   // (backdrop, regisseur, trailer, streamingaanbod) + on-demand OMDb-scores
@@ -573,9 +583,18 @@ export default function Verken({ app }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className={`chip ${mode === 'voorJou' ? 'on-b' : ''}`} onClick={() => setMode('voorJou')}>{tr('verken.tabForYou')}</button>
           <button className={`chip ${mode === 'zoeken' ? 'on-b' : ''}`} onClick={() => setMode('zoeken')}>{tr('verken.tabSearch')}</button>
+          {/* Verberg al gezien: Voor jou doet dat altijd, in Zoeken kies je zelf */}
+          <button
+            className={`chip verberg-gezien ${mode === 'voorJou' || verbergGezien ? 'on-g' : ''}`}
+            aria-pressed={mode === 'voorJou' || verbergGezien}
+            title={mode === 'voorJou' ? tr('verken.gezienAltijdWeg') : tr('verken.verbergGezienTitel')}
+            onClick={() => (mode === 'voorJou' ? setNudge(tr('verken.gezienAltijdWeg')) : setVerbergGezien((v) => !v))}
+          >
+            <EyeOff size={13} /> {tr('verken.verbergGezien')}
+          </button>
         </div>
 
         {mode === 'zoeken' && (
@@ -583,6 +602,7 @@ export default function Verken({ app }) {
             app={app} taste={taste} openDetail={openDetail}
             addToShortlist={addToShortlist} shortIds={shortIds}
             ownIdsAll={ownIdsAll} ownKeysAll={ownKeysAll} seenIds={seenIds}
+            isGezien={isGezien} isBekend={isBekend} verbergGezien={verbergGezien}
             onBewaarRij={(r) => opslaanEigen({ ...normaliseer(r), id: `e${Date.now().toString(36)}`, naam: autoNaam(r, { tr }) })}
           />
         )}

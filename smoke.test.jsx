@@ -2422,11 +2422,54 @@ describe('V2 smoke', () => {
       naarZoeken();
       fireEvent.change(screen.getByPlaceholderText(/Zoek op titel of maker/), { target: { value: 'aftersun' } });
       fireEvent.click(screen.getByText('Zoek'));
+      // standaard staat "Verberg al gezien" aan: de film is weg, met een telling
+      expect(await screen.findByText(/1 al gezien verborgen/)).toBeTruthy();
+      expect(screen.queryByText(/Al gezien · jij gaf/)).toBeNull();
+      // knop uit: de film is terug, met jouw sterren
+      fireEvent.click(screen.getByText('Verberg al gezien'));
       expect(await screen.findByText(/Al gezien · jij gaf 4,0 ★/)).toBeTruthy();
       expect(document.body.textContent).not.toContain('Al in je collectie');
+      // de keuze wordt onthouden
+      expect(JSON.parse(localStorage.getItem('nossyV2.verbergGezien'))).toBe(false);
     } finally {
       delete global.fetch;
     }
+  });
+
+  it('al gezien: herkenning met speling op leestekens, accenten en festivaljaar', async () => {
+    const { maakHerkenner, normTitel } = await import('./src/lib/gezien.js');
+    expect(normTitel('The Hunger Games: Mockingjay – Part 2')).toBe(normTitel('The Hunger Games: Mockingjay - Part 2'));
+    expect(normTitel('Amélie')).toBe('amelie');
+    const ken = maakHerkenner(['the witch|2015', 'the hunger games: mockingjay – part 2|2015', 'amélie|2001'], [42]);
+    expect(ken({ id: 1, title: 'The Witch', year: 2016 })).toBe(true); // festivaljaar
+    expect(ken({ id: 2, title: 'The Hunger Games: Mockingjay - Part 2', year: 2015 })).toBe(true); // leesteken
+    expect(ken({ id: 3, title: 'Amelie', year: 2001 })).toBe(true); // accent
+    expect(ken({ id: 4, title: 'Something', orig: 'Amélie', year: 2001 })).toBe(true); // originele titel
+    expect(ken({ id: 42, title: 'Heel Anders', year: 1990 })).toBe(true); // TMDB-id
+    expect(ken({ id: 5, title: 'The Witch', year: 2019 })).toBe(false); // ander jaar: andere film
+    expect(ken({ id: 6, title: 'The Witches', year: 2015 })).toBe(false);
+  });
+
+  it('voor jou: een al geziene film met net ander jaar of leesteken komt niet terug', async () => {
+    const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
+    const { buildTaste } = await import('./src/lib/taste.js');
+    const f = (id, title, year) => ({ id, title, year, vote: 7.5, votes: 2000, genre_ids: [18] });
+    const meta = {
+      'a|2000': { id: 1, genres: ['Drama'], recs: [f(10, 'The Witch', 2016), f(11, 'Mockingjay - Part 2', 2015), f(12, 'Verse Film', 2012)] },
+      'b|2001': { id: 2, genres: ['Drama'], recs: [] },
+      'c|2002': { id: 3, genres: ['Drama'], recs: [] },
+    };
+    const ratedFilms = [
+      { key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 5 },
+      { key: 'c|2002', name: 'C', year: 2002, rating: 4.5 },
+    ];
+    // gelogd op Letterboxd (watched.csv), zonder filmdata
+    const seenSet = new Set(['the witch|2015', 'mockingjay – part 2|2015']);
+    const seeds = bepaalSeeds({ watchlist: [], ratedFilms, meta });
+    const titels = scoorKandidaten({
+      watchlist: [], meta, ratedFilms, seenSet, seeds, regisseurs: [], taste: buildTaste({ watchlist: [], ratedFilms, meta }),
+    }).recs.map((r) => r.title);
+    expect(titels).toEqual(['Verse Film']);
   });
 
   it('imdb-link uit een lijst gaat na de klik direct naar de titelpagina', async () => {

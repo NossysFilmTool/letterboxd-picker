@@ -2,6 +2,7 @@
 // scoren, en de meetlat. Los van React, zodat de app en de meetlat precies
 // dezelfde berekening gebruiken.
 import { filmKey } from './storage.js';
+import { maakHerkenner } from './gezien.js';
 import { buildTaste, matchScore } from './taste.js';
 import { plekGewicht, rangschikRegisseurs, pastInOeuvre, sorteerOpSterkte } from './rows.js';
 import { degelijk } from './foryou.js';
@@ -51,6 +52,8 @@ export function scoorKandidaten({
   // Geziene films apart op TMDB-id: vangt titelverschillen tussen Letterboxd
   // en TMDB. Een film die je al zag mag nooit als aanbeveling terugkomen.
   const seenIds = new Set([...seenSet].map((k) => meta[k]?.id).filter(Boolean));
+  // En op titel met speling (leestekens, accenten, festivaljaar)
+  const kenIk = maakHerkenner(ownKeys);
   const skippedSet = new Set(skipped.map((s) => (typeof s === 'object' ? s.id : s)));
   const shortIds = new Set(shortlist.map((s) => s.id));
 
@@ -63,7 +66,7 @@ export function scoorKandidaten({
   const voegToe = (r, waarde, bron, seedNaam) => {
     if (r.votes != null && r.votes < 20) return; // te weinig stemmen om iets over te zeggen (TMDB-schaal)
     if (ownIds.has(r.id) || seenIds.has(r.id) || shortIds.has(r.id) || skippedSet.has(r.id)) return;
-    if (ownKeys.has(filmKey(r.title, r.year))) return;
+    if (ownKeys.has(filmKey(r.title, r.year)) || kenIk(r)) return;
     const cur = agg.get(r.id) || { ...r, count: 0, waarde: 0, seeds: [], bronnen: [], seedSet: new Set() };
     cur.count++;
     cur.waarde += waarde;
