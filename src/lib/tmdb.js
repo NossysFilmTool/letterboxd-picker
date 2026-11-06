@@ -81,6 +81,8 @@ async function fetchDetail(id, key) {
     plot: (d.overview || '').length > 500 ? `${(d.overview || '').slice(0, 499).trimEnd()}\u2026` : (d.overview || ''),
     director,
     directorId,
+    // De eerste drie namen van de rolverdeling, voor de aftiteling op het kaartje
+    cast: (d.credits?.cast || []).slice(0, 3).map((c) => c.name),
     // Betrouwbaarheid van het cijfer: in hoeveel lijsten van TMDB-gebruikers
     // de film staat, en of hij ooit in de bioscoop of op een festival draaide
     lijsten: d.lists?.total_results ?? null,

@@ -23,13 +23,22 @@ export default function Vanavond({ keuze, detail, seededOnRatings, onOpen, onSho
     : null;
   const plot = detail?.plot || r.plot;
   const regisseur = detail?.director || r.director;
+  const backdrop = detail?.backdrop || r.backdrop || null;
 
   return (
     <section className="vanavond" style={{ '--film': kleur }} aria-label={tr('verken.vanavondAria', { title: r.title })}>
-      <div className="inner">
-        <button type="button" className="vposter" onClick={() => onOpen(r)} aria-label={tr('common.openAria', { title: r.title })}>
-          {r.poster ? <img src={IMG(r.poster, 'w342')} alt="" /> : <Clapperboard size={28} strokeWidth={1.4} aria-hidden="true" />}
+      {/* Met een filmbeeld: dat als doek bovenaan, in plaats van de poster */}
+      {backdrop && (
+        <button type="button" className="vdoek" onClick={() => onOpen(r)} aria-label={tr('common.openAria', { title: r.title })}>
+          <img src={IMG(backdrop, 'w1280')} alt="" />
         </button>
+      )}
+      <div className="inner">
+        {!backdrop && (
+          <button type="button" className="vposter" onClick={() => onOpen(r)} aria-label={tr('common.openAria', { title: r.title })}>
+            {r.poster ? <img src={IMG(r.poster, 'w342')} alt="" /> : <Clapperboard size={28} strokeWidth={1.4} aria-hidden="true" />}
+          </button>
+        )}
         <div className="vinfo">
           <p className="eyebrow">{dienst ? tr('verken.vanavondOp', { p: dienst }) : tr('verken.vanavond')}</p>
           <h2 className="vtitle"><button type="button" onClick={() => onOpen(r)}>{r.title}</button></h2>

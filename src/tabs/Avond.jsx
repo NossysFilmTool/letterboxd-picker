@@ -203,7 +203,7 @@ export default function Avond({ app }) {
         </div>
         <Winner
           film={champion} meta={meta[champion.key]}
-          context={mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')}
+          context={mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')} kaartje={playerCount}
           seen={seenSet.has(champion.key)} onToggleSeen={() => app.toggleSeen(champion.key)}
           onSimilar={() => app.openSimilar(champion, meta[champion.key])}
         />

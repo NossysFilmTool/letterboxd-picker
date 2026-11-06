@@ -8,11 +8,13 @@ import { useT } from '../lib/i18n.js';
 import Sterren from './Sterren.jsx';
 import { beoordeelCijfer } from '../lib/opgeblazen.js';
 import { useFilmkleur } from '../lib/filmkleur.js';
+import Kaartje from './Kaartje.jsx';
 
 const fmtVotes = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : n);
 
 // onGezien(sterren | null): een film van buiten je lijst als gezien markeren
-export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onGezien, onWantScores }) {
+// kaartje: aantal personen; dan is het een pick en krijg je een bioscoopkaartje
+export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onGezien, onWantScores, kaartje }) {
   const { t: tr, lang } = useT();
   const [sharing, setSharing] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
@@ -43,10 +45,53 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
   // De hoofdknop: op je shortlist (ontdekken), anders de trailer
   const shortlistHoofd = !!onShortlist && !inShortlist;
 
+  // De cijfers als grote getallen met een klein label eronder
+  const cijfers = (() => {
+    const ns = nossyScore(meta);
+    const bronnen = meta ? [meta.ext?.imdb, meta.ext?.mc, meta.vote].filter((v) => v != null).length : 0;
+    const heeftNossy = ns != null && bronnen >= 2;
+    const bronTitle = (() => { const w = getNossyWeights(); return tr('winner.bronTitle', { count: bronnen, imdb: w.imdb, mc: w.mc, tmdb: w.tmdb }); })();
+    const heeftBronnen = meta?.ext || meta?.vote != null;
+    if (!heeftNossy && !heeftBronnen) return null;
+    return (
+      <div className="wcijfers">
+        {heeftNossy && (
+          <div className="wcijfer nossy-big" title={bronTitle}>
+            <span className="n">{fmtScore(ns)}</span>
+            <span className="lbl">{tr('winner.nossy')}</span>
+          </div>
+        )}
+        {meta?.ext?.imdb != null && <div className="wcijfer"><span className="n">{fmtScore(meta.ext.imdb)}</span><span className="lbl">IMDb</span></div>}
+        {meta?.ext?.mc != null && <div className="wcijfer"><span className="n">{meta.ext.mc}</span><span className="lbl">Metacritic</span></div>}
+        {meta?.ext?.rt != null && <div className="wcijfer"><span className="n">{meta.ext.rt}%</span><span className="lbl">Rotten Tomatoes</span></div>}
+        {meta?.vote != null && <div className="wcijfer"><span className="n">{fmtScore(meta.vote)}</span><span className="lbl">TMDB, {tr('winner.stemmen', { n: fmtVotes(meta.votes) })}</span></div>}
+        {!meta?.ext && onWantScores && (
+          <button type="button" className="ghost-chip" title={tr('winner.moreScoresTitle')} onClick={onWantScores}>
+            {tr('winner.moreScores')}
+          </button>
+        )}
+      </div>
+    );
+  })();
+
   return (
-    <section className="winner" style={{ '--film': kleur }} aria-label={tr('winner.chosenAria', { name: film.name })}>
-      {/* De kop in de kleur van de film */}
+    <section className={`winner${kaartje ? ' met-kaartje' : ''}`} style={{ '--film': kleur }} aria-label={tr('winner.chosenAria', { name: film.name })}>
+      {kaartje ? (
+        // Een pick: je krijgt een kaartje
+        <>
+          <p className="wcontext">{context || tr('winner.eyebrow')}</p>
+          <Kaartje film={film} meta={meta} personen={kaartje} kleur={kleur} />
+          {meta?.yearMismatch && (
+            <p className="wwaarschuwing">{tr('winner.yearMismatch', { want: meta.yearMismatch, got: meta.year })}</p>
+          )}
+          {cijfers}
+        </>
+      ) : (
+      // De filmkaart: het filmbeeld als doek, de kop in de kleur van de film
       <div className="wkop">
+        {meta?.backdrop && (
+          <div className="wdoek"><img src={IMG(meta.backdrop, 'w1280')} alt="" /></div>
+        )}
         <div className="inner">
           <div className="wposter">
             <div className="poster">
@@ -61,6 +106,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
               {meta?.runtime ? <span>{meta.runtime} min</span> : null}
               {eindtijd ? <span>{tr('winner.endTime', { t: eindtijd })}</span> : null}
               {meta?.director ? <span>{tr('winner.regie')} {meta.director}</span> : null}
+              {meta?.cast?.length ? <span>{tr('kaartje.aftitelingCast', { namen: meta.cast.slice(0, 2).join(', ') })}</span> : null}
               {meta?.genres?.length ? <span>{meta.genres.slice(0, 3).join(', ')}</span> : null}
             </p>
             {meta?.yearMismatch && (
@@ -68,35 +114,9 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
             )}
           </div>
         </div>
-        {(() => {
-          // De cijfers als grote getallen met een klein label eronder
-          const ns = nossyScore(meta);
-          const bronnen = meta ? [meta.ext?.imdb, meta.ext?.mc, meta.vote].filter((v) => v != null).length : 0;
-          const heeftNossy = ns != null && bronnen >= 2;
-          const bronTitle = (() => { const w = getNossyWeights(); return tr('winner.bronTitle', { count: bronnen, imdb: w.imdb, mc: w.mc, tmdb: w.tmdb }); })();
-          const heeftBronnen = meta?.ext || meta?.vote != null;
-          if (!heeftNossy && !heeftBronnen) return null;
-          return (
-            <div className="wcijfers">
-              {heeftNossy && (
-                <div className="wcijfer nossy-big" title={bronTitle}>
-                  <span className="n">{fmtScore(ns)}</span>
-                  <span className="lbl">{tr('winner.nossy')}</span>
-                </div>
-              )}
-              {meta?.ext?.imdb != null && <div className="wcijfer"><span className="n">{fmtScore(meta.ext.imdb)}</span><span className="lbl">IMDb</span></div>}
-              {meta?.ext?.mc != null && <div className="wcijfer"><span className="n">{meta.ext.mc}</span><span className="lbl">Metacritic</span></div>}
-              {meta?.ext?.rt != null && <div className="wcijfer"><span className="n">{meta.ext.rt}%</span><span className="lbl">Rotten Tomatoes</span></div>}
-              {meta?.vote != null && <div className="wcijfer"><span className="n">{fmtScore(meta.vote)}</span><span className="lbl">TMDB, {tr('winner.stemmen', { n: fmtVotes(meta.votes) })}</span></div>}
-              {!meta?.ext && onWantScores && (
-                <button type="button" className="ghost-chip" title={tr('winner.moreScoresTitle')} onClick={onWantScores}>
-                  {tr('winner.moreScores')}
-                </button>
-              )}
-            </div>
-          );
-        })()}
+        {cijfers}
       </div>
+      )}
       <div className="wonder">
           {(() => {
             // Een opgeblazen TMDB-cijfer (fans of bots): zeg het eerlijk. Met

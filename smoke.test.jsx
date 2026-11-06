@@ -82,6 +82,41 @@ describe('V2 smoke', () => {
     fireEvent.click(screen.getAllByText('Pick een film')[0]);
     expect(await screen.findByText('Gezien')).toBeTruthy();
     expect(document.body.textContent).toContain('Meer zoals deze');
+    // een pick levert een bioscoopkaartje, zonder verzonnen zaal, rij of stoel
+    const kaartje = document.querySelector('.kaartje');
+    expect(kaartje).toBeTruthy();
+    expect(kaartje.textContent).toContain("NOSSY'S BIOSCOOP");
+    expect(kaartje.textContent).toContain('TOEGANG 1 PERSOON');
+    expect(kaartje.textContent).toContain('Aanvang');
+    expect(kaartje.textContent).not.toMatch(/Rij|Stoel/);
+  });
+
+  it('kaartje: aanvang op vijf minuten, einde uit de speelduur, echte gegevens', async () => {
+    const { aanvangTijd, kaartjeInhoud, streepjes } = await import('./src/lib/kaartje.js');
+    const { t } = await import('./src/lib/i18n.js');
+    const om = (u, m, s = 0) => new Date(2026, 10, 6, u, m, s);
+    expect(aanvangTijd(om(20, 27)).getMinutes()).toBe(30);
+    expect(aanvangTijd(om(20, 30, 10)).getMinutes()).toBe(35);
+    expect(aanvangTijd(om(20, 58)).getHours()).toBe(21);
+    const film = { key: 'aftersun|2022', name: 'Aftersun', year: 2022 };
+    const meta = { id: 965150, runtime: 101, vote: 7.6, director: 'Charlotte Wells', cast: ['Paul Mescal', 'Frankie Corio'], flat: ['MUBI'] };
+    const k = kaartjeInhoud(film, meta, { tr: t, lang: 'nl', personen: 3, nu: om(20, 27) });
+    expect(k.titel).toBe('AFTERSUN');
+    expect(k.aftiteling).toBe('Een film van Charlotte Wells, met Paul Mescal en Frankie Corio');
+    const veld = (naam) => k.velden.find((v) => v.k === naam)?.v;
+    expect(veld('Aanvang')).toBe('20:30');
+    expect(veld('Einde')).toBe('22:11');
+    expect(veld('Kijk op')).toBe('MUBI');
+    expect(veld('Prijs')).toBe('INBEGREPEN');
+    expect(k.toegang).toBe('TOEGANG 3 PERSONEN');
+    expect(k.code).toBe('TMDB 965150');
+    // zonder aanbod, speelduur of regie: die velden vallen weg
+    const kaal = kaartjeInhoud(film, {}, { tr: t, lang: 'nl', nu: om(20, 27) });
+    expect(kaal.velden.map((v) => v.k)).toEqual(['Aanvang', 'Jaar']);
+    expect(kaal.aftiteling).toBeNull();
+    // dezelfde code geeft dezelfde streepjes
+    expect(streepjes('TMDB 965150')).toEqual(streepjes('TMDB 965150'));
+    expect(streepjes('TMDB 965150')).not.toEqual(streepjes('TMDB 1'));
   });
 
   it('score-recept: de componenten tellen op tot de match-score', async () => {

@@ -38,6 +38,14 @@ export default {
     loading: 'Stemronde laden\u2026',
   },
   share: { eyebrow: 'VANAVOND KIJKEN WIJ' },
+  kaartje: {
+    kop: "Nossy's bioscoop", aria: 'Bioscoopkaartje voor {name}',
+    aanvang: 'Aanvang', einde: 'Einde', jaar: 'Jaar', kijkOp: 'Kijk op', prijs: 'Prijs',
+    inbegrepen: 'Inbegrepen', huur: 'Huren of kopen',
+    toegang: { one: 'Toegang {n} persoon', other: 'Toegang {n} personen' },
+    aftitelingBeide: 'Een film van {regie}, met {namen}', aftitelingRegie: 'Een film van {regie}', aftitelingCast: 'Met {namen}', en: 'en',
+    voet: "Gekozen met Nossy's Picker. Filmdata: TMDB",
+  },
   nav: {
     navLabel: 'Hoofdnavigatie',
     pick: 'Pick', bieb: 'Bieb', verken: 'Verken', avond: 'Avond', inzicht: 'Inzicht', setup: 'Setup',

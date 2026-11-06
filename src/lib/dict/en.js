@@ -38,6 +38,14 @@ export default {
     loading: 'Loading voting round\u2026',
   },
   share: { eyebrow: "TONIGHT WE\u0027RE WATCHING" },
+  kaartje: {
+    kop: "Nossy's cinema", aria: 'Cinema ticket for {name}',
+    aanvang: 'Starts', einde: 'Ends', jaar: 'Year', kijkOp: 'Watch on', prijs: 'Price',
+    inbegrepen: 'Included', huur: 'Rent or buy',
+    toegang: { one: 'Admit {n}', other: 'Admit {n}' },
+    aftitelingBeide: 'A film by {regie}, starring {namen}', aftitelingRegie: 'A film by {regie}', aftitelingCast: 'Starring {namen}', en: 'and',
+    voet: "Picked with Nossy's Picker. Film data: TMDB",
+  },
   nav: {
     navLabel: 'Main navigation',
     pick: 'Pick', bieb: 'Library', verken: 'Explore', avond: 'Movie night', inzicht: 'Insights', setup: 'Setup',

@@ -25,6 +25,28 @@ Wil je er een breken, pas dan eerst dit document aan.
   onder of naast elkaar staan.
 - Kopjes in gewone zinsletters, nooit in spatiërende hoofdletters.
 - Gegevens naast elkaar met ruimte ertussen, niet als "A · B · C"-reeks.
+- Eén uitzondering: het kaartje (zie hieronder) is gedrukt, in hoofdletters en
+  met DotGothic16 (`--font-ticket`) voor de gegevens, zoals een echt
+  bioscoopkaartje. De hoofdletters staan in de tekst zelf
+  (`toLocaleUpperCase`), niet via CSS. Nergens anders.
+
+## Het kaartje
+
+- Wie een film kiest (Pick, de winnaar bij Avond), krijgt een bioscoopkaartje:
+  papier in de donkere zaal, rechts een afscheurstrook in de filmkleur met de
+  poster.
+- Alles op het kaartje is echt: aanvang (nu, afgerond op vijf minuten), einde
+  (uit de speelduur), jaar, het cijfer, de dienst en of hij daar inbegrepen
+  is, de aftiteling en een streepjescode uit het TMDB-nummer. Geen verzonnen
+  zaal, rij of stoel.
+- Het deelplaatje is hetzelfde kaartje, met het filmbeeld als doek erboven.
+
+## Doek en korrel
+
+- Waar een filmbeeld (TMDB-backdrop) is, staat het als doek in breedbeeld
+  (2.39:1) tussen zwarte balken: in het Vanavond-blok en op de filmkaart.
+- Over het hele scherm ligt een vaste, heel lichte filmkorrel (5%). Hij
+  beweegt niet.
 
 ## Vlakken en knoppen
 
@@ -37,5 +59,6 @@ Wil je er een breken, pas dan eerst dit document aan.
 
 ## Beweging
 
-- Eén eigen moment: het aftellen (filmleader) bij een pick.
+- Eén eigen moment: het aftellen (filmleader) bij een pick, waarna het
+  kaartje uit een sleuf schuift. Met "beperk beweging" aan ligt het er gewoon.
 - Verder beweegt alleen wat je zelf aanraakt. Geen invlieg-animaties op lijsten.

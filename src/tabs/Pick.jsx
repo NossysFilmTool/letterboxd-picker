@@ -139,6 +139,7 @@ export default function Pick({ app }) {
             seen={seenSet.has(winner.key)} onToggleSeen={() => app.toggleSeen(winner.key)}
             onSimilar={() => app.openSimilar(winner, meta[winner.key])} onReroll={() => runPick(pool, null)}
             onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
+            kaartje={1}
           />
         </div>
       )}

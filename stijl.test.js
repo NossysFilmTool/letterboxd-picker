@@ -70,6 +70,14 @@ describe('ontwerp: geen AI-clichés', () => {
     expect([...alleTeksten(nl), ...alleTeksten(en)].filter((s) => emoji.test(s))).toEqual([]);
   });
 
+  it('hoofdletters en kaartjesletters alleen op het kaartje', () => {
+    const metHoofdletters = bron.filter(([, tekst]) => tekst.includes('toLocaleUpperCase')).map(([p]) => p.replace(/\\/g, '/'));
+    expect(metHoofdletters).toEqual(['src/lib/kaartje.js']);
+    const ticketRegels = css.split('\n').filter((r) => r.includes('var(--font-ticket)'));
+    expect(ticketRegels.length).toBeGreaterThan(0);
+    expect(ticketRegels.filter((r) => !r.trim().startsWith('.kaartje'))).toEqual([]);
+  });
+
   it('geen paarse verlopen (de bekendste AI-kleur)', () => {
     expect(css).not.toMatch(/linear-gradient\([^)]*(#8b5cf6|#7c3aed|#6366f1|#a855f7|indigo|purple)/i);
   });
