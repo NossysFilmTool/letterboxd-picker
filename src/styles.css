@@ -506,6 +506,8 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 .rec-tile .tile-cap { display: block; width: 132px; background: none; border: none; padding: 0; text-align: left; cursor: pointer; }
 .rec-tile .t { display: block; color: var(--paper); font-size: 13px; font-weight: 600; margin-top: 7px; line-height: 1.25; }
 .rec-tile .yr { display: block; color: var(--fog-dim); font-size: 11.5px; margin-top: 1px; }
+/* De korte reden: wat de rij-kop nog niet zegt ("Lijkt op Aftersun") */
+.rec-tile .tile-reden { display: block; margin-top: 2px; font-size: 11px; color: var(--fog); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Waar de film nu te streamen is (tegel en kaart); zonder ping-animatie, het zijn er veel */
 .rec-tile .tile-prov { display: block; margin-top: 2px; font-size: 11px; color: var(--dot-g); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rec-tile .tile-prov .livedot { display: inline-block; margin-right: 5px; vertical-align: 1px; }
@@ -528,6 +530,40 @@ a.prov-link:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px
 .skel { background: linear-gradient(90deg, var(--char) 0%, rgba(153, 170, 187, 0.1) 50%, var(--char) 100%); background-size: 200% 100%; animation: skel 1.4s ease-in-out infinite; border-radius: 10px; }
 .skel-head { width: 220px; max-width: 60%; height: 22px; margin-bottom: 12px; border-radius: 6px; }
 .skel-tile { flex: 0 0 132px; height: 198px; }
+.skel-vanavond { height: 250px; margin-bottom: 28px; border-radius: 16px; }
+
+/* Vanavond: één grote aanrader bovenaan Voor jou (zelfde taal als de winnaar) */
+.vanavond { position: relative; margin-bottom: 28px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: linear-gradient(135deg, #1c242c 0%, #161c22 55%, #12171c 100%); }
+.vanavond .bg { position: absolute; inset: -30px; background-size: cover; background-position: center 25%; filter: blur(6px) brightness(0.55) saturate(1.1); }
+.vanavond .veil { position: absolute; inset: 0; background: linear-gradient(105deg, rgba(13,17,21,0.94) 0%, rgba(13,17,21,0.74) 45%, rgba(13,17,21,0.35) 100%); }
+.vanavond .inner { position: relative; padding: 24px; display: flex; gap: 24px; align-items: flex-start; }
+.vanavond .vposter { flex: 0 0 140px; height: 210px; padding: 0; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; overflow: hidden; background: var(--ink); color: var(--fog-dim); display: grid; place-items: center; cursor: pointer; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55); }
+.vanavond .vposter img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vanavond .vposter:focus-visible { outline: 2px solid var(--dot-b); outline-offset: 2px; }
+.vanavond .vinfo { flex: 1; min-width: 0; }
+.vanavond .eyebrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dot-o); font-weight: 600; margin-bottom: 8px; }
+.vanavond .vdienst { display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.02em; text-transform: none; font-size: 12px; font-weight: 500; color: var(--dot-g); }
+.vanavond .vdienst .livedot::after { display: none; }
+.vanavond .vtitle { font-family: var(--font-display); font-size: 38px; line-height: 1.02; font-weight: 400; }
+.vanavond .vtitle button { background: none; border: none; padding: 0; font: inherit; color: var(--paper); cursor: pointer; text-align: left; }
+.vanavond .vtitle button:hover { color: var(--dot-o); }
+.vanavond .vmeta { color: #c5d0da; font-size: 13.5px; margin-top: 8px; }
+.vanavond .why { margin-top: 6px; }
+.vanavond .vplot { color: rgba(238, 242, 245, 0.8); font-size: 13.5px; line-height: 1.5; margin-top: 10px; max-width: 620px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.vanavond .vacties { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.vanavond .kaart-sterren { margin-top: 16px; }
+@media (max-width: 720px) {
+  .vanavond .inner { padding: 18px; gap: 16px; }
+  .vanavond .vposter { flex-basis: 96px; height: 144px; }
+  .vanavond .vtitle { font-size: 28px; }
+  .vanavond .vplot { -webkit-line-clamp: 2; }
+}
+@media (max-width: 480px) {
+  .vanavond .inner { flex-direction: column; }
+  .vanavond .vposter { flex: none; width: 96px; height: 144px; }
+  .vanavond .vacties .btn { flex: 1 1 40%; justify-content: center; white-space: nowrap; }
+  .vanavond .vacties .btn.ghost { flex: 1 1 auto; }
+}
 @keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 

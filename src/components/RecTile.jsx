@@ -7,7 +7,7 @@ import Sterren from './Sterren.jsx';
 // Eén aanbeveling als poster-tegel. Klik opent de filmkaart; ＋, 👁 en ✕ geven
 // direct feedback (shortlist / al gezien, met sterren / niet voor mij),
 // waarna de volgende film uit dezelfde rij vanzelf op deze plek schuift.
-export default function RecTile({ film: r, i = 0, voorkeur = [], onOpen, onShortlist, onSkip, onGezien }) {
+export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, onOpen, onShortlist, onSkip, onGezien }) {
   const { t: tr, lang } = useT();
   const [sterrenOpen, setSterrenOpen] = useState(false);
   const score = r.vote ? (lang === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote)) : null;
@@ -49,6 +49,7 @@ export default function RecTile({ film: r, i = 0, voorkeur = [], onOpen, onShort
       <button type="button" className="tile-cap" onClick={() => onOpen(r)} tabIndex={-1}>
         <span className="t">{r.title}</span>
         {r.year ? <span className="yr">{r.year}</span> : null}
+        {reden ? <span className="tile-reden" title={reden}>{reden}</span> : null}
         {prov ? <span className="tile-prov" title={tr('winner.nowOn', { p: r.flat.join(', ') })}><span className="livedot" aria-hidden="true" />{prov}</span> : null}
       </button>
     </div>

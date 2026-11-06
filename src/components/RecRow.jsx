@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { useT } from '../lib/i18n.js';
 import { RAAM } from '../lib/foryou.js';
+import { kortReden } from '../lib/redenen.js';
 import RecTile from './RecTile.jsx';
 
 // Eén rij-met-reden: kop (klikbaar naar "Alles bekijken") en een strook tegels.
@@ -19,7 +20,7 @@ export default function RecRow({ titel, rij, totaal, voorkeur = [], actie = null
       </div>
       <div className="rec-strip">
         {rij.films.slice(0, RAAM).map((r, i) => (
-          <RecTile key={r.id} film={r} i={i} voorkeur={voorkeur} onOpen={onOpen} onShortlist={onShortlist} onSkip={onSkip} onGezien={onGezien} />
+          <RecTile key={r.id} film={r} i={i} voorkeur={voorkeur} reden={kortReden(r, rij, tr)} onOpen={onOpen} onShortlist={onShortlist} onSkip={onSkip} onGezien={onGezien} />
         ))}
       </div>
     </section>

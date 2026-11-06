@@ -4,7 +4,7 @@ import { X, Download, Copy, RotateCcw, ArrowLeft, RefreshCw, Plus, Layers, EyeOf
 import { maakHerkenner } from '../lib/gezien.js';
 import { GENRES, genreLabelById, fetchDetailById } from '../lib/tmdb.js';
 import { sorteerOpSterkte } from '../lib/rows.js';
-import { bouwRecept, degelijk, pastFilter, RAAM } from '../lib/foryou.js';
+import { bouwRecept, degelijk, pastFilter, RAAM, kiesVanavond, beschrijfVanavond } from '../lib/foryou.js';
 import { useForYou } from '../lib/useForYou.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { shortlistToCsv, downloadText } from '../lib/csv.js';
@@ -16,6 +16,7 @@ import RecRow from '../components/RecRow.jsx';
 import RecCard from '../components/RecCard.jsx';
 import Sterren from '../components/Sterren.jsx';
 import SnelBeoordelen from '../components/SnelBeoordelen.jsx';
+import Vanavond from '../components/Vanavond.jsx';
 import DienstKiezer from '../components/DienstKiezer.jsx';
 import EigenRijMaker from '../components/EigenRijMaker.jsx';
 import { bouwEigenRijen, stelRijenVoor, normaliseer, autoNaam } from '../lib/eigenrijen.js';
@@ -96,20 +97,37 @@ export default function Verken({ app }) {
     const top = Object.entries(tel).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([p]) => p);
     return dienst && !['*', '~mijn'].includes(dienst) && !top.includes(dienst) ? [...top, dienst] : top;
   }, [meta, recs, dienst]);
+  // Vanavond: één grote aanrader bovenaan. Blijft staan tot je er iets mee
+  // doet (of hij niet meer door je filters komt), zodat hij niet verspringt
+  // terwijl de details van andere films binnenkomen.
+  const [vanavondWeg, setVanavondWeg] = useState(() => new Set());
+  const vanavondRef = useRef(null);
+  const vanavond = useMemo(() => {
+    if (mode !== 'voorJou') return null;
+    const vorige = vanavondRef.current;
+    const nog = vorige != null && !vanavondWeg.has(vorige) ? gefilterd.find((f) => f.id === vorige && degelijk(f)) : null;
+    const k = nog ? beschrijfVanavond(nog, { mijnDiensten }) : kiesVanavond(gefilterd, { mijnDiensten, overslaan: vanavondWeg });
+    vanavondRef.current = k?.film.id ?? null;
+    return k;
+  }, [mode, gefilterd, mijnDiensten, vanavondWeg]);
+  const vanavondId = vanavond?.film.id ?? null;
+  const [vanavondDetail, setVanavondDetail] = useState(null); // { id, d }
+  // De rijen tonen de vanavond-film niet nog een keer
+  const voorRijen = useMemo(() => (vanavondId == null ? gefilterd : gefilterd.filter((f) => f.id !== vanavondId)), [gefilterd, vanavondId]);
   // Wat je als eigen rij vastzette, krijgt geen automatische dubbelganger
   const vastFilms = useMemo(() => new Set(eigenRijen.filter((r) => r.basis === 'film').map((r) => r.film?.id)), [eigenRijen]);
   const vastMakers = useMemo(() => new Set(eigenRijen.filter((r) => r.basis === 'maker' && r.maker?.rol !== 'cast').map((r) => r.maker?.naam)), [eigenRijen]);
   const rijen = useMemo(
-    () => bouwRecept(gefilterd, {
+    () => bouwRecept(voorRijen, {
       seedFilms: seedFilms.filter((s) => !vastFilms.has(meta[s.key]?.id)),
       regisseurs: regisseurs.map((r) => r.naam).filter((n) => !vastMakers.has(n)),
       taste, mijnDiensten, ronde,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [gefilterd, seedFilms, regisseurs, taste, mijnDiensten, ronde, vastFilms, vastMakers],
+    [voorRijen, seedFilms, regisseurs, taste, mijnDiensten, ronde, vastFilms, vastMakers],
   );
   // Je eigen rijen staan direct onder Top voor jou, in jouw volgorde
-  const eigen = useMemo(() => bouwEigenRijen(gefilterd, eigenRijen, { mijnDiensten }), [gefilterd, eigenRijen, mijnDiensten]);
+  const eigen = useMemo(() => bouwEigenRijen(voorRijen, eigenRijen, { mijnDiensten }), [voorRijen, eigenRijen, mijnDiensten]);
   const weergaveRijen = rijen[0]?.type === 'top' ? [rijen[0], ...eigen, ...rijen.slice(1)] : [...eigen, ...rijen];
   const voorstellen = useMemo(
     () => stelRijenVoor({ seeds, meta, taste, regisseurs, bestaande: eigenRijen }),
@@ -121,16 +139,16 @@ export default function Verken({ app }) {
   // De lijstweergave: "Alles bekijken" van één rij (live uit de kandidaten,
   // dus met wat je net ophaalde en zonder wat je afwees), of alles als er
   // te weinig kandidaten voor rijen zijn.
-  const lijstModus = !!alles || (weergaveRijen.length === 0 && gefilterd.length > 0);
+  const lijstModus = !!alles || (weergaveRijen.length === 0 && voorRijen.length > 0);
   const lijst = useMemo(() => {
     if (!lijstModus) return [];
-    const basis = sorteerOpSterkte(alles ? gefilterd.filter(degelijk).filter(alles.past) : gefilterd);
+    const basis = sorteerOpSterkte(alles ? gefilterd.filter(degelijk).filter(alles.past) : voorRijen);
     if (sortAlles === 'match') return [...basis].sort((a, b) => b.match - a.match);
     if (sortAlles === 'score') return [...basis].sort((a, b) => (b.vote || 0) - (a.vote || 0));
     if (sortAlles === 'nieuw') return [...basis].sort((a, b) => (b.year || 0) - (a.year || 0));
     if (sortAlles === 'oud') return [...basis].sort((a, b) => (a.year || 9999) - (b.year || 9999));
     return basis;
-  }, [lijstModus, alles, gefilterd, sortAlles]);
+  }, [lijstModus, alles, gefilterd, voorRijen, sortAlles]);
   // Snel beoordelen: de sterkste kandidaten, één voor één
   const snelLijst = useMemo(() => (snel ? sorteerOpSterkte(gefilterd.filter(degelijk)).slice(0, 80) : []), [snel, gefilterd]);
 
@@ -196,6 +214,19 @@ export default function Verken({ app }) {
       setOpenFilm((o) => (o && o.light.id === r.id ? { ...o, detail: full } : o));
     } catch { /* kaart blijft op lichte data */ }
   };
+
+  // De vanavond-film krijgt zijn volledige details (backdrop, plot, regisseur)
+  useEffect(() => {
+    if (vanavondId == null) return undefined;
+    const bekend = detailCache.current.get(vanavondId);
+    if (bekend) { setVanavondDetail({ id: vanavondId, d: bekend }); return undefined; }
+    if (!tmdbKey) return undefined;
+    let weg = false;
+    fetchDetailById(vanavondId, tmdbKey)
+      .then((d) => { detailCache.current.set(vanavondId, d); if (!weg) setVanavondDetail({ id: vanavondId, d }); })
+      .catch(() => { /* de kaart werkt ook met de lichte data */ });
+    return () => { weg = true; };
+  }, [vanavondId, tmdbKey]);
 
   const genreNaam = (ids) => (ids || []).map((id) => genreLabelById(id)).filter(Boolean)[0];
   const addToShortlist = (r) => {
@@ -503,6 +534,14 @@ export default function Verken({ app }) {
           )}
         </div>
         {makerPaneel}
+        {vanavond ? (
+          <Vanavond
+            keuze={vanavond} detail={vanavondDetail?.id === vanavondId ? vanavondDetail.d : null}
+            seededOnRatings={seededOnRatings}
+            onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip} onGezien={gezien}
+            onAnder={() => setVanavondWeg((s) => new Set(s).add(vanavondId))}
+          />
+        ) : detailsLaden && !filterActief ? <div className="skel skel-vanavond" aria-hidden="true" /> : null}
         {weergaveRijen.length > 0 ? (
           <div className="rec-rows">
             {weergaveRijen.map((rij, i) => (
@@ -528,7 +567,7 @@ export default function Verken({ app }) {
             ))}
             {weergaveRijen.length === 1 && kiezer}
           </div>
-        ) : gefilterd.length > 0 ? lijstWeergave : (
+        ) : voorRijen.length > 0 ? lijstWeergave : vanavond ? null : (
           <div className="empty card">
             <p className="big">{wachtOpDetails ? tr('verken.detailsLoadingFilter') : tr('verken.filterEmpty')}</p>
             <button className="btn" style={{ marginTop: 12 }} onClick={wisFilters}>{tr('zoek.clearFilters')}</button>

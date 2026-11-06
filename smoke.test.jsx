@@ -426,9 +426,83 @@ describe('V2 smoke', () => {
       fireEvent.click(screen.getByText('Weet niet'));
       expect(titel()).not.toBe(derde);
       expect(screen.getByText('2 films beoordeeld')).toBeTruthy();
-      // klaar: terug naar de rijen
+      // klaar: terug naar Voor jou
       fireEvent.click(screen.getByText('Klaar'));
-      expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
+      expect(document.querySelector('.snel')).toBeNull();
+      expect(screen.getByText('Snel beoordelen')).toBeTruthy();
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('tegels: de korte reden zegt wat de rij-kop nog niet zegt', async () => {
+    const { kortReden } = await import('./src/lib/redenen.js');
+    const tr = (k, v) => `${k}:${Object.values(v || {}).join(',')}`;
+    const top = { type: 'top' };
+    // Top voor jou: oeuvre gaat voor, anders de favoriet, anders het thema
+    expect(kortReden({ bronnen: ['oeuvre:Kore-eda', 'aanbevolen'], seeds: ['Aftersun'] }, top, tr)).toBe('verken.kortVan:Kore-eda');
+    expect(kortReden({ bronnen: ['aanbevolen'], seeds: ['Aftersun'] }, top, tr)).toBe('verken.kortLijktOp:Aftersun');
+    expect(kortReden({ bronnen: ['thema'], gedeeldeThemas: ['grief'] }, top, tr)).toBe('verken.kortOver:grief');
+    // in "Omdat je Aftersun..." niet nog eens Aftersun, wel een andere favoriet
+    const seedRij = { type: 'seed', naam: 'Aftersun' };
+    expect(kortReden({ bronnen: ['aanbevolen'], seeds: ['Aftersun', 'Close'] }, seedRij, tr)).toBe('verken.kortLijktOp:Close');
+    expect(kortReden({ bronnen: ['aanbevolen'], seeds: ['Aftersun'], gedeeldeThemas: ['grief'] }, seedRij, tr)).toBe('verken.kortOver:grief');
+    // in "Meer van Kore-eda" niet nog eens Kore-eda
+    expect(kortReden({ bronnen: ['oeuvre:Kore-eda'], seeds: ['Shoplifters'] }, { type: 'oeuvre', naam: 'Kore-eda' }, tr)).toBe('verken.kortLijktOp:Shoplifters');
+    // in de thema-rij geen thema, en zonder echte reden: niets
+    expect(kortReden({ bronnen: ['thema'], gedeeldeThemas: ['grief'] }, { type: 'thema' }, tr)).toBeNull();
+    expect(kortReden({ bronnen: ['profiel'] }, top, tr)).toBeNull();
+    // de lange reden is een hele zin per taal (Engels: "Because you rated A highly")
+    const { hoofdreden } = await import('./src/lib/redenen.js');
+    expect(hoofdreden({ bronnen: ['aanbevolen'], seeds: ['A'] }, tr, true)).toBe('verken.redenHoog:A');
+    expect(hoofdreden({ bronnen: ['aanbevolen'], seeds: ['A'] }, tr, false)).toBe('verken.redenLijst:A,1');
+    expect(hoofdreden({ bronnen: ['vergelijkbaar'], seeds: ['A'] }, tr, true)).toBe('verken.redenLijkt:A');
+  });
+
+  it('vanavond: voorrang voor je diensten en wat vanavond nog past', async () => {
+    const { kiesVanavond, avondRuimte } = await import('./src/lib/foryou.js');
+    const f = (id, extra) => ({ id, title: `F${id}`, vote: 7.5, votes: 3000, match: 70, waarde: 1, bronnen: ['aanbevolen'], genre_ids: [18], runtime: 100, flat: [], ...extra });
+    const tienUur = new Date(2026, 10, 6, 22, 0);
+    expect(avondRuimte(tienUur)).toBe(150);
+    expect(avondRuimte(new Date(2026, 10, 6, 14, 0))).toBe(270);
+    // op jouw dienst wint van een iets betere match elders
+    const lijst = [f(1, { match: 75 }), f(2, { flat: ['Netflix'] })];
+    const k = kiesVanavond(lijst, { mijnDiensten: ['Netflix'], nu: tienUur });
+    expect(k.film.id).toBe(2);
+    expect(k.dienst).toBe('Netflix');
+    expect(k.past).toBe(true);
+    // om tien uur valt een film van drie uur af
+    const lang = kiesVanavond([f(3, { runtime: 180, flat: ['Netflix'], match: 80 }), f(4, { flat: ['Netflix'] })], { mijnDiensten: ['Netflix'], nu: tienUur });
+    expect(lang.film.id).toBe(4);
+    // weggeklikt via "Andere" en zonder looptijd (nog geen details): niet kiezen
+    expect(kiesVanavond(lijst, { mijnDiensten: ['Netflix'], nu: tienUur, overslaan: new Set([2]) }).film.id).toBe(1);
+    expect(kiesVanavond([f(5, { runtime: null })], { nu: tienUur })).toBeNull();
+  });
+
+  it('vanavond: een grote aanrader bovenaan, niet dubbel in de rijen, met "Andere"', async () => {
+    regFixture();
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      // zodra de details er zijn (looptijd), verschijnt de aanrader
+      await waitFor(() => expect(document.querySelector('.vanavond')).toBeTruthy());
+      const titel = () => document.querySelector('.vanavond .vtitle').textContent;
+      const tegels = () => [...document.querySelectorAll('.rec-tile .t')].map((t) => t.textContent);
+      const eerste = titel();
+      expect(eerste).toMatch(/^Reg Film \d$/);
+      expect(tegels()).not.toContain(eerste);
+      expect(document.querySelector('.vanavond').textContent).toContain('100 min');
+      // de volledige details (regisseur) komen erbij
+      await waitFor(() => expect(document.querySelector('.vanavond .vmeta').textContent).toContain('Testregisseur'));
+      // andere: een nieuwe aanrader, de vorige staat weer gewoon in de rij
+      fireEvent.click(screen.getByText('Andere'));
+      expect(titel()).not.toBe(eerste);
+      expect(tegels()).toContain(eerste);
+      // op de shortlist: weg uit vanavond, en de volgende komt
+      const tweede = titel();
+      fireEvent.click(within(document.querySelector('.vanavond')).getByText('Shortlist'));
+      await waitFor(() => expect(ls('shortlist')?.map((s) => s.title)).toEqual([tweede]));
+      expect(titel()).not.toBe(tweede);
     } finally {
       delete global.fetch;
     }
@@ -637,8 +711,10 @@ describe('V2 smoke', () => {
       render(<App />);
       fireEvent.click(screen.getAllByLabelText('Verken')[0]);
       expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
-      // de details komen binnen: twee tegels tonen dat ze op Netflix staan
-      await waitFor(() => expect(document.querySelectorAll('.tile-prov').length).toBe(2));
+      // de details komen binnen: twee films tonen dat ze op Netflix staan (een
+      // tegel en de vanavond-aanrader, die streamingaanbod voorrang geeft)
+      await waitFor(() => expect(document.querySelectorAll('.tile-prov, .vanavond .vdienst').length).toBe(2));
+      expect(document.querySelector('.vanavond .vdienst').textContent).toBe('Nu op Netflix');
       expect(calls).toContain('/movie/601');
       // kort: de films van 140 minuten vallen weg (te weinig voor een rij, dus de kaartenlijst)
       fireEvent.click(screen.getByText('Kort (< 1u45)'));

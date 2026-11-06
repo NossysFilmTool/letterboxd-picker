@@ -44,6 +44,46 @@ export function pastFilter(f, { genre = '', kort = false, dienst = '', mijnDiens
   return true;
 }
 
+// Hoeveel minuten er vanavond nog zijn als je nu begint, tot half één.
+// Overdag rekenen we met een avond vanaf acht uur (4,5 uur).
+export function avondRuimte(nu = new Date()) {
+  const u = nu.getHours() + nu.getMinutes() / 60;
+  if (u >= 17) return Math.round((24.5 - u) * 60);
+  if (u < 0.5) return Math.round((0.5 - u) * 60);
+  if (u < 4) return 0;
+  return 270;
+}
+
+// Vanavond: één film voor nu. Uit de sterkste kandidaten waarvan looptijd en
+// aanbod bekend zijn, met voorrang voor wat op jouw diensten staat (of op
+// elke dienst als je er geen koos) en wat vanavond nog past.
+//   overslaan: id's die je via "Andere" wegklikte
+export function kiesVanavond(list, { mijnDiensten = [], nu = new Date(), overslaan = new Set(), max = 40 } = {}) {
+  const kandidaten = sorteerOpSterkte(list.filter((f) => degelijk(f) && f.runtime && !overslaan.has(f.id)
+    && (f.bronnen || []).some((b) => !b.startsWith('eigen:')))).slice(0, max);
+  if (!kandidaten.length) return null;
+  const mijn = new Set(mijnDiensten);
+  const ruimte = avondRuimte(nu);
+  let best = null;
+  kandidaten.forEach((f, i) => {
+    const opMijn = !!f.flat?.some((p) => mijn.has(p));
+    let s = (f.match ?? 50) - i * 0.5;
+    if (opMijn) s += 15;
+    else if (f.flat?.length) s += mijn.size ? 4 : 10;
+    s += (gedempt(f) - 6.8) * 6;
+    if (f.runtime > ruimte) s -= 25;
+    if (f.runtime > 150) s -= 6;
+    if (!best || s > best.s) best = { f, s };
+  });
+  return beschrijfVanavond(best.f, { mijnDiensten, nu });
+}
+
+// De context van een vanavond-film: waar hij staat en of hij nog past
+export function beschrijfVanavond(f, { mijnDiensten = [], nu = new Date() } = {}) {
+  const dienst = f.flat?.find((p) => mijnDiensten.includes(p)) || f.flat?.[0] || null;
+  return { film: f, dienst, opMijnDienst: !!f.flat?.some((p) => mijnDiensten.includes(p)), past: !!f.runtime && f.runtime <= avondRuimte(nu) };
+}
+
 // Dagnummer: welke favorieten en regisseurs een rij krijgen wisselt per dag
 // (en per klik op "Andere suggesties"), maar verspringt niet bij elke render.
 export const dagNummer = (nu = Date.now()) => Math.floor(nu / 86400000);
