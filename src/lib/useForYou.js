@@ -435,14 +435,16 @@ export function useForYou(app, actief) {
   };
 
   // Alle kandidaten, gewogen per bron en gescoord op jouw smaak (lib/kandidaten.js)
+  // Het geleerde model (fase 8) rangschikt, als je het aan hebt staan
+  const model = app.smaakModel?.aan ? app.smaakModel : null;
   const { recs, seededOnRatings, seedFilms } = useMemo(
     () => scoorKandidaten({
       watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped,
       oeuvres, profielCands, themeCands, dienstCands, eigenCands: eigenFilms, details, regio,
-      taste, seeds, regisseurs, uitleg: tr,
+      taste, seeds, regisseurs, uitleg: tr, model,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, dienstCands, eigenFilms, taste, details, regio, lang],
+    [watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, dienstCands, eigenFilms, taste, details, regio, lang, model],
   );
 
   return {

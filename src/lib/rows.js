@@ -22,8 +22,13 @@ export const plekGewicht = (i, n) => 1 - 0.5 * (i / Math.max(n, 1));
 // aanbevelingen zijn populariteitsgekleurd). Vroeger was dit 60/40 andersom;
 // 10/90 bracht dat profiel van 2 naar 9 van de 40 in de top 50.
 // Log-schaal: één film die via vijf routes binnenkomt drukt de rest niet plat.
+// Met een geleerd model (fase 8, zie model.js) draagt elke kandidaat een
+// modelScore en rangschikt die; anders de vaste weging hieronder.
 export const STERKTE_AANDEEL = 0.1;
 export function sorteerOpSterkte(films, aandeel = STERKTE_AANDEEL) {
+  if (films.length && films.every((f) => f.modelScore != null)) {
+    return [...films].sort((a, b) => b.modelScore - a.modelScore);
+  }
   const max = Math.max(0, ...films.map((f) => f.waarde || 0));
   const norm = max > 0 ? Math.log1p(max) : 1;
   const score = new Map(films.map((f) => [f.id, aandeel * (Math.log1p(f.waarde || 0) / norm) + (1 - aandeel) * ((f.match || 0) / 100)]));

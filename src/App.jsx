@@ -53,6 +53,8 @@ export default function App() {
   const [followups, setFollowups] = useLS('followups', {});
   const [shortlist, setShortlist] = useLS('shortlist', []);
   const [skipped, setSkipped] = useLS('skipped', []);
+  // Fase 8: het uit jouw beoordelingen geleerde rangschikmodel (Inzicht)
+  const [smaakModel, setSmaakModel] = useLS('smaakModel', null);
   const [ignored, setIgnored] = useLS('ignored', []); // keys van items die geen film zijn (bijv. tv-series)
   const [smart, setSmart] = useLS('smart', false);
   const [demoMode, setDemoMode] = useLS('demoMode', false);
@@ -114,6 +116,7 @@ export default function App() {
     setHistory([]);
     setShortlist([]);
     setSkipped([]);
+    setSmaakModel(null);
     setIgnored([]);
     setDemoMode(false);
     setTab('pick');
@@ -360,7 +363,7 @@ export default function App() {
     ratedFilms: mergedRatedFilms, setRatedFilms,
     ownRatings, setOwnRatings, followups, answerFollowup,
     diary, setDiary, lbLists, setLbLists,
-    seen, seenSet, toggleSeen, markeerGezien,
+    seen, seenSet, toggleSeen, markeerGezien, smaakModel, setSmaakModel,
     meta, setMeta,
     history, setHistory,
     shortlist, setShortlist,

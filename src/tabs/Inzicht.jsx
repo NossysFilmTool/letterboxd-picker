@@ -4,6 +4,7 @@ import Winner from '../components/Winner.jsx';
 import { buildTaste } from '../lib/taste.js';
 import { GENRES, genreLabel, getRegion } from '../lib/tmdb.js';
 import { meetlat, STANDAARD_OPTIES } from '../lib/kandidaten.js';
+import { verzamelVoorbeelden, leerEnToets, watGeleerd } from '../lib/model.js';
 import { useLS } from '../lib/storage.js';
 
 function BarList({ items, color, max }) {
@@ -91,9 +92,37 @@ export default function Inzicht({ app }) {
   const [oeuvres] = useLS('oeuvres', {});
   const [kandDetails] = useLS('kandDetails', {});
   const [meting, setMeting] = useState(null);
+  const actiefModel = app.smaakModel?.aan ? app.smaakModel : null;
   const meet = () => setMeting(meetlat({
     watchlist, meta, ratedFilms: ratedFilms || [], ratings: ratings || {}, seenSet, oeuvres, details: kandDetails, regio: getRegion(),
+    model: actiefModel,
   }));
+
+  // Fase 8: leren van je beoordelingen. Dezelfde rondes als de meetlat, dus
+  // een paar seconden rekenwerk; tussen de rondes krijgt het scherm lucht.
+  const [leren, setLeren] = useState(null); // { n, totaal } tijdens het leren
+  const [leerMelding, setLeerMelding] = useState(null);
+  const leerSmaak = async () => {
+    if (leren) return;
+    setLeerMelding(null);
+    setLeren({ n: 0, totaal: 1 });
+    try {
+      const data = {
+        watchlist, meta, ratedFilms: ratedFilms || [], ratings: ratings || {}, seenSet, oeuvres, details: kandDetails, regio: getRegion(),
+        shortlist: shortlist || [], skipped: skipped || [],
+      };
+      const v = await verzamelVoorbeelden(data, { onVoortgang: (n, totaal) => setLeren({ n, totaal }) });
+      if (!v.genoeg) { setLeerMelding(tr('inzicht.meetTeWeinig', { count: v.favorieten })); return; }
+      const m = leerEnToets(v.records);
+      if (!m) { setLeerMelding(tr('inzicht.leerTeWeinig')); return; }
+      app.setSmaakModel(m);
+      setMeting(null); // een oude meting gold voor de vorige rangschikking
+    } finally {
+      setLeren(null);
+    }
+  };
+  const geleerd = app.smaakModel?.toets ? app.smaakModel : null;
+  const fmtDatum = (ms) => { try { return new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'long' }).format(new Date(ms)); } catch { return ''; } };
 
   const smaak = useMemo(() => {
     const tp = buildTaste({ watchlist, ratedFilms: ratedFilms || [], meta, shortlist: shortlist || [], skipped: skipped || [], idf: STANDAARD_OPTIES.idf, profielUitFavorieten: STANDAARD_OPTIES.profielFav });
@@ -235,7 +264,59 @@ export default function Inzicht({ app }) {
         )}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
           <button className="btn" onClick={meet}>{meting ? tr('inzicht.meetOpnieuw') : tr('inzicht.meetKnop')}</button>
-          <span style={{ fontSize: 12, color: 'var(--fog-dim)' }}>{tr('inzicht.meetCache')}</span>
+          <span style={{ fontSize: 12, color: 'var(--fog-dim)' }}>{actiefModel ? tr('inzicht.meetMetModel') : tr('inzicht.meetCache')}</span>
+        </div>
+
+        {/* Fase 8: het geleerde model */}
+        <div className="leer">
+          <p className="label" style={{ marginBottom: 6 }}>{tr('inzicht.leerTitel')}</p>
+          <p style={{ fontSize: 13.5, color: 'var(--fog)' }}>{tr('inzicht.leerUitleg')}</p>
+          {geleerd && !leren && (() => {
+            const { basis, model: mt } = geleerd.toets;
+            const g = geleerd.gegevens || {};
+            const lessen = watGeleerd(geleerd);
+            return (
+              <div style={{ marginTop: 12 }}>
+                <p className="meet-score">
+                  <strong>{mt.top12}</strong>
+                  <span>{tr('inzicht.leerToets', { m12: mt.top12, m50: mt.top50, b12: basis.top12, b50: basis.top50, n: mt.proef })}</span>
+                </p>
+                <p style={{ fontSize: 13, color: geleerd.beter ? 'var(--dot-g)' : 'var(--fog)', marginTop: 6 }}>
+                  {geleerd.beter ? tr('inzicht.leerBeter') : tr('inzicht.leerNietBeter')}
+                </p>
+                {lessen.length > 0 && (
+                  <div className="meet-diagnose">
+                    <p className="label" style={{ marginBottom: 6 }}>{tr('inzicht.leerWat')}</p>
+                    <ul>
+                      {lessen.map((l) => (
+                        <li key={l.kenmerk}>{tr(l.richting === 'meer' ? 'inzicht.leerZwaarder' : 'inzicht.leerLichter', { wat: tr(`inzicht.km${l.kenmerk.charAt(0).toUpperCase()}${l.kenmerk.slice(1)}`) })}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <button
+                  type="button" className={`switch-row ${geleerd.aan ? 'on' : ''}`} style={{ marginTop: 12 }}
+                  onClick={() => app.setSmaakModel({ ...geleerd, aan: !geleerd.aan })} aria-pressed={!!geleerd.aan}
+                >
+                  <span className="switch" aria-hidden="true"><span className="knob" /></span>
+                  {tr('inzicht.leerGebruik')} <span className="state">{geleerd.aan ? tr('inzicht.leerAan') : tr('inzicht.leerUit')}</span>
+                </button>
+                <p style={{ fontSize: 12, color: 'var(--fog-dim)', marginTop: 8 }}>
+                  {tr('inzicht.leerBron', { datum: fmtDatum(geleerd.at), fav: g.favorieten ?? 0, hoog: g.hoog ?? 0, laag: g.laag ?? 0, keuzes: (g.ja ?? 0) + (g.nee ?? 0) })}
+                </p>
+              </div>
+            );
+          })()}
+          {leren && (
+            <div style={{ marginTop: 12 }}>
+              <div className="progressbar"><div style={{ width: `${Math.round((100 * leren.n) / leren.totaal)}%` }} /></div>
+              <p style={{ fontSize: 12.5, color: 'var(--fog-dim)', marginTop: 6 }}>{tr('inzicht.leerBezig', { n: leren.n, totaal: leren.totaal })}</p>
+            </div>
+          )}
+          {leerMelding && <p style={{ fontSize: 13.5, color: 'var(--fog)', marginTop: 10 }}>{leerMelding}</p>}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+            <button className="btn" onClick={leerSmaak} disabled={!!leren}>{geleerd ? tr('inzicht.leerOpnieuw') : tr('inzicht.leerKnop')}</button>
+          </div>
         </div>
       </div>
 

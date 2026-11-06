@@ -934,6 +934,84 @@ describe('V2 smoke', () => {
     expect(meetlat({ watchlist: [], meta, ratedFilms: ratedFilms.slice(0, 4) }).genoeg).toBe(false);
   });
 
+  it('model: leert welk kenmerk jouw favorieten voorspelt, en toetst op wat het niet zag', async () => {
+    const { leerEnToets, watGeleerd } = await import('./src/lib/model.js');
+    const { KENMERKEN } = await import('./src/lib/kenmerken.js');
+    const D = KENMERKEN.length;
+    const iNE = KENMERKEN.indexOf('nietEngels');
+    let zaad = 3;
+    const rnd = () => { zaad = (zaad * 16807) % 2147483647; return zaad / 2147483647; };
+    // favorieten zijn niet-Engelstalig, de rest van de poel meestal niet
+    const vec = (ne) => { const v = Array.from({ length: D }, () => rnd()); v[iNE] = ne; return v; };
+    const poel = (n) => { const p = new Float32Array(n * D); for (let j = 0; j < n; j++) p.set(vec(rnd() < 0.1 ? 1 : 0), j * D); return p; };
+    const records = Array.from({ length: 12 }, (_, i) => ({
+      soort: 'fav', naam: `F${i}`, label: 1, km: vec(1), rangBasis: 40 + i,
+      negatief: Array.from({ length: 30 }, () => vec(rnd() < 0.1 ? 1 : 0)), poel: poel(150),
+    }));
+    const m = leerEnToets(records);
+    expect(m.toets.basis.top12).toBe(0);
+    expect(m.toets.model.top12).toBeGreaterThan(m.toets.basis.top12);
+    expect(m.beter).toBe(true);
+    expect(m.aan).toBe(true);
+    expect(watGeleerd(m)[0]).toEqual({ kenmerk: 'nietEngels', richting: 'meer' });
+    // klein genoeg om te bewaren: geen poel of voorbeelden in het model
+    expect(JSON.stringify(m).length).toBeLessThan(5000);
+  });
+
+  it('model: een geleerd model rangschikt Voor jou, en een afwijzing met reden blijft gelden', async () => {
+    const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
+    const { sorteerOpSterkte } = await import('./src/lib/rows.js');
+    const { buildTaste } = await import('./src/lib/taste.js');
+    const { KENMERKEN, KENMERKEN_SLEUTEL } = await import('./src/lib/kenmerken.js');
+    const f = (id, title, lang, director) => ({ id, title, year: 2010, vote: 7.5, votes: 2000, genre_ids: [18], lang, director });
+    const meta = {
+      'a|2000': { id: 1, genres: ['Drama'], lang: 'en', recs: [f(10, 'Engels', 'en'), f(11, 'Japans', 'ja', 'Ozu')] },
+      'b|2001': { id: 2, genres: ['Drama'], lang: 'en', recs: [] },
+      'c|2002': { id: 3, genres: ['Drama'], lang: 'en', recs: [] },
+    };
+    const ratedFilms = [
+      { key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 5 },
+      { key: 'c|2002', name: 'C', year: 2002, rating: 4.5 },
+    ];
+    const basis = { watchlist: [], meta, ratedFilms, seeds: bepaalSeeds({ watchlist: [], ratedFilms, meta }), regisseurs: [], taste: buildTaste({ watchlist: [], ratedFilms, meta }) };
+    const titels = (extra) => sorteerOpSterkte(scoorKandidaten({ ...basis, ...extra }).recs).map((r) => r.title);
+    // zonder model: de vaste weging (een Engelstalig profiel zet Engels voor)
+    expect(titels({})).toEqual(['Engels', 'Japans']);
+    // een model dat niet-Engels zwaar laat wegen draait dat om
+    const model = { w: KENMERKEN.map((k) => (k === 'nietEngels' ? 3 : 0)), mu: KENMERKEN.map(() => 0), sd: KENMERKEN.map(() => 1), spreiding: 1.5, kenmerken: KENMERKEN_SLEUTEL };
+    expect(titels({ model })).toEqual(['Japans', 'Engels']);
+    // een model van een oudere versie (andere kenmerken) telt niet
+    expect(titels({ model: { ...model, kenmerken: 'oud' } })).toEqual(['Engels', 'Japans']);
+    // "niet van Ozu" blijft gelden, ook met een model
+    expect(titels({ model, skipped: [{ id: 99, genre_ids: [18], director: 'Ozu', reden: 'regisseur' }] })).toEqual(['Engels', 'Japans']);
+  });
+
+  it('inzicht: leren van je beoordelingen, eerlijk getoetst, met een schakelaar', async () => {
+    const namen = ['F1', 'F2', 'F3', 'F4', 'F5'];
+    const ratedFilms = namen.map((n, i) => ({ key: `${n.toLowerCase()}|${2000 + i}`, name: n, year: 2000 + i, rating: 5 }));
+    const meta = Object.fromEntries(ratedFilms.map((r, i) => {
+      const volgende = ratedFilms[(i + 1) % 5];
+      const extra = [1, 2, 3].map((j) => ({ id: 900 + i * 10 + j, title: `Ruis ${i}${j}`, year: 2010, vote: 7, votes: 1500, genre_ids: [18] }));
+      return [r.key, { id: 100 + i, genres: ['Drama'], recs: [{ id: 100 + ((i + 1) % 5), title: volgende.name, year: volgende.year, vote: 7.5, votes: 2000, genre_ids: [18] }, ...extra] }];
+    }));
+    localStorage.setItem('nossyV2.ratedFilms', JSON.stringify(ratedFilms));
+    localStorage.setItem('nossyV2.meta', JSON.stringify({ ...JSON.parse(localStorage.getItem('nossyV2.meta')), ...meta }));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Inzicht')[0]);
+    expect(screen.getByText('Leer van je beoordelingen')).toBeTruthy();
+    fireEvent.click(screen.getByText('Leer mijn smaak'));
+    // de vaste weging vindt deze kring al perfect: het model is niet beter en blijft uit
+    expect(await screen.findByText(/getoetst op favorieten die het model niet zag/, {}, { timeout: 4000 })).toBeTruthy();
+    expect(screen.getByText(/Voor jou houdt die/)).toBeTruthy();
+    const opslag = () => JSON.parse(localStorage.getItem('nossyV2.smaakModel'));
+    expect(opslag().aan).toBe(false);
+    expect(opslag().gegevens.favorieten).toBe(5);
+    // zelf aanzetten kan wel
+    fireEvent.click(screen.getByText('Gebruik in Voor jou'));
+    expect(opslag().aan).toBe(true);
+    expect(screen.getByText('Opnieuw leren')).toBeTruthy();
+  });
+
   it('inzicht: de meetlat-kaart meet op verzoek', () => {
     const namen = ['F1', 'F2', 'F3', 'F4', 'F5'];
     const ratedFilms = namen.map((n, i) => ({ key: `${n.toLowerCase()}|${2000 + i}`, name: n, year: 2000 + i, rating: 5 }));

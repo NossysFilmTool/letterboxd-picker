@@ -3,6 +3,7 @@
 // dezelfde berekening gebruiken.
 import { filmKey } from './storage.js';
 import { maakHerkenner } from './gezien.js';
+import { kenmerken, scoorMetModel, modelGeldig, STRAF_GEWICHT } from './kenmerken.js';
 import { buildTaste, matchScore } from './taste.js';
 import { plekGewicht, rangschikRegisseurs, pastInOeuvre, sorteerOpSterkte } from './rows.js';
 import { degelijk } from './foryou.js';
@@ -18,7 +19,7 @@ export const STANDAARD_OPTIES = { kruis: true, anti: true, idf: true, regisseur:
 
 // Al je beoordelingen op één hoop: Letterboxd-ratings van films op je
 // watchlist plus je ratings.csv (die laatste wint bij dubbel).
-function alleRatings({ watchlist, ratings = {}, ratedFilms }) {
+export function alleRatings({ watchlist, ratings = {}, ratedFilms }) {
   const uit = new Map();
   watchlist.forEach((f) => { if (ratings[f.key] != null) uit.set(f.key, { ...f, rating: ratings[f.key] }); });
   ratedFilms.forEach((f) => { if (f.rating != null) uit.set(f.key, f); });
@@ -45,8 +46,9 @@ export function bepaalAntiSeeds({ watchlist, ratings, ratedFilms, meta }) {
 export function scoorKandidaten({
   watchlist, meta, ratedFilms, ratings = {}, seenSet = new Set(), shortlist = [], skipped = [],
   oeuvres = {}, profielCands = [], themeCands = [], dienstCands = [], eigenCands = {}, details = {}, regio = 'NL',
-  taste, seeds, regisseurs, uitleg = (k) => k, opties = STANDAARD_OPTIES,
+  taste, seeds, regisseurs, uitleg = (k) => k, opties = STANDAARD_OPTIES, model = null,
 }) {
+  const geleerd = modelGeldig(model) ? model : null;
   const ownKeys = new Set([...watchlist.map((f) => f.key), ...seenSet, ...ratedFilms.map((f) => f.key)]);
   const ownIds = new Set(Object.values(meta).filter(Boolean).map((m) => m.id));
   // Geziene films apart op TMDB-id: vangt titelverschillen tussen Letterboxd
@@ -170,8 +172,10 @@ export function scoorKandidaten({
     }
     if (a) redenen = [...redenen, uitleg('verken.antiReason', { names: a.namen.join(', ') })];
     let match = m.score;
+    let straf = 0;
     if (mainstreamGrens && (r.votes || 0) >= mainstreamGrens) {
       match = Math.max(0, match - 12);
+      straf += 0.12;
       redenen = [...redenen, uitleg('verken.redenMainstreamUitleg')];
     }
     const regisseurWeg = (r.director && afgewezenRegisseurs.has(r.director))
@@ -179,10 +183,15 @@ export function scoorKandidaten({
     if (regisseurWeg) {
       waarde *= 0.2;
       match = Math.max(0, match - 25);
+      straf += 0.25;
     }
     // Welke van jouw top-thema's deze film aantoonbaar deelt (alleen met details)
     const gedeeldeThemas = r.keywords ? r.keywords.filter((k) => topThemaNamen.has(k.id)).map((k) => topThemaNamen.get(k.id)) : null;
-    return { ...r, waarde, routes, bevestigd: routes >= 2, anti: a ? a.namen : null, match, redenen, recept: m.recept, gedeeldeThemas };
+    const uit = { ...r, waarde, routes, bevestigd: routes >= 2, anti: a ? a.namen : null, match, redenen, recept: m.recept, gedeeldeThemas };
+    // Kenmerken voor het geleerde model (en de training ervan)
+    uit.km = kenmerken(uit, taste);
+    if (geleerd) uit.modelScore = scoorMetModel(geleerd, uit.km) - STRAF_GEWICHT * straf * (geleerd.spreiding || 1);
+    return uit;
   });
 
   return {
@@ -199,32 +208,40 @@ export function scoorKandidaten({
 // daarmee zijn hele oeuvre-route). Bij veel favorieten een gelijkmatige
 // steekproef. Alleen met gecachete data: geen netwerk.
 export const MEET_MIN = 5;
+// Gelijkmatige steekproef van hooguit `max` films uit een lijst
+export const steekproef = (lijst, max) => (lijst.length <= max
+  ? lijst
+  : Array.from({ length: max }, (_, i) => lijst[Math.floor(i * (lijst.length / max))]));
+
+// Eén ronde van de meetlat (en de training): de aanbevelingen opbouwen alsof
+// je de films in `weg` nooit zag. Alleen met gecachete data, geen netwerk.
+export function bouwRonde({
+  watchlist, meta, ratedFilms, ratings = {}, seenSet = new Set(), oeuvres = {}, details = {}, regio = 'NL',
+}, weg, { opties = STANDAARD_OPTIES, model = null } = {}) {
+  const metaZonder = weg.size ? Object.fromEntries(Object.entries(meta).filter(([k]) => !weg.has(k))) : meta;
+  const wl = watchlist.filter((f) => !weg.has(f.key));
+  const rf = ratedFilms.filter((f) => !weg.has(f.key));
+  const rt = Object.fromEntries(Object.entries(ratings).filter(([k]) => !weg.has(k)));
+  const seen = new Set([...seenSet].filter((k) => !weg.has(k)));
+  const taste = buildTaste({ watchlist: wl, ratedFilms: rf, meta: metaZonder, idf: opties.idf, profielUitFavorieten: opties.profielFav });
+  const seeds = bepaalSeeds({ watchlist: wl, ratings: rt, ratedFilms: rf, meta: metaZonder });
+  const regisseurs = rangschikRegisseurs(seeds, metaZonder, opties.regisseurs || 12);
+  const { recs } = scoorKandidaten({
+    watchlist: wl, meta: metaZonder, ratedFilms: rf, ratings: rt, seenSet: seen, oeuvres, details, regio,
+    taste, seeds, regisseurs, opties, model,
+  });
+  return { gerangschikt: sorteerOpSterkte(recs.filter(degelijk)), seeds, regisseurs };
+}
+
 export function meetlat({
   watchlist, meta, ratedFilms, ratings = {}, seenSet = new Set(), oeuvres = {}, details = {}, regio = 'NL',
-  opties = STANDAARD_OPTIES, topN = 50, maxProef = 40,
+  opties = STANDAARD_OPTIES, topN = 50, maxProef = 40, model = null,
 }) {
   const favorieten = alleRatings({ watchlist, ratings, ratedFilms }).filter((f) => f.rating >= 4.5 && meta[f.key]?.id);
   if (favorieten.length < MEET_MIN) return { genoeg: false, favorieten: favorieten.length };
-  const stap = Math.max(1, favorieten.length / maxProef);
-  const proef = favorieten.length <= maxProef
-    ? favorieten
-    : Array.from({ length: maxProef }, (_, i) => favorieten[Math.floor(i * stap)]);
-  // Eén ronde: de aanbevelingen opbouwen zonder de films in `weg`
-  const ronde = (weg) => {
-    const metaZonder = Object.fromEntries(Object.entries(meta).filter(([k]) => !weg.has(k)));
-    const wl = watchlist.filter((f) => !weg.has(f.key));
-    const rf = ratedFilms.filter((f) => !weg.has(f.key));
-    const rt = Object.fromEntries(Object.entries(ratings).filter(([k]) => !weg.has(k)));
-    const seen = new Set([...seenSet].filter((k) => !weg.has(k)));
-    const taste = buildTaste({ watchlist: wl, ratedFilms: rf, meta: metaZonder, idf: opties.idf, profielUitFavorieten: opties.profielFav });
-    const seeds = bepaalSeeds({ watchlist: wl, ratings: rt, ratedFilms: rf, meta: metaZonder });
-    const regisseurs = rangschikRegisseurs(seeds, metaZonder, opties.regisseurs || 12);
-    const { recs } = scoorKandidaten({
-      watchlist: wl, meta: metaZonder, ratedFilms: rf, ratings: rt, seenSet: seen, oeuvres, details, regio,
-      taste, seeds, regisseurs, opties,
-    });
-    return { gerangschikt: sorteerOpSterkte(recs.filter(degelijk)), seeds, regisseurs };
-  };
+  const proef = steekproef(favorieten, maxProef);
+  const data = { watchlist, meta, ratedFilms, ratings, seenSet, oeuvres, details, regio };
+  const ronde = (weg) => bouwRonde(data, weg, { opties, model });
   const perFilm = [];
   let poelTotaal = 0;
   for (const film of proef) {
