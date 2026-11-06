@@ -597,7 +597,7 @@ describe('V2 smoke', () => {
       { key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 5 },
       { key: 'c|2002', name: 'C', year: 2002, rating: 4.5 },
     ];
-    const det = (lijsten, bios, collectie) => ({ v: 2, regio: 'NL', at: Date.now(), runtime: 110, flat: [], lijsten, bios, collectie });
+    const det = (lijsten, bios, collectie) => ({ v: 3, regio: 'NL', at: Date.now(), runtime: 110, flat: [], lijsten, bios, collectie });
     // deel I is verdacht (geen bioscoop, weinig lijsten); deel II op zichzelf niet, maar zit in dezelfde reeks
     const details = { 10: det(134, false, 77), 11: det(400, true, 77), 12: det(302, true, null) };
     const basis = { watchlist: [], meta, ratedFilms, seeds: bepaalSeeds({ watchlist: [], ratedFilms, meta }), regisseurs: [], taste: buildTaste({ watchlist: [], ratedFilms, meta }), uitleg: (k) => k };
@@ -620,6 +620,60 @@ describe('V2 smoke', () => {
     // x op deel I met de reeks erbij: deel II verdwijnt ook
     const naX = scoorKandidaten({ ...basis, details, skipped: [{ id: 10, title: 'Inferno I', genre_ids: [18], collectie: 77 }] }).recs.map((r) => r.title);
     expect(naX).toEqual(['Echte Film']);
+  });
+
+  it('opgeblazen cijfers: IMDb als tweede mening bevestigt of zet recht', async () => {
+    const { beoordeelCijfer } = await import('./src/lib/opgeblazen.js');
+    const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
+    const { buildTaste } = await import('./src/lib/taste.js');
+    const { nossyScore } = await import('./src/lib/pick.js');
+    const { bouwRecept } = await import('./src/lib/foryou.js');
+    // verdacht volgens TMDB, maar IMDb bevestigt (minder dan een punt lager): gewoon geliefd
+    expect(beoordeelCijfer({ vote: 8.0, votes: 378, lijsten: 25, bios: true, imdb: 7.6 })).toEqual({ opgeblazen: null, cijfer: 8.0, bevestigd: true });
+    // IMDb ligt veel lager: rekenen met IMDb
+    expect(beoordeelCijfer({ vote: 8.3, votes: 1093, lijsten: 74, bios: false, imdb: 6.5 })).toEqual({ opgeblazen: 'streaming', cijfer: 6.5, bevestigd: false });
+    // geen IMDb: onbetrouwbaar
+    expect(beoordeelCijfer({ vote: 8.3, votes: 1093, lijsten: 74, bios: false }).cijfer).toBeNull();
+    // in de motor: het IMDb-cijfer telt, de Latijns-Amerikaanse parel blijft gewoon staan
+    const f = (id, title, vote, votes) => ({ id, title, year: 2020, vote, votes, genre_ids: [18] });
+    const meta = {
+      'a|2000': { id: 1, genres: ['Drama'], recs: [f(10, 'Inferno III', 8.3, 1093), f(11, 'Bajo la misma luna', 8.0, 378)] },
+      'b|2001': { id: 2, genres: ['Drama'], recs: [] },
+      'c|2002': { id: 3, genres: ['Drama'], recs: [] },
+    };
+    const ratedFilms = [
+      { key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 5 },
+      { key: 'c|2002', name: 'C', year: 2002, rating: 4.5 },
+    ];
+    const det = (extra) => ({ v: 3, regio: 'NL', at: Date.now(), runtime: 110, flat: [], ...extra });
+    const details = { 10: det({ lijsten: 74, bios: false, imdb: 6.5 }), 11: det({ lijsten: 25, bios: true, imdb: 7.6 }) };
+    const recs = scoorKandidaten({ watchlist: [], meta, ratedFilms, seeds: bepaalSeeds({ watchlist: [], ratedFilms, meta }), regisseurs: [], taste: buildTaste({ watchlist: [], ratedFilms, meta }), details, uitleg: (k, v) => `${k}:${v?.cijfer ?? ''}` }).recs;
+    const r = Object.fromEntries(recs.map((x) => [x.title, x]));
+    expect(r['Inferno III']).toMatchObject({ opgeblazen: 'streaming', vote: 6.5, tmdbVote: 8.3 });
+    expect(r['Inferno III'].onbetrouwbaar).toBeUndefined();
+    expect(r['Inferno III'].redenen.some((x) => x.startsWith('verken.opgeblazenImdb'))).toBe(true);
+    expect(r['Bajo la misma luna'].opgeblazen).toBeUndefined();
+    expect(r['Bajo la misma luna'].vote).toBe(8.0);
+    // de bevestigde parel mag in Verborgen parels, de rechtgezette (6,5) haalt de lat niet
+    const parels = bouwRecept([...recs, ...Array.from({ length: 6 }, (_, i) => ({ id: 900 + i, title: `P${i}`, vote: 7.4, votes: 600, match: 60, waarde: 1, bronnen: ['aanbevolen'], seeds: [`S${i % 4}`], genre_ids: [18] }))], { dag: 0 })
+      .find((x) => x.type === 'parels');
+    expect(parels.films.map((x) => x.title)).toContain('Bajo la misma luna');
+    expect(parels.films.map((x) => x.title)).not.toContain('Inferno III');
+    // de Nossy-score laat een opgeblazen TMDB-cijfer weg, een bevestigd niet
+    expect(nossyScore({ vote: 8.3, votes: 1093, lijsten: 74, bios: false, ext: { imdb: 6.5 } })).toBe(6.5);
+    expect(nossyScore({ vote: 8.0, votes: 378, lijsten: 25, bios: true, ext: { imdb: 7.6 } })).toBeGreaterThan(7.6);
+  });
+
+  it('kandidaat-details: wat deze sessie is opgehaald, valt niet uit een volle cache', async () => {
+    const { snoeiDetails } = await import('./src/lib/useForYou.js');
+    const nu = Date.now();
+    // 400 oude, en 5 die deze sessie het eerst (dus het oudst van de sessie) zijn opgehaald
+    const map = {};
+    for (let i = 0; i < 400; i++) map[i] = { at: nu - 1000 - i };
+    for (let i = 1000; i < 1005; i++) map[i] = { at: nu - 5000 };
+    const uit = snoeiDetails(map, new Set([1000, 1001, 1002, 1003, 1004]));
+    expect(Object.keys(uit).length).toBe(300);
+    [1000, 1001, 1002, 1003, 1004].forEach((id) => expect(uit[id]).toBeTruthy());
   });
 
   it('feedback: redenen sturen de motor (genre, mainstream, regisseur)', async () => {

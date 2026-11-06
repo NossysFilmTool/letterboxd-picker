@@ -21,6 +21,25 @@ export function opgeblazenReden(f) {
   return null;
 }
 
-// Het cijfer waarmee een verdachte film meetelt: het neutrale vertrekpunt
-// van de match (zelfde als de prior in taste.js)
+// Het cijfer waarmee een verdachte film meetelt als er geen tweede mening
+// is: het neutrale vertrekpunt van de match (zelfde als de prior in taste.js)
 export const NEUTRAAL_CIJFER = 6.2;
+
+// De tweede mening: het IMDb-cijfer. Zit IMDb minder dan een punt onder het
+// TMDB-cijfer, dan is het niet opgeblazen maar gewoon geliefd (bijvoorbeeld
+// Latijns-Amerikaanse films waar TMDB-gebruikers hoog voor stemmen). Zit het
+// er verder onder, dan rekenen we met IMDb (Gabriel's Inferno III: 8,3 bij
+// TMDB, 6,5 bij IMDb). Zonder IMDb blijft het cijfer onbetrouwbaar.
+export const IMDB_MARGE = 1;
+//   f: { vote, votes, lijsten, bios, imdb? } (imdb mag ook in f.ext.imdb)
+//   reeksVerdacht: een ander deel van dezelfde reeks is opgeblazen
+// Geeft { opgeblazen: reden | null, cijfer: het cijfer om mee te rekenen
+// (null = onbetrouwbaar), bevestigd: IMDb bevestigde een verdacht cijfer }
+export function beoordeelCijfer(f, { reeksVerdacht = false } = {}) {
+  const reden = opgeblazenReden(f) || (reeksVerdacht ? 'reeks' : null);
+  if (!reden) return { opgeblazen: null, cijfer: f?.vote ?? null, bevestigd: false };
+  const imdb = f.imdb ?? f.ext?.imdb ?? null;
+  if (imdb == null) return { opgeblazen: reden, cijfer: null, bevestigd: false };
+  if ((f.vote ?? 0) - imdb < IMDB_MARGE) return { opgeblazen: null, cijfer: f.vote, bevestigd: true };
+  return { opgeblazen: reden, cijfer: imdb, bevestigd: false };
+}

@@ -4,15 +4,17 @@
 import { filmKey } from './storage.js';
 import { maakHerkenner } from './gezien.js';
 import { kenmerken, scoorMetModel, modelGeldig, STRAF_GEWICHT } from './kenmerken.js';
-import { opgeblazenReden, NEUTRAAL_CIJFER } from './opgeblazen.js';
+import { beoordeelCijfer, NEUTRAAL_CIJFER } from './opgeblazen.js';
+import { getLang } from './i18n.js';
 import { buildTaste, matchScore } from './taste.js';
 import { plekGewicht, rangschikRegisseurs, pastInOeuvre, sorteerOpSterkte } from './rows.js';
 import { degelijk } from './foryou.js';
 
 export const DETAIL_TTL = 14 * 24 * 3600e3; // streamingaanbod wisselt; twee weken is vers genoeg
-// Versie 2: met lijsten, bioscooprelease en reeks (voor opgeblazen cijfers);
-// oudere details worden opnieuw opgehaald
-export const DETAIL_VERSIE = 2;
+// Versie 2: met lijsten, bioscooprelease en reeks (voor opgeblazen cijfers).
+// Versie 3: plus het actuele cijfer en aantal stemmen, en bij een verdacht
+// cijfer het IMDb-cijfer als tweede mening. Oudere details: opnieuw ophalen.
+export const DETAIL_VERSIE = 3;
 export const detailVers = (d, regio, nu = Date.now()) => !!d && d.regio === regio && (d.v || 1) >= DETAIL_VERSIE && nu - (d.at || 0) < DETAIL_TTL;
 
 // Standaard staan alle onderdelen aan; de meetlat kan ze los uitzetten om te
@@ -163,17 +165,23 @@ export function scoorKandidaten({
       runtime: d.runtime, keywords: d.keywords, flat: d.flat, jwLink: d.jwLink, imdbId: d.imdbId, director: d.director,
       genres: d.genres?.length ? d.genres : kaal.genres,
       lijsten: d.lijsten, bios: d.bios, collectie: d.collectie,
+      // het actuele cijfer uit de details, en IMDb als tweede mening
+      vote: d.vote || kaal.vote, votes: d.votes || kaal.votes, imdb: d.imdb,
     } : kaal;
     return { r, seedSet };
   });
-  // Een reeks gaat samen: is één deel verdacht, dan de andere delen ook
-  // (Gabriel's Inferno II draaide in één land in de bioscoop), en wees je
-  // één deel af, dan verdwijnen de andere delen ook
-  const verdachteReeksen = new Set(samengevoegd.filter(({ r }) => r.collectie && opgeblazenReden(r)).map(({ r }) => r.collectie));
+  // Een reeks gaat samen: is één deel verdacht (en bevestigt IMDb dat niet),
+  // dan de andere delen ook (Gabriel's Inferno II draaide in één land in de
+  // bioscoop), en wees je één deel af, dan verdwijnen de andere delen ook
+  const verdachteReeksen = new Set(samengevoegd.filter(({ r }) => r.collectie && beoordeelCijfer(r).opgeblazen).map(({ r }) => r.collectie));
   const afgewezenReeksen = new Set(skipped.filter((s) => typeof s === 'object' && s.collectie && s.reden !== 'gezien').map((s) => s.collectie));
   const recs = samengevoegd.filter(({ r }) => !(r.collectie && afgewezenReeksen.has(r.collectie))).map(({ r: r0, seedSet }) => {
-    const opgeblazen = opgeblazenReden(r0) || (r0.collectie && verdachteReeksen.has(r0.collectie) ? 'reeks' : null);
-    const r = opgeblazen ? { ...r0, opgeblazen } : r0;
+    const oordeel = beoordeelCijfer(r0, { reeksVerdacht: !!(r0.collectie && verdachteReeksen.has(r0.collectie)) });
+    const { opgeblazen } = oordeel;
+    // Met een tweede mening telt het IMDb-cijfer; zonder is het onbetrouwbaar
+    const r = !opgeblazen ? r0 : oordeel.cijfer != null
+      ? { ...r0, opgeblazen, vote: oordeel.cijfer, tmdbVote: r0.vote }
+      : { ...r0, opgeblazen, onbetrouwbaar: true };
     // Kruisbevestiging: het aantal onafhankelijke routes naar deze film
     // (elke favoriet telt apart, plus oeuvre, profiel, thema en dienst).
     // Eén lijst is ruis; de overlap tussen lijsten is signaal.
@@ -182,10 +190,11 @@ export function scoorKandidaten({
     if (opties.kruis && routes > 1) waarde *= 1 + 0.3 * (routes - 1);
     const a = anti.get(r.id);
     if (a) waarde /= 1 + a.score;
-    // Een opgeblazen cijfer telt neutraal: geen voorsprong door fans of bots
-    const m = matchScore(opgeblazen ? { ...r, vote: NEUTRAAL_CIJFER } : r, taste);
+    // Een onbetrouwbaar cijfer telt neutraal: geen voorsprong door fans of bots
+    const m = matchScore(r.onbetrouwbaar ? { ...r, vote: NEUTRAAL_CIJFER } : r, taste);
     let redenen = m.redenen;
-    if (opgeblazen) redenen = [...redenen, uitleg('verken.opgeblazenUitleg')];
+    if (r.onbetrouwbaar) redenen = [...redenen, uitleg('verken.opgeblazenUitleg')];
+    else if (opgeblazen) redenen = [...redenen, uitleg('verken.opgeblazenImdb', { cijfer: getLang() === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote) })];
     // Via de thema-jacht gevonden en de score gaf zelf geen thema-reden
     // (light-object zonder keywords): leg het alsnog uit.
     if (r.viaTheme?.length && !redenen.some((x) => /thema/i.test(x))) {

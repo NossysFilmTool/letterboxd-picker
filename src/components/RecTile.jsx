@@ -22,9 +22,12 @@ export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, o
             : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
         </button>
         {score && (
-          r.opgeblazen
+          r.onbetrouwbaar
             ? <span className="tile-score verdacht" title={tr('verken.opgeblazenKort')}><Star size={10} style={{ verticalAlign: -1 }} /> {score}?</span>
-            : <span className="tile-score" aria-hidden="true"><Star size={10} style={{ verticalAlign: -1 }} /> {score}</span>
+            : r.opgeblazen
+              // IMDb zette het opgeblazen TMDB-cijfer recht: dit is het IMDb-cijfer
+              ? <span className="tile-score verdacht" title={tr('verken.opgeblazenImdbKort', { tmdb: lang === 'nl' ? String(r.tmdbVote).replace('.', ',') : String(r.tmdbVote) })}><Star size={10} style={{ verticalAlign: -1 }} /> {score}</span>
+              : <span className="tile-score" aria-hidden="true"><Star size={10} style={{ verticalAlign: -1 }} /> {score}</span>
         )}
         {sterrenOpen ? (
           // Al gezien: hoeveel sterren? (of zonder)

@@ -1,3 +1,5 @@
+import { beoordeelCijfer } from './opgeblazen.js';
+
 export const MOODS = [
   { id: 'kort' }, { id: 'topper' }, { id: 'parel' }, { id: 'klassieker' }, { id: 'vers' },
 ];
@@ -114,7 +116,9 @@ export function nossyScore(m) {
   const parts = []; // [waarde, gewicht]
   if (m.ext?.imdb && NOSSY_WEIGHTS.imdb > 0) parts.push([m.ext.imdb, NOSSY_WEIGHTS.imdb]);
   if (m.ext?.mc && NOSSY_WEIGHTS.mc > 0) parts.push([m.ext.mc / 10, NOSSY_WEIGHTS.mc]);
-  if (m.vote && NOSSY_WEIGHTS.tmdb > 0) parts.push([m.vote, NOSSY_WEIGHTS.tmdb]);
+  // Een opgeblazen TMDB-cijfer (fans of bots, door IMDb niet bevestigd) telt
+  // niet mee: Gabriel's Inferno III kreeg anders een 7,4 uit IMDb 6,5 en TMDB 8,3
+  if (m.vote && NOSSY_WEIGHTS.tmdb > 0 && !beoordeelCijfer(m).opgeblazen) parts.push([m.vote, NOSSY_WEIGHTS.tmdb]);
   if (!parts.length) return null;
   const som = parts.reduce((a, [v, w]) => a + v * w, 0);
   const gewicht = parts.reduce((a, [, w]) => a + w, 0);

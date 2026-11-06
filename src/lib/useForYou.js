@@ -10,6 +10,8 @@ import { bepaalSeeds, scoorKandidaten, detailVers, DETAIL_TTL, DETAIL_VERSIE, ST
 import { normaliseer, handtekening, zoekVragen } from './eigenrijen.js';
 import { useT } from './i18n.js';
 import { PRIJSLIJSTEN } from './prijzen.js';
+import { opgeblazenReden } from './opgeblazen.js';
+import { fetchExtRatings } from './omdb.js';
 import { KLASSIEK_TOT } from './foryou.js';
 
 const HIST_PER_SESSIE = 60;
@@ -29,6 +31,9 @@ const slank = (d) => ({
   jwLink: d.jwLink || null,
   imdbId: d.imdbId || null,
   director: d.director || null,
+  // het actuele cijfer en aantal stemmen (de aanbevelingslijsten kunnen oud zijn)
+  vote: d.vote ?? null,
+  votes: d.votes ?? null,
   lijsten: d.lijsten ?? null,
   bios: d.bios ?? null,
   collectie: d.collectie || null,
@@ -37,11 +42,18 @@ const slank = (d) => ({
   at: Date.now(),
 });
 // Houd de cache klein: verlopen eruit, daarna alleen de nieuwste DETAIL_MAX.
-const snoei = (map) => {
+// Wat deze sessie is opgehaald (`beschermd`) blijft altijd: dat is wat je nu
+// ziet. Anders vielen bij een volle cache juist de sterkste kandidaten eruit
+// (die worden het eerst opgehaald, dus zijn het oudst), en daarmee hun
+// looptijd, aanbod en het oordeel over een opgeblazen cijfer.
+export const snoeiDetails = (map, beschermd = new Set()) => {
   const nu = Date.now();
   const rijen = Object.entries(map).filter(([, d]) => d && nu - (d.at || 0) < DETAIL_TTL);
   if (rijen.length <= DETAIL_MAX) return Object.fromEntries(rijen);
-  return Object.fromEntries(rijen.sort((a, b) => b[1].at - a[1].at).slice(0, DETAIL_MAX));
+  const isBeschermd = ([id]) => beschermd.has(id) || beschermd.has(Number(id));
+  const vast = rijen.filter(isBeschermd);
+  const rest = rijen.filter((r) => !isBeschermd(r)).sort((a, b) => b[1].at - a[1].at).slice(0, Math.max(0, DETAIL_MAX - vast.length));
+  return Object.fromEntries([...vast, ...rest]);
 };
 
 // actief: alleen als 'Voor jou' open staat halen we iets op, zodat de
@@ -77,8 +89,24 @@ export function useForYou(app, actief) {
   const detailRij = useRef([]);
   const detailGeprobeerd = useRef(new Set()); // deze sessie; mislukt = pas na herladen opnieuw
   const detailLoopt = useRef(false);
+  const detailSessie = useRef(new Set()); // deze sessie opgehaald: blijft in de cache
   const regio = getRegion();
-  const isVers = (d) => detailVers(d, regio);
+  const omdbKeys = app.omdbKeys || [];
+  // Vers, en voor een verdacht cijfer ook al door IMDb getoetst (als dat kan)
+  const isVers = (d) => detailVers(d, regio) && !(omdbKeys.length && d.imdb === undefined && opgeblazenReden(d));
+  // Tweede mening voor een verdacht TMDB-cijfer: het IMDb-cijfer via OMDb.
+  // undefined = (nog) niet gelukt, null = IMDb kent hem niet.
+  const tweedeMening = async (d) => {
+    for (const k of omdbKeys) {
+      try {
+        const ext = await fetchExtRatings(d, { name: d.title, year: d.year }, k);
+        return ext?.imdb ?? null;
+      } catch (e) {
+        if (e.message !== 'LIMIT' && e.message !== 'KEY_INVALID') return undefined;
+      }
+    }
+    return undefined;
+  };
   const draaiDetails = async () => {
     detailLoopt.current = true;
     setDetailsLaden(true);
@@ -86,13 +114,20 @@ export function useForYou(app, actief) {
     const flush = () => {
       const b = buffer;
       buffer = {};
-      if (Object.keys(b).length) setDetails((prev) => snoei({ ...prev, ...b }));
+      if (Object.keys(b).length) setDetails((prev) => snoeiDetails({ ...prev, ...b }, detailSessie.current));
     };
     const werker = async () => {
       while (detailRij.current.length && mounted.current) {
         const id = detailRij.current.shift();
         try {
-          buffer[id] = slank(await fetchDetailById(id, tmdbKey));
+          const d = await fetchDetailById(id, tmdbKey);
+          const s = slank(d);
+          if (omdbKeys.length && d.imdbId && opgeblazenReden(s)) {
+            const imdb = await tweedeMening(d);
+            if (imdb !== undefined) s.imdb = imdb;
+          }
+          buffer[id] = s;
+          detailSessie.current.add(id);
           if (Object.keys(buffer).length >= DETAIL_WERKERS) flush();
         } catch { /* volgende sessie opnieuw */ }
       }
