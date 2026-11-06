@@ -119,6 +119,53 @@ describe('V2 smoke', () => {
     expect(streepjes('TMDB 965150')).not.toEqual(streepjes('TMDB 1'));
   });
 
+  it('het aftellen loopt door als de ouder tussendoor opnieuw tekent', async () => {
+    // Zo ging het mis: tijdens het verversen op de achtergrond tekende Pick
+    // elke ~300 ms opnieuw, en het aftellen begon dan steeds weer bij 3
+    const { default: Leader } = await import('./src/components/Leader.jsx');
+    const { useState, useEffect } = await import('react');
+    const mm = window.matchMedia;
+    window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
+    try {
+      const klaar = vi.fn();
+      function Ouder() {
+        const [, setN] = useState(0);
+        useEffect(() => { const t = setInterval(() => setN((n) => n + 1), 250); return () => clearInterval(t); }, []);
+        return <Leader onDone={() => klaar()} />;
+      }
+      render(<Ouder />);
+      await act(async () => { vi.advanceTimersByTime(3000); });
+      expect(klaar).toHaveBeenCalledTimes(1);
+      await act(async () => { vi.advanceTimersByTime(3000); });
+      expect(klaar).toHaveBeenCalledTimes(1); // en maar één keer
+    } finally {
+      vi.useRealTimers();
+      window.matchMedia = mm;
+    }
+  });
+
+  it('het aftellen heeft een vangnet als animatieframes stilvallen', async () => {
+    const { default: Leader } = await import('./src/components/Leader.jsx');
+    const mm = window.matchMedia;
+    const raf = window.requestAnimationFrame;
+    window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+    window.requestAnimationFrame = () => 0; // tab op de achtergrond: geen frames
+    try {
+      const klaar = vi.fn();
+      render(<Leader onDone={klaar} />);
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      expect(klaar).not.toHaveBeenCalled();
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      expect(klaar).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+      window.requestAnimationFrame = raf;
+      window.matchMedia = mm;
+    }
+  });
+
   it('score-recept: de componenten tellen op tot de match-score', async () => {
     const { matchScore } = await import('./src/lib/taste.js');
     const taste = { genres: { Drama: 0.6 }, themes: {}, decades: { 2010: 0.4 }, nietEngels: 0.3, medianVotes: 5000, topThemes: [] };

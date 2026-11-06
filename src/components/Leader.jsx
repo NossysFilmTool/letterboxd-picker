@@ -9,22 +9,34 @@ export default function Leader({ onDone }) {
   const [flash, setFlash] = useState(false);
   const [hair] = useState(() => Math.random() < 0.05); // paasei: haartje in de gate
   const raf = useRef(null);
+  // onDone in een ref: de ouder geeft bij elke render een nieuwe functie mee.
+  // Stond die in de afhankelijkheden, dan begon het aftellen bij elke render
+  // opnieuw. Terwijl de app op de achtergrond films ververst (elke ~300 ms
+  // een update) bleef het daardoor eindeloos op 3 hangen.
+  const klaarRef = useRef(onDone);
+  klaarRef.current = onDone;
 
   useEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let klaar = false;
+    const af = () => { if (!klaar) { klaar = true; klaarRef.current(); } };
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduced) {
-      onDone();
+      af();
       return undefined;
     }
     const STEP = 720; // ms per cijfer
     const start = performance.now();
+    let flitsTimer;
+    // Vangnet: requestAnimationFrame kan stilvallen (tab op de achtergrond,
+    // trage telefoon). Na de volle duur plus marge is je pick er hoe dan ook.
+    const vangnet = setTimeout(af, STEP * 3 + 1500);
     const tick = (now) => {
-      const elapsed = now - start;
+      const elapsed = Math.max(0, now - start);
       const idx = Math.floor(elapsed / STEP);
       const within = (elapsed % STEP) / STEP;
       if (idx >= 3) {
         setFlash(true);
-        setTimeout(onDone, 320);
+        flitsTimer = setTimeout(af, 320);
         return;
       }
       setNum(3 - idx);
@@ -32,8 +44,8 @@ export default function Leader({ onDone }) {
       raf.current = requestAnimationFrame(tick);
     };
     raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
-  }, [onDone]);
+    return () => { cancelAnimationFrame(raf.current); clearTimeout(vangnet); clearTimeout(flitsTimer); };
+  }, []);
 
   // Portal naar <body>: geen enkele ouder-animatie (tab-crossfade e.d.) kan de
   // fixed-positionering dan nog kapen — gegarandeerd schermvullend.
