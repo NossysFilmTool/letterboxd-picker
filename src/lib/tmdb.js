@@ -50,9 +50,12 @@ export const getRegion = () => REGION;
 export const REGIONS = ['NL', 'BE', 'GB', 'IE', 'US', 'CA', 'AU', 'NZ', 'DE', 'AT', 'CH', 'FR', 'ES', 'PT', 'IT', 'DK', 'SE', 'NO', 'FI', 'PL', 'JP', 'KR', 'BR', 'MX', 'IN'];
 
 async function fetchDetail(id, key) {
+  // lists en release_dates: voor de betrouwbaarheid van het TMDB-cijfer
+  // (zie lib/opgeblazen.js), in dezelfde aanvraag
   const d = await get(`/movie/${id}`, key, {
-    append_to_response: 'credits,videos,recommendations,watch/providers,keywords',
+    append_to_response: 'credits,videos,recommendations,watch/providers,keywords,lists,release_dates',
   });
+  const releaseTypes = new Set((d.release_dates?.results || []).flatMap((x) => (x.release_dates || []).map((y) => y.type)));
   const dirCredit = d.credits?.crew?.find((c) => c.job === 'Director');
   const director = dirCredit?.name || null;
   const directorId = dirCredit?.id || null;
@@ -78,6 +81,11 @@ async function fetchDetail(id, key) {
     plot: (d.overview || '').length > 500 ? `${(d.overview || '').slice(0, 499).trimEnd()}\u2026` : (d.overview || ''),
     director,
     directorId,
+    // Betrouwbaarheid van het cijfer: in hoeveel lijsten van TMDB-gebruikers
+    // de film staat, en of hij ooit in de bioscoop of op een festival draaide
+    lijsten: d.lists?.total_results ?? null,
+    bios: d.release_dates ? [1, 2, 3].some((t) => releaseTypes.has(t)) : null,
+    collectie: d.belongs_to_collection?.id || null,
     country: d.production_countries?.[0]?.iso_3166_1 || null,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null,
     flat: provNames(prov.flatrate),

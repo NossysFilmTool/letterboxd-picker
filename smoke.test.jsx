@@ -565,6 +565,63 @@ describe('V2 smoke', () => {
     }
   });
 
+  it('opgeblazen cijfers: fans en bots herkend, kleine arthousefilms niet', async () => {
+    const { opgeblazenReden } = await import('./src/lib/opgeblazen.js');
+    // gemeten op TMDB (november 2026)
+    expect(opgeblazenReden({ vote: 8.4, votes: 2485, lijsten: 134, bios: false })).toBe('streaming'); // Gabriel's Inferno
+    expect(opgeblazenReden({ vote: 8.3, votes: 1569, lijsten: 76, bios: true })).toBe('lijsten'); // deel II
+    expect(opgeblazenReden({ vote: 9.9, votes: 143, lijsten: 9, bios: true })).toBe('onmogelijk'); // The Way to the Heart
+    expect(opgeblazenReden({ vote: 9.9, votes: 143 })).toBe('onmogelijk'); // ook zonder details
+    expect(opgeblazenReden({ vote: 8.04, votes: 2974, lijsten: 228, bios: false })).toBe('streaming'); // Purple Hearts
+    // goede films, ook kleine en streaming-only: niet geraakt
+    expect(opgeblazenReden({ vote: 7.6, votes: 2041, lijsten: 302, bios: true })).toBeNull(); // Aftersun
+    expect(opgeblazenReden({ vote: 8.3, votes: 523, lijsten: 50, bios: true })).toBeNull(); // Radical
+    expect(opgeblazenReden({ vote: 7.8, votes: 4275, lijsten: 407, bios: false })).toBeNull(); // Finch (Apple TV+)
+    expect(opgeblazenReden({ vote: 7.2, votes: 196, lijsten: 24, bios: true })).toBeNull(); // The Blue Caftan
+    expect(opgeblazenReden({ vote: 8.5, votes: 37242, lijsten: 3139, bios: true })).toBeNull(); // The Dark Knight
+    // zonder details weten we het (nog) niet
+    expect(opgeblazenReden({ vote: 8.4, votes: 2485 })).toBeNull();
+  });
+
+  it('opgeblazen cijfers: neutraal meetellen, de reeks gaat mee, en x op één deel verbergt de rest', async () => {
+    const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
+    const { buildTaste } = await import('./src/lib/taste.js');
+    const { bouwRecept, kiesVanavond, isKlassieker } = await import('./src/lib/foryou.js');
+    const f = (id, title, vote, votes) => ({ id, title, year: 2020, vote, votes, genre_ids: [18, 10749] });
+    const meta = {
+      'a|2000': { id: 1, genres: ['Drama'], recs: [f(10, 'Inferno I', 8.4, 2485), f(11, 'Inferno II', 8.3, 1569), f(12, 'Echte Film', 7.6, 2041)] },
+      'b|2001': { id: 2, genres: ['Drama'], recs: [] },
+      'c|2002': { id: 3, genres: ['Drama'], recs: [] },
+    };
+    const ratedFilms = [
+      { key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 5 },
+      { key: 'c|2002', name: 'C', year: 2002, rating: 4.5 },
+    ];
+    const det = (lijsten, bios, collectie) => ({ v: 2, regio: 'NL', at: Date.now(), runtime: 110, flat: [], lijsten, bios, collectie });
+    // deel I is verdacht (geen bioscoop, weinig lijsten); deel II op zichzelf niet, maar zit in dezelfde reeks
+    const details = { 10: det(134, false, 77), 11: det(400, true, 77), 12: det(302, true, null) };
+    const basis = { watchlist: [], meta, ratedFilms, seeds: bepaalSeeds({ watchlist: [], ratedFilms, meta }), regisseurs: [], taste: buildTaste({ watchlist: [], ratedFilms, meta }), uitleg: (k) => k };
+    const zonder = Object.fromEntries(scoorKandidaten(basis).recs.map((r) => [r.title, r]));
+    const recs = scoorKandidaten({ ...basis, details }).recs;
+    const met = Object.fromEntries(recs.map((r) => [r.title, r]));
+    expect(met['Inferno I'].opgeblazen).toBe('streaming');
+    expect(met['Inferno II'].opgeblazen).toBe('reeks');
+    expect(met['Echte Film'].opgeblazen).toBeUndefined();
+    // het hoge cijfer telt niet meer mee: lagere match, met een eerlijke reden
+    expect(met['Inferno I'].match).toBeLessThan(zonder['Inferno I'].match);
+    expect(met['Inferno I'].redenen).toContain('verken.opgeblazenUitleg');
+    expect(met['Echte Film'].match).toBe(zonder['Echte Film'].match);
+    // nooit Vanavond, nooit een klassieker
+    expect(kiesVanavond(recs).film.title).toBe('Echte Film');
+    expect(isKlassieker({ ...met['Inferno I'], bronnen: ['canon'] })).toBe(false);
+    // geen plek in de rijen die op het cijfer draaien (Top, parels, bubbel)
+    const rijen = bouwRecept(recs, { dag: 0 });
+    expect(rijen.filter((r) => ['top', 'parels', 'bubbel', 'canon'].includes(r.type)).some((r) => r.films.some((x) => x.opgeblazen))).toBe(false);
+    // x op deel I met de reeks erbij: deel II verdwijnt ook
+    const naX = scoorKandidaten({ ...basis, details, skipped: [{ id: 10, title: 'Inferno I', genre_ids: [18], collectie: 77 }] }).recs.map((r) => r.title);
+    expect(naX).toEqual(['Echte Film']);
+  });
+
   it('feedback: redenen sturen de motor (genre, mainstream, regisseur)', async () => {
     const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
     const { rangschikRegisseurs } = await import('./src/lib/rows.js');

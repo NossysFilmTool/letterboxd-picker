@@ -6,6 +6,7 @@ import { nossyScore, fmtScore, getNossyWeights } from '../lib/pick.js';
 import { renderShareCard, shareOrDownload } from '../lib/extra.js';
 import { useT } from '../lib/i18n.js';
 import Sterren from './Sterren.jsx';
+import { opgeblazenReden } from '../lib/opgeblazen.js';
 
 const fmtVotes = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : n);
 
@@ -86,6 +87,16 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
                 )}
               </div>
             );
+          })()}
+          {(() => {
+            // Een opgeblazen TMDB-cijfer (fans of bots): zeg het eerlijk
+            const reden = opgeblazenReden(meta);
+            if (!reden) return null;
+            const fmt = (v) => (lang === 'nl' ? String(v).replace('.', ',') : String(v));
+            const waarom = reden === 'onmogelijk'
+              ? tr('winner.opgeblazenOnmogelijk', { cijfer: fmt(meta.vote), stemmen: meta.votes })
+              : tr(reden === 'lijsten' ? 'winner.opgeblazenLijsten' : 'winner.opgeblazenStreaming');
+            return <p className="opgeblazen-melding">{tr('winner.opgeblazen', { waarom })}</p>;
           })()}
           {meta && (meta.flat?.length || meta.rent?.length) ? (
             <div className="provs">

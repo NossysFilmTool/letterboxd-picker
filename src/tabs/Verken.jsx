@@ -242,9 +242,11 @@ export default function Verken({ app }) {
   const regisseurVan = (r) => r.director || detailCache.current.get(r.id)?.director
     || r.bronnen?.find((b) => b.startsWith('oeuvre:'))?.slice(7) || null;
   const skip = (r, { vraag = true } = {}) => {
+    // collectie: de reeks (Gabriel's Inferno I-III); de andere delen gaan mee
     setSkipped((s) => [...s, {
       id: r.id, title: r.title, year: r.year, genre_ids: r.genre_ids || [],
       director: regisseurVan(r), votes: r.votes ?? null,
+      collectie: r.collectie || detailCache.current.get(r.id)?.collectie || null,
     }]);
     if (vraag) { setNudge(null); setLaatsteSkip({ r, stap: 'reden' }); }
   };
@@ -659,6 +661,7 @@ export default function Verken({ app }) {
               <>
                 <span className="fy-toast-tekst">
                   {genreNaam(laatsteSkip.r.genre_ids) ? `${tr('verken.nudgeLess', { genre: genreNaam(laatsteSkip.r.genre_ids) })} ` : ''}
+                  {(laatsteSkip.r.collectie || detailCache.current.get(laatsteSkip.r.id)?.collectie) ? `${tr('verken.reeksWeg')} ` : ''}
                   {tr('verken.waaromNiet')}
                 </span>
                 <span className="reden-chips">

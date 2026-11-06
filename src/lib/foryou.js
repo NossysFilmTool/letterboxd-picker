@@ -19,8 +19,10 @@ export const RAAM = 12;
 
 // Bayesiaans gedempte score, zelfde prior als matchScore: een 9 met 12
 // stemmen is geen 9.
+// Een opgeblazen cijfer (lib/opgeblazen.js) telt neutraal, zodat zo'n film
+// niet via zijn cijfer in Top voor jou, de bubbel of Vanavond komt.
 export const gedempt = (f) => {
-  if (!f.vote) return 6.2;
+  if (!f.vote || f.opgeblazen) return 6.2;
   const n = f.votes ?? 60;
   return (f.vote * n + 6.2 * 120) / (n + 120);
 };
@@ -60,7 +62,7 @@ export function avondRuimte(nu = new Date()) {
 //   overslaan: id's die je via "Andere" wegklikte
 export function kiesVanavond(list, { mijnDiensten = [], nu = new Date(), overslaan = new Set(), max = 40 } = {}) {
   const kandidaten = sorteerOpSterkte(list.filter((f) => degelijk(f) && f.runtime && !overslaan.has(f.id)
-    && !alleenApart(f))).slice(0, max);
+    && !alleenApart(f) && !f.opgeblazen)).slice(0, max);
   if (!kandidaten.length) return null;
   const mijn = new Set(mijnDiensten);
   const ruimte = avondRuimte(nu);
@@ -103,8 +105,8 @@ export const alleenApart = (f) => (f.bronnen || []).every((b) => b.startsWith('e
 // Een klassieker: uit de canon-bron, of een veelgeprezen film met heel veel
 // stemmen die via je eigen smaak binnenkwam. Minstens vier jaar oud.
 export const KLASSIEK_TOT = (nu = new Date()) => nu.getFullYear() - 4;
-export const isKlassieker = (f) => !!f.bronnen?.includes('canon')
-  || (!alleenApart(f) && (f.votes || 0) >= 8000 && (f.vote || 0) >= 7.7 && (!f.year || f.year <= KLASSIEK_TOT()));
+export const isKlassieker = (f) => !f.opgeblazen && (!!f.bronnen?.includes('canon')
+  || (!alleenApart(f) && (f.votes || 0) >= 8000 && (f.vote || 0) >= 7.7 && (!f.year || f.year <= KLASSIEK_TOT())));
 
 //   list:       gescoorde kandidaten [{ id, vote, votes, match, waarde, bronnen, seeds, viaTheme, genre_ids }]
 //   seedFilms:  je 4,5★+-favorieten [{ key, name }], sterkste eerst
@@ -188,7 +190,7 @@ export function bouwRecept(list, { seedFilms = [], regisseurs = [], taste = {}, 
   }
 
   // 4. Verborgen parels: hoog cijfer, weinig stemmen
-  const parels = maak('parels', 'parels', (f) => f.votes != null && f.votes >= 80 && f.votes <= 1500 && (f.vote || 0) >= 7);
+  const parels = maak('parels', 'parels', (f) => !f.opgeblazen && f.votes != null && f.votes >= 80 && f.votes <= 1500 && (f.vote || 0) >= 7);
 
   const seed2 = seedB ? maak(`seed:${seedB.key}`, 'seed', doorSeed(seedB.name), { naam: seedB.name }) : null;
 

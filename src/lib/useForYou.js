@@ -6,7 +6,7 @@ import { GENRES, searchPersons, personFilms, fetchSimilar, fetchRecommendations,
 import { useLS } from './storage.js';
 import { buildTaste } from './taste.js';
 import { voegNieuweToe, rangschikRegisseurs } from './rows.js';
-import { bepaalSeeds, scoorKandidaten, detailVers, DETAIL_TTL, STANDAARD_OPTIES } from './kandidaten.js';
+import { bepaalSeeds, scoorKandidaten, detailVers, DETAIL_TTL, DETAIL_VERSIE, STANDAARD_OPTIES } from './kandidaten.js';
 import { normaliseer, handtekening, zoekVragen } from './eigenrijen.js';
 import { useT } from './i18n.js';
 import { PRIJSLIJSTEN } from './prijzen.js';
@@ -29,6 +29,10 @@ const slank = (d) => ({
   jwLink: d.jwLink || null,
   imdbId: d.imdbId || null,
   director: d.director || null,
+  lijsten: d.lijsten ?? null,
+  bios: d.bios ?? null,
+  collectie: d.collectie || null,
+  v: DETAIL_VERSIE,
   regio: getRegion(),
   at: Date.now(),
 });

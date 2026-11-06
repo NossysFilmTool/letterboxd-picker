@@ -21,7 +21,11 @@ export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, o
             ? <img src={IMG(r.poster, 'w342')} alt="" loading="lazy" />
             : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
         </button>
-        {score && <span className="tile-score" aria-hidden="true"><Star size={10} style={{ verticalAlign: -1 }} /> {score}</span>}
+        {score && (
+          r.opgeblazen
+            ? <span className="tile-score verdacht" title={tr('verken.opgeblazenKort')}><Star size={10} style={{ verticalAlign: -1 }} /> {score}?</span>
+            : <span className="tile-score" aria-hidden="true"><Star size={10} style={{ verticalAlign: -1 }} /> {score}</span>
+        )}
         {sterrenOpen ? (
           // Al gezien: hoeveel sterren? (of zonder)
           <div className="tile-sterren">

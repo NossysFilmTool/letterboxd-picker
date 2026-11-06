@@ -4,12 +4,16 @@
 import { filmKey } from './storage.js';
 import { maakHerkenner } from './gezien.js';
 import { kenmerken, scoorMetModel, modelGeldig, STRAF_GEWICHT } from './kenmerken.js';
+import { opgeblazenReden, NEUTRAAL_CIJFER } from './opgeblazen.js';
 import { buildTaste, matchScore } from './taste.js';
 import { plekGewicht, rangschikRegisseurs, pastInOeuvre, sorteerOpSterkte } from './rows.js';
 import { degelijk } from './foryou.js';
 
 export const DETAIL_TTL = 14 * 24 * 3600e3; // streamingaanbod wisselt; twee weken is vers genoeg
-export const detailVers = (d, regio, nu = Date.now()) => !!d && d.regio === regio && nu - (d.at || 0) < DETAIL_TTL;
+// Versie 2: met lijsten, bioscooprelease en reeks (voor opgeblazen cijfers);
+// oudere details worden opnieuw opgehaald
+export const DETAIL_VERSIE = 2;
+export const detailVers = (d, regio, nu = Date.now()) => !!d && d.regio === regio && (d.v || 1) >= DETAIL_VERSIE && nu - (d.at || 0) < DETAIL_TTL;
 
 // Standaard staan alle onderdelen aan; de meetlat kan ze los uitzetten om te
 // zien wat elk onderdeel oplevert.
@@ -150,14 +154,26 @@ export function scoorKandidaten({
   const afgewezenRegisseurs = new Set(metReden('regisseur').map((s) => s.director).filter(Boolean));
 
   const topThemaNamen = new Map((taste.topThemes || []).map((t) => [t.id, t.name]));
-  const recs = [...agg.values()].map(({ seedSet, ...kaal }) => {
-    // Met details: echte looptijd, genres, trefwoorden (thema-match) en aanbod
+  // Met details: echte looptijd, genres, trefwoorden (thema-match), aanbod,
+  // en wat nodig is om een opgeblazen cijfer te herkennen
+  const samengevoegd = [...agg.values()].map(({ seedSet, ...kaal }) => {
     const d = detailVers(details[kaal.id], regio) ? details[kaal.id] : null;
     const r = d ? {
       ...kaal,
       runtime: d.runtime, keywords: d.keywords, flat: d.flat, jwLink: d.jwLink, imdbId: d.imdbId, director: d.director,
       genres: d.genres?.length ? d.genres : kaal.genres,
+      lijsten: d.lijsten, bios: d.bios, collectie: d.collectie,
     } : kaal;
+    return { r, seedSet };
+  });
+  // Een reeks gaat samen: is één deel verdacht, dan de andere delen ook
+  // (Gabriel's Inferno II draaide in één land in de bioscoop), en wees je
+  // één deel af, dan verdwijnen de andere delen ook
+  const verdachteReeksen = new Set(samengevoegd.filter(({ r }) => r.collectie && opgeblazenReden(r)).map(({ r }) => r.collectie));
+  const afgewezenReeksen = new Set(skipped.filter((s) => typeof s === 'object' && s.collectie && s.reden !== 'gezien').map((s) => s.collectie));
+  const recs = samengevoegd.filter(({ r }) => !(r.collectie && afgewezenReeksen.has(r.collectie))).map(({ r: r0, seedSet }) => {
+    const opgeblazen = opgeblazenReden(r0) || (r0.collectie && verdachteReeksen.has(r0.collectie) ? 'reeks' : null);
+    const r = opgeblazen ? { ...r0, opgeblazen } : r0;
     // Kruisbevestiging: het aantal onafhankelijke routes naar deze film
     // (elke favoriet telt apart, plus oeuvre, profiel, thema en dienst).
     // Eén lijst is ruis; de overlap tussen lijsten is signaal.
@@ -166,8 +182,10 @@ export function scoorKandidaten({
     if (opties.kruis && routes > 1) waarde *= 1 + 0.3 * (routes - 1);
     const a = anti.get(r.id);
     if (a) waarde /= 1 + a.score;
-    const m = matchScore(r, taste);
+    // Een opgeblazen cijfer telt neutraal: geen voorsprong door fans of bots
+    const m = matchScore(opgeblazen ? { ...r, vote: NEUTRAAL_CIJFER } : r, taste);
     let redenen = m.redenen;
+    if (opgeblazen) redenen = [...redenen, uitleg('verken.opgeblazenUitleg')];
     // Via de thema-jacht gevonden en de score gaf zelf geen thema-reden
     // (light-object zonder keywords): leg het alsnog uit.
     if (r.viaTheme?.length && !redenen.some((x) => /thema/i.test(x))) {
