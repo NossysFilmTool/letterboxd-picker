@@ -100,7 +100,8 @@ export async function renderShareCard(film, meta) {
   }
 
   // Het kaartje
-  const KX = 60; const KW = 960; const KH = 600; const STROOK = 230;
+  // De strook is de poster, van rand tot rand: 2:3 bij de hoogte van het kaartje
+  const KX = 60; const KW = 960; const KH = 540; const STROOK = 360;
   const BW = KW - STROOK; const PAD = 36;
   // Zonder doek staat het kaartje in het midden
   const ky = y == null ? Math.round((H - KH) / 2) : Math.min(y, H - 110 - KH);
@@ -111,9 +112,15 @@ export async function renderShareCard(film, meta) {
   ctx.fillRect(KX + BW, ky, STROOK, KH);
   if (meta?.poster) {
     try {
-      const poster = await loadImage(IMG(meta.poster, 'w342'));
-      const pw = STROOK - 50; const ph = pw * 1.5;
-      ctx.drawImage(poster, KX + BW + 25, ky + (KH - ph) / 2, pw, ph);
+      const poster = await loadImage(IMG(meta.poster, 'w500'));
+      // Vullend bijsnijden, binnen de afgeronde hoeken van het kaartje
+      const schaal = Math.max(STROOK / poster.width, KH / poster.height);
+      const sw = STROOK / schaal; const sh = KH / schaal;
+      ctx.save();
+      roundRect(ctx, KX, ky, KW, KH, 4);
+      ctx.clip();
+      ctx.drawImage(poster, (poster.width - sw) / 2, (poster.height - sh) / 2, sw, sh, KX + BW, ky, STROOK, KH);
+      ctx.restore();
     } catch { /* poster kan falen door CORS */ }
   }
   // Perforatie met halve gaatjes boven en onder
