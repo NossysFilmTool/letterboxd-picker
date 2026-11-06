@@ -50,7 +50,7 @@ export default function MatchPicker({ films, app, onClose }) {
   if (!film) {
     return (
       <div className="card" style={{ marginTop: 14 }}>
-        <p className="big" style={{ fontFamily: 'var(--font-display)', fontSize: 22 }}>{tr('match.allDone')}</p>
+        <p className="big" style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}>{tr('match.allDone')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 6 }}>{tr('match.allChecked')}</p>
         <button className="btn" style={{ marginTop: 12 }} onClick={onClose}>{tr('match.close')}</button>
       </div>
@@ -58,10 +58,10 @@ export default function MatchPicker({ films, app, onClose }) {
   }
 
   return (
-    <div className="card" style={{ marginTop: 14, borderColor: 'rgba(255,128,0,0.3)' }}>
+    <div className="card" style={{ marginTop: 14, borderColor: 'var(--line-strong)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <p className="label" style={{ color: 'var(--dot-o)', marginBottom: 4 }}>{tr('match.title', { i: idx + 1, n: films.length })}</p>
+          <p className="label" style={{ marginBottom: 4 }}>{tr('match.title', { i: idx + 1, n: films.length })}</p>
           <p style={{ fontSize: 14, color: 'var(--fog)' }}>
             {tr('match.listSays', { name: film.name })}{film.year ? tr('match.fromYear', { year: film.year }) : ''}.{huidige?.year ? tr('match.nowLinked', { year: huidige.year }) : ''}{tr('match.chooseBelow')}
           </p>
@@ -75,7 +75,7 @@ export default function MatchPicker({ films, app, onClose }) {
         <div style={{ marginTop: 16 }}>
           <p style={{ color: 'var(--fog)', fontSize: 13.5 }}>{tr('match.noneFound', { name: film.name })}</p>
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <button className="btn" style={{ borderColor: 'rgba(255,128,0,0.4)', color: 'var(--dot-o)' }} onClick={negeer}>{tr('match.notAFilm')}</button>
+            <button className="btn" style={{ color: 'var(--dot-o)' }} onClick={negeer}>{tr('match.notAFilm')}</button>
             <button className="btn ghost" onClick={volgende}>{tr('common.skip')} <ArrowRight size={14} /></button>
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function MatchPicker({ films, app, onClose }) {
                   </div>
                   <div className="match-meta">
                     <span className="mt">{k.title}</span>
-                    <span className="my">{k.year || tr('match.yearUnknown')}{k.lang ? ` · ${k.lang.toUpperCase()}` : ''}{k.votes != null ? ` · ${tr('match.votesShort', { count: k.votes, n: k.votes >= 1000 ? `${Math.round(k.votes / 1000)}k` : k.votes })}` : ''}</span>
+                    <span className="my">{k.year || tr('match.yearUnknown')}{k.lang ? `, ${k.lang.toUpperCase()}` : ''}{k.votes != null ? `, ${tr('match.votesShort', { count: k.votes, n: k.votes >= 1000 ? `${Math.round(k.votes / 1000)}k` : k.votes })}` : ''}</span>
                   </div>
                 </button>
               );

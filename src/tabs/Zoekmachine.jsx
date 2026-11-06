@@ -358,20 +358,20 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
             </button>
             <div style={{ flex: 1, minWidth: 0 }}>
               <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', color: 'var(--paper)' }} onClick={() => openDetail(r)}>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400 }}>{r.title}</h2>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 23, fontWeight: 700, lineHeight: 1.1 }}>{r.title}</h2>
               </button>
-              <p style={{ color: 'var(--fog)', fontSize: 13, marginTop: 2 }}>
-                {[r.year, r.rol === 'regie' ? tr('winner.regie') : null, r.lang ? langName(r.lang) : null, r.vote ? `★ ${uiLang === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote)}` : null].filter(Boolean).join(' · ')}
-                {r.votes != null && <span style={{ color: 'var(--fog-dim)' }}> ({r.votes >= 1000 ? `${Math.round(r.votes / 1000)}k` : r.votes})</span>}
-                {r.nossy != null && <span style={{ marginLeft: 8, color: 'var(--dot-o)' }} title="Nossy-score (IMDb/Metacritic/TMDB)">◆ {fmtScore(r.nossy)}</span>}
-                {taste.sterk && !r.bekend && <span className="chip on-b" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>{tr('zoek.matchPct', { pct: r.score })}</span>}
+              <p className="meta" style={{ color: 'var(--fog)', fontSize: 13, marginTop: 4 }}>
+                {[r.year, r.rol === 'regie' ? tr('winner.regie') : null, r.lang ? langName(r.lang) : null].filter(Boolean).map((x) => <span key={x}>{x}</span>)}
+                {r.vote ? <span>TMDB {uiLang === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote)}{r.votes != null && <span style={{ color: 'var(--fog-dim)' }}> ({r.votes >= 1000 ? `${Math.round(r.votes / 1000)}k` : r.votes})</span>}</span> : null}
+                {r.nossy != null && <span style={{ color: 'var(--paper)', fontWeight: 600 }} title="Nossy-score (IMDb/Metacritic/TMDB)">Nossy {fmtScore(r.nossy)}</span>}
+                {taste.sterk && !r.bekend && <span className="chip on-b" style={{ padding: '2px 8px', fontSize: 11 }}>{tr('zoek.matchPct', { pct: r.score })}</span>}
                 {r.bekend && (
-                  <span className="chip on-g" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>
+                  <span className="chip on-g" style={{ padding: '2px 8px', fontSize: 11 }}>
                     {r.gezien ? (r.jouwScore ? tr('zoek.seenGave', { score: fmtScore(r.jouwScore) }) : tr('zoek.seenBadge')) : tr('zoek.inCollection')}
                   </span>
                 )}
               </p>
-              {r.redenen?.length > 0 && !r.bekend && <p className="why" style={{ marginTop: 6 }}>{r.redenen.slice(0, 2).join(' · ')}</p>}
+              {r.redenen?.length > 0 && !r.bekend && <p className="why meta" style={{ marginTop: 6 }}>{r.redenen.slice(0, 2).map((x) => <span key={x}>{x}</span>)}</p>}
               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                 <button className="btn ghost" onClick={() => openDetail(r)}>{tr('verken.viewCard')}</button>
                 {!r.bekend && !shortIds.has(r.id) && <button className="btn green" onClick={() => addToShortlist({ ...r, seeds: [], count: 0 })}><Plus size={14} /> Shortlist</button>}

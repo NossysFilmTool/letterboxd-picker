@@ -63,7 +63,7 @@ export default function ImportPanel({ app, hero }) {
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
       className="card"
-      style={{ borderStyle: 'dashed', borderColor: dragOver ? 'var(--dot-o)' : 'var(--line-strong)', textAlign: 'center', padding: '28px 20px' }}
+      style={{ borderStyle: 'dashed', borderColor: dragOver ? 'var(--paper)' : 'var(--line-strong)', textAlign: 'center', padding: '28px 20px' }}
     >
       <Upload size={22} strokeWidth={1.6} style={{ color: 'var(--fog)' }} aria-hidden="true" />
       <p style={{ marginTop: 10, fontWeight: 500 }}>{tr('imp.dropHere')}</p>
@@ -82,7 +82,7 @@ export default function ImportPanel({ app, hero }) {
                 report.nieuwGezien ? tr('imp.repNewSeen', { count: report.nieuwGezien }) : null,
                 report.lijsten ? tr('imp.repLists', { count: report.lijsten }) : null,
               ].filter(Boolean);
-              return delen.length ? tr('imp.repUpdated') + delen.join(' · ') : tr('imp.repNothingNew');
+              return delen.length ? tr('imp.repUpdated') + delen.join(', ') : tr('imp.repNothingNew');
             })()}
         </p>
       )}

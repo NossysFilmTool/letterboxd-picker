@@ -1,6 +1,7 @@
 import { t } from './i18n.js';
 import { filmKey } from './storage.js';
 import { IMG } from './tmdb.js';
+import { leesFilmkleur } from './filmkleur.js';
 
 const DEMO_TITLES = [
   ['Aftersun', 2022], ['Past Lives', 2023], ['The Zone of Interest', 2023],
@@ -44,71 +45,51 @@ export async function renderShareCard(film, meta) {
   c.width = W; c.height = H;
   const ctx = c.getContext('2d');
 
-  ctx.fillStyle = '#0d1115';
+  // "De zaal" (DESIGN.md): het vlak neemt de kleur van de film aan, onderin
+  // een donkere strook; platte vormen, geen gloed of vervaging.
+  const filmkleur = await leesFilmkleur(meta?.poster);
+  ctx.fillStyle = filmkleur;
   ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#121110';
+  ctx.fillRect(0, H - 120, W, 120);
 
-  if (meta?.backdrop) {
-    try {
-      const bg = await loadImage(IMG(meta.backdrop, 'w780'));
-      ctx.save();
-      ctx.filter = 'blur(38px) brightness(0.4)';
-      const scale = Math.max(W / bg.width, H / bg.height) * 1.15;
-      ctx.drawImage(bg, (W - bg.width * scale) / 2, (H - bg.height * scale) / 2, bg.width * scale, bg.height * scale);
-      ctx.restore();
-    } catch { /* zonder backdrop verder */ }
-  }
-  ctx.fillStyle = 'rgba(13,17,21,0.42)';
-  ctx.fillRect(0, 0, W, H);
-
-  const px = 340; const py = 510;
-  const pw = W - 2 * px + 60; // 460 breed
+  const pw = 460;
   const ph = pw * 1.5;
   const pxx = (W - pw) / 2; const pyy = 190;
   if (meta?.poster) {
     try {
       const poster = await loadImage(IMG(meta.poster, 'w500'));
       ctx.save();
-      roundRect(ctx, pxx, pyy, pw, ph, 20);
+      roundRect(ctx, pxx, pyy, pw, ph, 4);
       ctx.clip();
       ctx.drawImage(poster, pxx, pyy, pw, ph);
       ctx.restore();
-      ctx.strokeStyle = 'rgba(238,242,245,0.25)';
-      ctx.lineWidth = 2;
-      roundRect(ctx, pxx, pyy, pw, ph, 20);
-      ctx.stroke();
     } catch { /* poster kan falen door CORS */ }
   }
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#99aabb';
-  ctx.font = '600 30px Inter, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.72)';
+  ctx.font = '600 30px Archivo, sans-serif';
   ctx.fillText(t('share.eyebrow'), W / 2, 120);
 
-  ctx.fillStyle = '#eef2f5';
-  ctx.font = '400 76px "Instrument Serif", Georgia, serif';
+  ctx.fillStyle = '#f4efe6';
+  ctx.font = '700 84px "Archivo Narrow", Archivo, sans-serif';
   const title = film.name.length > 26 ? film.name.slice(0, 25) + '…' : film.name;
   ctx.fillText(title, W / 2, pyy + ph + 110);
 
-  ctx.fillStyle = '#99aabb';
-  ctx.font = '400 32px Inter, sans-serif';
-  const parts = [film.year, meta?.runtime ? `${meta.runtime} min` : null, meta?.director].filter(Boolean);
-  ctx.fillText(parts.join('  ·  '), W / 2, pyy + ph + 168);
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.font = '400 32px Archivo, sans-serif';
+  const parts = [
+    film.year,
+    meta?.runtime ? `${meta.runtime} min` : null,
+    meta?.director,
+    meta?.vote ? `TMDB ${String(meta.vote).replace('.', ',')}` : null,
+  ].filter(Boolean);
+  ctx.fillText(parts.join(',   '), W / 2, pyy + ph + 172);
 
-  if (meta?.vote) {
-    ctx.fillStyle = '#ff8000';
-    ctx.beginPath();
-    ctx.arc(W / 2 - 76, pyy + ph + 226, 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#eef2f5';
-    ctx.font = '500 34px Inter, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(`${String(meta.vote).replace('.', ',')} op TMDB`, W / 2 - 54, pyy + ph + 238);
-    ctx.textAlign = 'center';
-  }
-
-  ctx.fillStyle = '#5f6d7a';
-  ctx.font = '400 24px Inter, sans-serif';
-  ctx.fillText("Gekozen met Nossy's Picker · filmdata: TMDB", W / 2, H - 56);
+  ctx.fillStyle = '#a69f94';
+  ctx.font = '400 24px Archivo, sans-serif';
+  ctx.fillText("Gekozen met Nossy's Picker. Filmdata: TMDB", W / 2, H - 52);
 
   return new Promise((resolve) => c.toBlob(resolve, 'image/png'));
 }

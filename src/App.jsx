@@ -427,7 +427,7 @@ export default function App() {
     )}
     <Shell tab={tab} setTab={setTab}>
       {storageBroken && (
-        <div className="notice" role="alert" style={{ marginBottom: 18, borderLeftColor: 'var(--dot-o)' }}>
+        <div className="notice warn" role="alert" style={{ marginBottom: 18 }}>
           {tr('app.storageBroken')}
         </div>
       )}
@@ -466,7 +466,7 @@ export default function App() {
           <div style={{ fontSize: 12.5, color: 'var(--fog)', marginBottom: 6 }}>
             Scores ophalen bij OMDb… {extEnrich.done}/{extEnrich.total}
           </div>
-          <div className="progressbar"><div style={{ width: `${(extEnrich.done / Math.max(extEnrich.total, 1)) * 100}%`, background: 'var(--dot-o)' }} /></div>
+          <div className="progressbar"><div style={{ width: `${(extEnrich.done / Math.max(extEnrich.total, 1)) * 100}%` }} /></div>
         </div>
       )}
       <div className="tabfade" key={tab}>

@@ -139,13 +139,13 @@ export default function Bieb({ app }) {
         <div>
           <h1 className="page-title">{tr('bieb.title')}</h1>
           <p className="page-sub">
-            {scope === 'watchlist' ? tr('bieb.yourWatchlist') : tr('bieb.yourHistory')}{' \u00b7 '}{tr('bieb.header', { shown: films.length, count: base.length })}{filtersActief ? tr('bieb.filtered') : ''}.
+            {scope === 'watchlist' ? tr('bieb.yourWatchlist') : tr('bieb.yourHistory')}: {tr('bieb.header', { shown: films.length, count: base.length })}{filtersActief ? tr('bieb.filtered') : ''}.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className={`chip ${scope === 'watchlist' ? 'on' : ''}`} onClick={() => { setScope('watchlist'); setSort('titel'); }}>{tr('bieb.watchlist')}</button>
-          <button className={`chip ${scope === 'gezien' ? 'on-g' : ''}`} onClick={() => { setScope('gezien'); setSort('mijn'); }}>{tr('bieb.seenTab', { count: gezienList.length })}</button>
-        </div>
+      </div>
+      <div className="modus-tabs">
+        <button type="button" className={`modus-tab ${scope === 'watchlist' ? 'actief' : ''}`} aria-pressed={scope === 'watchlist'} onClick={() => { setScope('watchlist'); setSort('titel'); }}>{tr('bieb.watchlist')}</button>
+        <button type="button" className={`modus-tab ${scope === 'gezien' ? 'actief' : ''}`} aria-pressed={scope === 'gezien'} onClick={() => { setScope('gezien'); setSort('mijn'); }}>{tr('bieb.seenTab', { count: gezienList.length })}</button>
       </div>
 
       {scope === 'gezien' && watchedFilms.length === 0 && app.watchedLb.length > 0 && (
@@ -206,7 +206,7 @@ export default function Bieb({ app }) {
                 <div className="poster">
                   {m?.poster ? <img src={IMG(m.poster, 'w342')} alt="" loading="lazy" /> : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
                   {scope === 'gezien' && eigen != null ? (
-                    <span className="badge-score" style={{ color: 'var(--dot-g)', borderColor: 'rgba(0,224,84,0.4)' }}><Star size={9} style={{ verticalAlign: -1 }} /> {fmtScore(eigen)}</span>
+                    <span className="badge-score eigen"><Star size={9} style={{ verticalAlign: -1 }} /> {fmtScore(eigen)}</span>
                   ) : ns != null ? (
                     <span className="badge-score">{fmtScore(ns)}</span>
                   ) : null}

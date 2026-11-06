@@ -62,8 +62,8 @@ export default function SimilarOverlay({ seed, seedMeta, app, onClose }) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="wrap" style={{ maxWidth: 860, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400 }}>
-            <Sparkles size={20} style={{ verticalAlign: -2, color: 'var(--dot-o)' }} /> {tr('similar.title', { name: seed.name })}
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>
+            {tr('similar.title', { name: seed.name })}
           </h1>
           <button className="btn ghost" style={{ marginLeft: 'auto' }} onClick={onClose}><X size={15} /> {tr('similar.close')}</button>
         </div>
@@ -95,7 +95,7 @@ export default function SimilarOverlay({ seed, seedMeta, app, onClose }) {
               <div key={f.id} className="card" style={{ padding: 12 }}>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button style={{ width: 64, flexShrink: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => openFilm(f)} aria-label={tr('common.openAria', { title: f.title })}>
-                    {f.poster ? <img src={IMG(f.poster, 'w185')} alt="" loading="lazy" style={{ width: '100%', borderRadius: 6 }} /> : <div style={{ width: 64, height: 96, borderRadius: 6, background: 'var(--ink)' }} />}
+                    {f.poster ? <img src={IMG(f.poster, 'w185')} alt="" loading="lazy" style={{ width: '100%', borderRadius: 2 }} /> : <div style={{ width: 64, height: 96, borderRadius: 2, background: 'var(--ink)' }} />}
                   </button>
                   <div style={{ minWidth: 0 }}>
                     <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }} onClick={() => openFilm(f)}>
@@ -105,8 +105,8 @@ export default function SimilarOverlay({ seed, seedMeta, app, onClose }) {
                     {f.opWatchlist && <span className="chip on-g" style={{ marginTop: 6, padding: '2px 8px', fontSize: 11 }}><Check size={11} /> {tr('similar.onList')}</span>}
                   </div>
                 </div>
-                <p style={{ color: 'var(--fog)', fontSize: 12.5, marginTop: 10, minHeight: 32 }}>
-                  {[...(f.dubbeleBron ? [tr('similar.both')] : []), ...f.redenen.map(reden)].filter(Boolean).slice(0, 2).join(' · ')}
+                <p className="meta" style={{ color: 'var(--fog)', fontSize: 12.5, marginTop: 10, minHeight: 32, alignContent: 'flex-start' }}>
+                  {[...(f.dubbeleBron ? [tr('similar.both')] : []), ...f.redenen.map(reden)].filter(Boolean).slice(0, 2).map((x) => <span key={x}>{x}</span>)}
                 </p>
                 <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center', fontSize: 12 }}>
                   <a href={lbLink({ name: f.title }, f.id)} target="_blank" rel="noreferrer">Letterboxd</a>

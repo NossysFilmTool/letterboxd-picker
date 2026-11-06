@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, X, Eye, Clapperboard, Star, Sparkles } from 'lucide-react';
+import { Plus, X, Eye, Clapperboard, Sparkles } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
 import { lbLink, jwLink } from '../lib/links.js';
@@ -29,13 +29,13 @@ export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdb
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', color: 'var(--paper)' }} onClick={() => onOpen(r)}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 400 }}>{r.title}</h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 25, fontWeight: 700, lineHeight: 1.1 }}>{r.title}</h2>
         </button>
-        <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 2 }}>
-          {r.year || tr('match.yearUnknown')}
-          {r.runtime ? ` · ${r.runtime} min` : ''}
-          {r.vote ? <> · <Star size={12} style={{ verticalAlign: -1, color: 'var(--dot-o)' }} /> {fmt(r.vote)}{r.votes != null ? <span style={{ color: 'var(--fog-dim)' }}> ({tr('match.votesShort', { count: r.votes, n: r.votes >= 1000 ? `${Math.round(r.votes / 1000)}k` : r.votes })})</span> : null}</> : null}
-          {sterk && <span className="chip on-b" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>{tr('zoek.matchPct', { pct: r.match })}</span>}
+        <p className="meta" style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 4 }}>
+          <span>{r.year || tr('match.yearUnknown')}</span>
+          {r.runtime ? <span>{r.runtime} min</span> : null}
+          {r.vote ? <span>TMDB {fmt(r.vote)}{r.votes != null ? <span style={{ color: 'var(--fog-dim)' }}> ({tr('match.votesShort', { count: r.votes, n: r.votes >= 1000 ? `${Math.round(r.votes / 1000)}k` : r.votes })})</span> : null}</span> : null}
+          {sterk && <span className="chip on-b" style={{ padding: '2px 8px', fontSize: 11 }}>{tr('zoek.matchPct', { pct: r.match })}</span>}
         </p>
         {r.flat?.length > 0 && (
           <p className="card-prov">
@@ -43,10 +43,9 @@ export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdb
             {tr('winner.nowOn', { p: [...r.flat.filter((p) => voorkeur.includes(p)), ...r.flat.filter((p) => !voorkeur.includes(p))].slice(0, 3).join(', ') })}
           </p>
         )}
-        <p className="why">
-          {hoofdreden}
-          {r.bronnen.length > 1 ? tr('verken.viaRoutes', { count: r.bronnen.length }) : ''}
-          {extra.length ? ` · ${extra.slice(0, 2).join(' · ')}` : ''}
+        <p className="why meta">
+          <span>{hoofdreden}{r.bronnen.length > 1 ? tr('verken.viaRoutes', { count: r.bronnen.length }) : ''}</span>
+          {extra.slice(0, 2).map((x) => <span key={x}>{x}</span>)}
         </p>
         {r.recept && r.match != null && (
           <div style={{ marginTop: 8 }}>

@@ -172,7 +172,7 @@ export default function Inzicht({ app }) {
           <p className="label" style={{ marginBottom: 10 }}>{tr('inzicht.rhythm')}</p>
           <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 56, marginBottom: 10 }} aria-hidden="true">
             {ritme.maanden.map((x) => (
-              <div key={`${x.y}-${x.m}`} title={`${x.count}`} style={{ flex: 1, minWidth: 8, height: `${x.count ? Math.max(12, (x.count / ritme.max) * 100) : 4}%`, borderRadius: 3, background: x.count === ritme.max && x.count ? 'var(--dot-g)' : 'var(--line-strong)' }} />
+              <div key={`${x.y}-${x.m}`} title={`${x.count}`} style={{ flex: 1, minWidth: 8, height: `${x.count ? Math.max(12, (x.count / ritme.max) * 100) : 4}%`, borderRadius: 1, background: x.count === ritme.max && x.count ? 'var(--paper)' : 'var(--line-strong)' }} />
             ))}
           </div>
           <p style={{ color: 'var(--fog)', fontSize: 13.5 }}>
@@ -195,8 +195,8 @@ export default function Inzicht({ app }) {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 18, borderColor: 'rgba(255,128,0,0.25)' }}>
-        <p className="label" style={{ color: 'var(--dot-o)', marginBottom: 10 }}><Sparkles size={14} style={{ verticalAlign: -2 }} /> {tr('inzicht.profileTitle')}</p>
+      <div className="card" style={{ marginBottom: 18 }}>
+        <p className="label" style={{ marginBottom: 10 }}><Sparkles size={14} style={{ verticalAlign: -2 }} /> {tr('inzicht.profileTitle')}</p>
         {!smaak.sterk && (
           <p style={{ color: 'var(--fog)', fontSize: 13, marginBottom: 10 }}>
             {tr('inzicht.profileYoung')}
@@ -324,7 +324,7 @@ export default function Inzicht({ app }) {
         {metrics.map(([label, val]) => (
           <div className="card" key={label} style={{ padding: '14px 16px' }}>
             <p style={{ color: 'var(--fog-dim)', fontSize: 12 }}>{label}</p>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: 26, marginTop: 2 }}>{val}</p>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>{val}</p>
           </div>
         ))}
       </div>
@@ -333,19 +333,19 @@ export default function Inzicht({ app }) {
         {stats.genres.length > 0 && (
           <div className="card">
             <p className="label" style={{ marginBottom: 12 }}>{tr('inzicht.genres')}</p>
-            <BarList items={stats.genres} color="var(--dot-o)" max={maxG} />
+            <BarList items={stats.genres} color="var(--paper)" max={maxG} />
           </div>
         )}
         {stats.decades.length > 0 && (
           <div className="card">
             <p className="label" style={{ marginBottom: 12 }}>{tr('inzicht.decades')}</p>
-            <BarList items={stats.decades} color="var(--dot-b)" max={maxD} />
+            <BarList items={stats.decades} color="var(--fog)" max={maxD} />
           </div>
         )}
         {stats.directors.length > 0 && (
           <div className="card">
             <p className="label" style={{ marginBottom: 12 }}>{tr('inzicht.directorsMulti')}</p>
-            <BarList items={stats.directors} color="var(--dot-g)" max={stats.directors[0][1]} />
+            <BarList items={stats.directors} color="var(--fog)" max={stats.directors[0][1]} />
           </div>
         )}
         {stats.countries.length > 0 && (
@@ -358,14 +358,14 @@ export default function Inzicht({ app }) {
 
       {history.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>
-          <p className="label" style={{ marginBottom: 12 }}><History size={13} style={{ verticalAlign: -2 }} /> Laatste picks — tik om te heropenen</p>
+          <p className="label" style={{ marginBottom: 12 }}><History size={13} style={{ verticalAlign: -2 }} /> Laatste picks, tik om te heropenen</p>
           <div style={{ display: 'grid', gap: 4 }}>
             {history.slice(0, 12).map((h, i) => (
               <button
                 key={`${h.key}-${i}`} onClick={() => openPick(h)}
                 style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13.5, background: 'none', border: 'none', borderBottom: i < Math.min(history.length, 12) - 1 ? '1px solid var(--line)' : 'none', padding: '6px 2px 8px', color: 'var(--paper)', textAlign: 'left', cursor: 'pointer' }}
               >
-                <span>{h.name} <span style={{ color: 'var(--fog-dim)' }}>({h.year || '?'})</span>{h.context ? <span style={{ color: 'var(--dot-b)', fontSize: 12 }}> · {h.context.toLowerCase()}</span> : null}</span>
+                <span>{h.name} <span style={{ color: 'var(--fog-dim)' }}>({h.year || '?'})</span>{h.context ? <span style={{ color: 'var(--fog-dim)', fontSize: 12 }}>, {h.context.toLowerCase()}</span> : null}</span>
                 <span style={{ color: 'var(--fog-dim)', flexShrink: 0 }}>{new Date(h.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</span>
               </button>
             ))}

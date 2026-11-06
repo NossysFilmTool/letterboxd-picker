@@ -187,7 +187,7 @@ export default function Instellingen({ app }) {
             {keyReport.map((r) => (
               <p key={r.key} style={{ fontSize: 13, color: 'var(--fog)' }}>
                 <code style={{ color: 'var(--paper)' }}>{r.key.slice(0, 4)}…{r.key.slice(-2)}</code>
-                {' — '}
+                {': '}
                 {r.status === 'ok' && <span style={{ color: 'var(--dot-g)' }}>{tr('setup.statusOk')}</span>}
                 {r.status === 'limit' && <span style={{ color: 'var(--dot-o)' }}>{tr('setup.statusLimit')}</span>}
                 {r.status === 'invalid' && <span style={{ color: 'var(--dot-o)' }}>{tr('setup.statusInvalid')}</span>}
@@ -236,7 +236,7 @@ export default function Instellingen({ app }) {
               });
               if (!jaarGevallen.length) return null;
               return (
-                <button className="btn" style={{ borderColor: 'rgba(255,128,0,0.4)' }} onClick={() => setPicker(jaarGevallen)} disabled={app.enrich.running}>
+                <button className="btn" style={{ borderColor: 'var(--dot-o)' }} onClick={() => setPicker(jaarGevallen)} disabled={app.enrich.running}>
                   {tr('setup.wrongFilms', { count: jaarGevallen.length })}
                 </button>
               );
@@ -344,10 +344,10 @@ export default function Instellingen({ app }) {
             value={app.settings.themeEmphasis ?? DEFAULT_THEME_EMPHASIS}
             aria-label={tr('setup.themeEmphasis')}
             onChange={(e) => app.setSettings((s) => ({ ...s, themeEmphasis: +e.target.value }))}
-            style={{ flex: 1, minWidth: 180, accentColor: 'var(--dot-o)' }}
+            style={{ flex: 1, minWidth: 180, accentColor: 'var(--paper)' }}
           />
           <span style={{ fontSize: 14, color: 'var(--paper)', minWidth: 128 }}>
-            {(() => { const v = app.settings.themeEmphasis ?? DEFAULT_THEME_EMPHASIS; return v === 0 ? 'Uit — geen thema\u2019s' : v <= 0.5 ? 'Licht accent' : v <= 1 ? 'Standaard' : v <= 1.5 ? 'Nadrukkelijk' : 'Sterk themagedreven'; })()}
+            {(() => { const v = app.settings.themeEmphasis ?? DEFAULT_THEME_EMPHASIS; return v === 0 ? 'Uit, geen thema\u2019s' : v <= 0.5 ? 'Licht accent' : v <= 1 ? 'Standaard' : v <= 1.5 ? 'Nadrukkelijk' : 'Sterk themagedreven'; })()}
           </span>
         </div>
       </div>
@@ -391,7 +391,7 @@ export default function Instellingen({ app }) {
           <button className="btn" onClick={() => { if (confirm(tr('setup.confirmClearData'))) app.resetLibrary(); }}>
             <Trash2 size={15} /> Terug naar start (wis bibliotheek)
           </button>
-          <button className="btn" style={{ borderColor: 'rgba(255,128,0,0.5)', color: 'var(--dot-o)' }} onClick={wipe}>
+          <button className="btn" style={{ borderColor: 'var(--line-strong)', color: 'var(--dot-o)' }} onClick={wipe}>
             <Trash2 size={15} /> {tr('setup.wipeAll')}
           </button>
         </div>

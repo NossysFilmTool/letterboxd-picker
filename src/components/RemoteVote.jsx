@@ -67,7 +67,7 @@ export default function RemoteVote({ code, pollMs = 10000 }) {
       <div className="wrap" style={{ maxWidth: 560, margin: '40px auto', textAlign: 'center' }}>
         <div className="card">
           <p className="label" style={{ marginBottom: 10 }}>{tr('remote.winnerIs')}</p>
-          {winnaar.poster && <img src={IMG(winnaar.poster, 'w342')} alt="" style={{ width: 160, borderRadius: 10, marginBottom: 12 }} />}
+          {winnaar.poster && <img src={IMG(winnaar.poster, 'w342')} alt="" style={{ width: 160, borderRadius: 2, marginBottom: 12 }} />}
           <p style={{ fontSize: 22, fontWeight: 600, color: 'var(--paper)' }}>{winnaar.name}{winnaar.year ? ` (${winnaar.year})` : ''}</p>
         </div>
       </div>
@@ -94,10 +94,10 @@ export default function RemoteVote({ code, pollMs = 10000 }) {
         {sessie.films.map((f) => (
           <button key={f.key} className={`poster-tile ${picks.includes(f.key) ? '' : ''}`} onClick={() => toggle(f.key)}
             aria-pressed={picks.includes(f.key)} aria-label={`${f.name}${f.year ? ` (${f.year})` : ''}`}
-            style={picks.includes(f.key) ? { outline: '2px solid var(--dot-g)', outlineOffset: 2, borderRadius: 10 } : undefined}>
+            style={picks.includes(f.key) ? { outline: '2px solid var(--paper)', outlineOffset: 2, borderRadius: 3 } : undefined}>
             <div className="poster">
               {f.poster ? <img src={IMG(f.poster, 'w342')} alt="" loading="lazy" /> : <span style={{ fontSize: 12, padding: 6 }}>{f.name}</span>}
-              {picks.includes(f.key) && <span style={{ position: 'absolute', top: 6, right: 6, background: 'var(--dot-g)', color: '#08130b', borderRadius: '50%', width: 22, height: 22, display: 'grid', placeItems: 'center' }}><Check size={14} /></span>}
+              {picks.includes(f.key) && <span style={{ position: 'absolute', top: 6, right: 6, background: 'var(--paper)', color: 'var(--ink)', borderRadius: 2, width: 22, height: 22, display: 'grid', placeItems: 'center' }}><Check size={14} /></span>}
             </div>
             <span className="t">{f.name}</span>
           </button>

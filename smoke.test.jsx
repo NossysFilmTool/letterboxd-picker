@@ -2439,7 +2439,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022 }]));
     localStorage.setItem('nossyV2.history', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022, date: gisteren, context: 'x' }]));
     render(<App />);
-    expect(screen.getByText(/Aftersun \(2022\) — Gekeken\?/)).toBeTruthy();
+    expect(screen.getByText(/Aftersun \(2022\): Gekeken\?/)).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Geef 4 sterren'));
     // kaart weg, antwoord + rating bewaard
     expect(screen.queryByText(/Gekeken\?/)).toBeNull();

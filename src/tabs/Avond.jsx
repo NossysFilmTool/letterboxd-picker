@@ -220,7 +220,7 @@ export default function Avond({ app }) {
         <div className="toprow">
           <div>
             <h1 className="page-title">{tr('avond.vetoRound')}</h1>
-            <p className="page-sub">Speler {turn + 1} is aan de beurt — tik de film weg die jíj niet wilt. Nog {left.length} over.</p>
+            <p className="page-sub">Speler {turn + 1} is aan de beurt. Tik de film weg die jíj niet wilt. Nog {left.length} over.</p>
           </div>
           <button className="btn ghost" onClick={reset}>{tr('common.stop')}</button>
         </div>
@@ -245,7 +245,7 @@ export default function Avond({ app }) {
         <div className="toprow">
           <div>
             <h1 className="page-title">{roundName}</h1>
-            <p className="page-sub">Duel {pairIdx + 1} van {cur.length / 2} — beslis samen: welke wint?</p>
+            <p className="page-sub">Duel {pairIdx + 1} van {cur.length / 2}. Beslis samen: welke wint?</p>
           </div>
           <button className="btn ghost" onClick={reset}>{tr('common.stop')}</button>
         </div>
@@ -359,7 +359,7 @@ export default function Avond({ app }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
         {remoteAvailable() && (
           <div className="card">
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 400 }}><Send size={18} style={{ verticalAlign: -3, color: 'var(--dot-b)' }} /> {tr('avond.remoteTitle')}</h2>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Send size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.remoteTitle')}</h2>
             {!remote && (
               <>
                 <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('avond.remoteExplain')}</p>
@@ -383,7 +383,7 @@ export default function Avond({ app }) {
               Object.values(remoteVotes).forEach((picks) => (picks || []).forEach((k) => { telling[k] = (telling[k] || 0) + 1; }));
               return (
                 <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 20, fontWeight: 600, letterSpacing: '0.15em', color: 'var(--paper)' }}>{tr('avond.remoteCode', { code: remote.code })}</p>
+                  <p style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--paper)' }}>{tr('avond.remoteCode', { code: remote.code })}</p>
                   <button className="btn" style={{ marginTop: 8 }} onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
                     {copied ? tr('avond.copied') : tr('avond.copyLink')}
                   </button>
@@ -408,7 +408,7 @@ export default function Avond({ app }) {
             {remoteWinner && (
               <div style={{ marginTop: 12, textAlign: 'center' }}>
                 <p className="label" style={{ marginBottom: 8 }}>{tr('remote.winnerIs')}</p>
-                {meta[remoteWinner.key]?.poster && <img src={IMG(meta[remoteWinner.key].poster, 'w342')} alt="" style={{ width: 130, borderRadius: 10, marginBottom: 8 }} />}
+                {meta[remoteWinner.key]?.poster && <img src={IMG(meta[remoteWinner.key].poster, 'w342')} alt="" style={{ width: 130, borderRadius: 2, marginBottom: 8 }} />}
                 <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--paper)' }}>{remoteWinner.name}{remoteWinner.year ? ` (${remoteWinner.year})` : ''}</p>
                 <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => { setRemote(null); setRemoteWinner(null); setRemoteVotes({}); }}>{tr('avond.stopRound')}</button>
               </div>
@@ -416,7 +416,7 @@ export default function Avond({ app }) {
           </div>
         )}
         <div className="card">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 400 }}><Ban size={18} style={{ verticalAlign: -3, color: 'var(--dot-o)' }} /> Veto-rondes</h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Ban size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> Veto-rondes</h2>
           <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
             {tr('avond.vetoExplain', { count: Math.min(8, basePool.length) })}
           </p>
@@ -429,9 +429,9 @@ export default function Avond({ app }) {
           </div>
         </div>
         <div className="card">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 400 }}><Swords size={18} style={{ verticalAlign: -3, color: 'var(--dot-g)' }} /> Knock-out bracket</h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Swords size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> Knock-out bracket</h2>
           <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
-            {basePool.length >= 8 ? 'Acht' : 'Vier'} films, duel voor duel van {basePool.length >= 8 ? 'kwartfinale' : 'halve finale'} naar de finale. Beslis elk duel samen — of wissel per duel wie kiest.
+            {basePool.length >= 8 ? 'Acht' : 'Vier'} films, duel voor duel van {basePool.length >= 8 ? 'kwartfinale' : 'halve finale'} naar de finale. Beslis elk duel samen, of wissel per duel wie kiest.
           </p>
           <div style={{ marginTop: 14 }}>
             <button className="btn primary" onClick={startBracket} disabled={basePool.length < 4}><Swords size={15} /> {tr('avond.startBracket')}</button>

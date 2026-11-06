@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, X, Eye, ArrowLeft, Clapperboard, Star, SkipForward } from 'lucide-react';
+import { Plus, X, Eye, ArrowLeft, Clapperboard, SkipForward } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
 import { hoofdreden } from '../lib/redenen.js';
@@ -85,10 +85,11 @@ export default function SnelBeoordelen({ kandidaten, seededOnRatings, onWil, onN
             </div>
             <div className="snel-info">
               <h2>{film.title}</h2>
-              <p className="snel-meta">
-                {[film.year, film.runtime ? `${film.runtime} min` : null].filter(Boolean).join(' · ')}
-                {film.vote ? <> {'·'} <Star size={12} style={{ verticalAlign: -1, color: 'var(--dot-o)' }} /> {fmt(film.vote)}</> : null}
-                {film.flat?.length ? <> {'·'} {tr('winner.nowOn', { p: film.flat.slice(0, 2).join(', ') })}</> : null}
+              <p className="snel-meta meta">
+                {film.year ? <span>{film.year}</span> : null}
+                {film.runtime ? <span>{film.runtime} min</span> : null}
+                {film.vote ? <span>TMDB {fmt(film.vote)}</span> : null}
+                {film.flat?.length ? <span>{tr('winner.nowOn', { p: film.flat.slice(0, 2).join(', ') })}</span> : null}
               </p>
               <p className="why">{hoofdreden(film, tr, seededOnRatings)}</p>
               {film.plot && <p className="snel-plot">{film.plot}</p>}

@@ -149,8 +149,8 @@ export default function Pick({ app }) {
             ? <img className="fu-poster" src={IMG(meta[followupPick.key].poster, 'w154')} alt="" />
             : <div className="fu-poster" aria-hidden="true" />}
           <div style={{ flex: 1, minWidth: 200 }}>
-            <p className="label" style={{ marginBottom: 2 }}>{tr('pick.followupTitle')} · {relTijd(followupPick.date)}</p>
-            <p style={{ color: 'var(--paper)', fontSize: 15.5, fontWeight: 600 }}>{followupPick.name}{followupPick.year ? ` (${followupPick.year})` : ''} — {tr('pick.followupQ')}</p>
+            <p className="label" style={{ marginBottom: 2 }}>{tr('pick.followupTitle')}, {relTijd(followupPick.date)}</p>
+            <p style={{ color: 'var(--paper)', fontSize: 15.5, fontWeight: 600 }}>{followupPick.name}{followupPick.year ? ` (${followupPick.year})` : ''}: {tr('pick.followupQ')}</p>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="fu-stars" role="group" aria-label={tr('pick.followupQ')}>
@@ -229,7 +229,7 @@ export default function Pick({ app }) {
 
             <div style={{ display: 'flex', gap: 12, marginTop: 16, alignItems: 'center', flexWrap: 'wrap' }}>
               <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13.5, color: 'var(--fog)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={filters.excludeSeen} onChange={(e) => setFilters({ ...filters, excludeSeen: e.target.checked })} style={{ accentColor: 'var(--dot-g)' }} />
+                <input type="checkbox" checked={filters.excludeSeen} onChange={(e) => setFilters({ ...filters, excludeSeen: e.target.checked })} style={{ accentColor: 'var(--paper)' }} />
                 Gezien uitsluiten
               </label>
               <button className="btn ghost" onClick={() => setFilters(EMPTY_FILTERS)}>{tr('pick.resetFilters')}</button>

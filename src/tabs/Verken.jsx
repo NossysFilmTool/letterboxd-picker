@@ -605,9 +605,9 @@ export default function Verken({ app }) {
         </div>
 
         {shortOpen && shortlist.length > 0 && (
-          <div className="card" style={{ marginBottom: 20, borderColor: 'rgba(64,188,244,0.35)' }}>
+          <div className="card" style={{ marginBottom: 20, borderColor: 'var(--line-strong)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-              <p className="label" style={{ color: 'var(--dot-b)' }}>Shortlist ({shortlist.length})</p>
+              <p className="label" style={{ color: 'var(--paper)', fontWeight: 600 }}>Shortlist ({shortlist.length})</p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" onClick={copyList}><Copy size={14} /> {tr('zoek.copyBtn')}</button>
                 <button className="btn" onClick={() => downloadText('letterboxd-import.csv', shortlistToCsv(shortlist))}>
@@ -702,7 +702,7 @@ export default function Verken({ app }) {
                 {skippedObjects.map((s) => (
                   <span key={s.id} className="chip">
                     {s.title} ({s.year || '?'})
-                    <button onClick={() => unskip(s.id)} aria-label={tr('verken.restore', { title: s.title })} title={tr('verken.restoreTitle')} style={{ background: 'none', border: 'none', color: 'var(--dot-g)', padding: 0, display: 'inline-flex' }}>
+                    <button onClick={() => unskip(s.id)} aria-label={tr('verken.restore', { title: s.title })} title={tr('verken.restoreTitle')} style={{ background: 'none', border: 'none', color: 'var(--paper)', padding: 0, display: 'inline-flex' }}>
                       <RotateCcw size={13} />
                     </button>
                   </span>
