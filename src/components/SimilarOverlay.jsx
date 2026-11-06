@@ -58,7 +58,7 @@ export default function SimilarOverlay({ seed, seedMeta, app, onClose }) {
 
   return (
     <div role="dialog" aria-modal="true" aria-label={tr('similar.title', { name: seed.name })}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(10, 13, 16, 0.88)', backdropFilter: 'blur(4px)', zIndex: 60, overflowY: 'auto', padding: '30px 16px' }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(18, 17, 16, 0.96)', zIndex: 60, overflowY: 'auto', padding: '30px 16px' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="wrap" style={{ maxWidth: 860, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>

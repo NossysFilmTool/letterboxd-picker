@@ -629,9 +629,9 @@ export default function Verken({ app }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className={`chip ${mode === 'voorJou' ? 'on-b' : ''}`} onClick={() => setMode('voorJou')}>{tr('verken.tabForYou')}</button>
-          <button className={`chip ${mode === 'zoeken' ? 'on-b' : ''}`} onClick={() => setMode('zoeken')}>{tr('verken.tabSearch')}</button>
+        <div className="modus-tabs">
+          <button type="button" className={`modus-tab ${mode === 'voorJou' ? 'actief' : ''}`} aria-pressed={mode === 'voorJou'} onClick={() => setMode('voorJou')}>{tr('verken.tabForYou')}</button>
+          <button type="button" className={`modus-tab ${mode === 'zoeken' ? 'actief' : ''}`} aria-pressed={mode === 'zoeken'} onClick={() => setMode('zoeken')}>{tr('verken.tabSearch')}</button>
           {/* Verberg al gezien: Voor jou doet dat altijd, in Zoeken kies je zelf */}
           <button
             className={`chip verberg-gezien ${mode === 'voorJou' || verbergGezien ? 'on-g' : ''}`}

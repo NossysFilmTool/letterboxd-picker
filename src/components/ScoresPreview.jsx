@@ -13,9 +13,9 @@ export default function ScoresPreview() {
       </div>
       <span className="sp-arrow">→</span>
       <div className="sp-card sp-after">
-        <span className="sp-nossy">◉ {d('7,9')}</span>
+        <span className="sp-nossy"><span className="sp-src">Nossy</span> {d('7,9')}</span>
         <span><span className="sp-src">IMDb</span> {d('7,8')}</span>
-        <span>🍅 93%</span>
+        <span><span className="sp-src">RT</span> 93%</span>
         <span><span className="sp-src">Meta</span> 81</span>
       </div>
     </div>

@@ -551,18 +551,37 @@ describe('V2 smoke', () => {
       expect(document.querySelector('.vanavond').textContent).toContain('100 min');
       // de volledige details (regisseur) komen erbij
       await waitFor(() => expect(document.querySelector('.vanavond .vmeta').textContent).toContain('Testregisseur'));
-      // andere: een nieuwe aanrader, de vorige staat weer gewoon in de rij
-      fireEvent.click(screen.getByText('Andere'));
+      // een andere: een nieuwe aanrader, de vorige staat weer gewoon in de rij
+      fireEvent.click(screen.getByText('Een andere'));
       expect(titel()).not.toBe(eerste);
       expect(tegels()).toContain(eerste);
       // op de shortlist: weg uit vanavond, en de volgende komt
       const tweede = titel();
-      fireEvent.click(within(document.querySelector('.vanavond')).getByText('Shortlist'));
+      fireEvent.click(within(document.querySelector('.vanavond')).getByText('Op shortlist'));
       await waitFor(() => expect(ls('shortlist')?.map((s) => s.title)).toEqual([tweede]));
       expect(titel()).not.toBe(tweede);
     } finally {
       delete global.fetch;
     }
+  });
+
+  it('filmkleur: uit de poster, altijd diep genoeg voor witte tekst', async () => {
+    const { tintUitPixels } = await import('./src/lib/filmkleur.js');
+    const pixels = (rgb, n = 40) => { const d = new Uint8ClampedArray(n * 4); for (let i = 0; i < n; i++) d.set([...rgb, 255], i * 4); return d; };
+    const lum = (hex) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrastMetWit = (hex) => 1.05 / (lum(hex) + 0.05);
+    // fel geel, fel rood, wit, zwart, teal: steeds een diepe tint met genoeg contrast
+    for (const rgb of [[250, 220, 40], [220, 30, 30], [255, 255, 255], [0, 0, 0], [40, 160, 170]]) {
+      const kleur = tintUitPixels(pixels(rgb));
+      expect(kleur).toMatch(/^#[0-9a-f]{6}$/);
+      expect(contrastMetWit(kleur)).toBeGreaterThanOrEqual(4.5);
+    }
+    // de tint volgt de poster: een rode poster geeft een rode tint
+    const rood = tintUitPixels(pixels([220, 30, 30]));
+    expect(parseInt(rood.slice(1, 3), 16)).toBeGreaterThan(parseInt(rood.slice(5, 7), 16));
   });
 
   it('opgeblazen cijfers: fans en bots herkend, kleine arthousefilms niet', async () => {
@@ -881,8 +900,8 @@ describe('V2 smoke', () => {
       expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
       // de details komen binnen: twee films tonen dat ze op Netflix staan (een
       // tegel en de vanavond-aanrader, die streamingaanbod voorrang geeft)
-      await waitFor(() => expect(document.querySelectorAll('.tile-prov, .vanavond .vdienst').length).toBe(2));
-      expect(document.querySelector('.vanavond .vdienst').textContent).toBe('Nu op Netflix');
+      await waitFor(() => expect(document.querySelectorAll('.tile-prov').length).toBe(1));
+      expect(document.querySelector('.vanavond .eyebrow').textContent).toBe('Vanavond, nu op Netflix');
       expect(calls).toContain('/movie/601');
       // kort: de films van 140 minuten vallen weg (te weinig voor een rij, dus de kaartenlijst)
       fireEvent.click(screen.getByText('Kort (< 1u45)'));
@@ -894,7 +913,7 @@ describe('V2 smoke', () => {
       fireEvent.change(screen.getByLabelText('Filter op streamingdienst'), { target: { value: 'Netflix' } });
       expect(screen.getByText('Seed Film 1')).toBeTruthy();
       expect(screen.queryByText('Seed Film 3')).toBeNull();
-      expect(document.body.textContent).toContain('Nu op Netflix');
+      expect(document.body.textContent).toMatch(/nu op Netflix/i);
     } finally {
       delete global.fetch;
     }

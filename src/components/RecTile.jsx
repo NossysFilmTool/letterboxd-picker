@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Plus, X, Eye, Clapperboard, Star } from 'lucide-react';
+import { Plus, X, Eye, Clapperboard } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
 import Sterren from './Sterren.jsx';
 
-// Eén aanbeveling als poster-tegel. Klik opent de filmkaart; ＋, 👁 en ✕ geven
+// Eén aanbeveling als poster-tegel. Klik opent de filmkaart; plus, oog en kruis geven
 // direct feedback (shortlist / al gezien, met sterren / niet voor mij),
 // waarna de volgende film uit dezelfde rij vanzelf op deze plek schuift.
 export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, onOpen, onShortlist, onSkip, onGezien }) {
@@ -21,14 +21,6 @@ export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, o
             ? <img src={IMG(r.poster, 'w342')} alt="" loading="lazy" />
             : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
         </button>
-        {score && (
-          r.onbetrouwbaar
-            ? <span className="tile-score verdacht" title={tr('verken.opgeblazenKort')}><Star size={10} style={{ verticalAlign: -1 }} /> {score}?</span>
-            : r.opgeblazen
-              // IMDb zette het opgeblazen TMDB-cijfer recht: dit is het IMDb-cijfer
-              ? <span className="tile-score verdacht" title={tr('verken.opgeblazenImdbKort', { tmdb: lang === 'nl' ? String(r.tmdbVote).replace('.', ',') : String(r.tmdbVote) })}><Star size={10} style={{ verticalAlign: -1 }} /> {score}</span>
-              : <span className="tile-score" aria-hidden="true"><Star size={10} style={{ verticalAlign: -1 }} /> {score}</span>
-        )}
         {sterrenOpen ? (
           // Al gezien: hoeveel sterren? (of zonder)
           <div className="tile-sterren">
@@ -55,7 +47,20 @@ export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, o
       </div>
       <button type="button" className="tile-cap" onClick={() => onOpen(r)} tabIndex={-1}>
         <span className="t">{r.title}</span>
-        {r.year ? <span className="yr">{r.year}</span> : null}
+        {/* Jaar links, cijfer rechts; een verdacht cijfer krijgt een vraagteken */}
+        {(r.year || score) ? (
+          <span className="tile-sub">
+            <span>{r.year || ''}</span>
+            {score ? (
+              r.onbetrouwbaar
+                ? <span className="verdacht" title={tr('verken.opgeblazenKort')}>{score}?</span>
+                : r.opgeblazen
+                  // IMDb zette het opgeblazen TMDB-cijfer recht: dit is het IMDb-cijfer
+                  ? <span className="verdacht" title={tr('verken.opgeblazenImdbKort', { tmdb: lang === 'nl' ? String(r.tmdbVote).replace('.', ',') : String(r.tmdbVote) })}>{score}</span>
+                  : <span>{score}</span>
+            ) : null}
+          </span>
+        ) : null}
         {reden ? <span className="tile-reden" title={reden}>{reden}</span> : null}
         {prov ? <span className="tile-prov" title={tr('winner.nowOn', { p: r.flat.join(', ') })}><span className="livedot" aria-hidden="true" />{prov}</span> : null}
       </button>

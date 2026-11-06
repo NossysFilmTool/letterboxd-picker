@@ -49,10 +49,11 @@ export default function Shell({ tab, setTab, children }) {
   return (
     <div className="shell">
       <nav className="rail" aria-label={t('nav.navLabel')}>
+        {/* Letterboxds drie punten, als logo: de enige plek voor die kleuren */}
         <div className="dots" aria-hidden="true">
-          <span style={{ background: 'var(--dot-o)' }} />
-          <span style={{ background: 'var(--dot-g)' }} />
-          <span style={{ background: 'var(--dot-b)' }} />
+          <span style={{ background: '#ff8000' }} />
+          <span style={{ background: '#00e054' }} />
+          <span style={{ background: '#40bcf4' }} />
         </div>
         <NavButtons tab={tab} setTab={setTab} withSettings />
       </nav>
