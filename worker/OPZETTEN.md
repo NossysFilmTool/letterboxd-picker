@@ -76,6 +76,22 @@ opnieuw en deploy. De Worker bewaart per gast alleen een score per film
 (0 tot 100) en of die film op diens watchlist staat of al gezien is;
 exports en beoordelingen komen nooit bij de Worker.
 
+## Letterboxd live aanzetten (je dagboek meelezen)
+
+De tool kan je openbare Letterboxd-dagboek meelezen via de RSS-feed van
+je profiel (`letterboxd.com/<naam>/rss/`). Een browser mag die niet zelf
+ophalen, dus de Worker geeft hem door via `/lb/<naam>`. Niets aan te zetten:
+
+1. Plak de nieuwste `worker.js` in Edit code en Deploy.
+2. Testen: open in je browser
+   `https://nossy-tmdb.<jouw-account>.workers.dev/lb/<jouw-letterboxd-naam>`.
+   Zie je XML met je laatste logs, dan werkt het. Krijg je `LB_403` of
+   `LB_503`, dan weigert Letterboxd verzoeken vanaf Cloudflare; laat het
+   dan weten, dan zoeken we een andere route.
+
+De Worker accepteert alleen een gebruikersnaam (letters, cijfers, liggend
+streepje), haalt alleen die openbare feed op en cachet hem tien minuten.
+
 ## Goed om te weten
 
 - De sleutel staat alléén als Secret bij Cloudflare, nooit in de code of

@@ -8,7 +8,8 @@ import { useT } from '../lib/i18n.js';
 // (je koos een paar keer): tik de film aan die je keek, of "geen van allen".
 //   avond:      de kaartjes van die avond, met doorgeklikte vooraan
 //   onAntwoord: (key | null, sterren | null)
-export default function AvondVraag({ avond, meta, onAntwoord }) {
+//   onLater:    de vraag tot later wegleggen (optioneel)
+export default function AvondVraag({ avond, meta, onAntwoord, onLater }) {
   const { t: tr, lang } = useT();
   const [gekozen, setGekozen] = useState(avond.length === 1 ? avond[0] : null);
   const wanneer = (() => {
@@ -17,7 +18,10 @@ export default function AvondVraag({ avond, meta, onAntwoord }) {
       return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(dagen, 'day');
     } catch { return ''; }
   })();
-  const poster = (k, maat = 'w154') => (meta[k.key]?.poster ? IMG(meta[k.key].poster, maat) : null);
+  const poster = (k, maat = 'w154') => {
+    const pad = meta[k.key]?.poster || k.poster;
+    return pad ? IMG(pad, maat) : null;
+  };
 
   const sterren = (k) => (
     <div className="fu-antwoord">
@@ -31,6 +35,7 @@ export default function AvondVraag({ avond, meta, onAntwoord }) {
       {avond.length === 1
         ? <button type="button" className="btn ghost" onClick={() => onAntwoord(null, null)}>{tr('pick.notWatched')}</button>
         : <button type="button" className="btn ghost" onClick={() => setGekozen(null)}>{tr('pick.followupTerug')}</button>}
+      {onLater && avond.length === 1 && <button type="button" className="linkbtn fu-later" onClick={onLater}>{tr('pick.followupLater')}</button>}
     </div>
   );
 
@@ -62,6 +67,7 @@ export default function AvondVraag({ avond, meta, onAntwoord }) {
         ))}
       </div>
       <button type="button" className="btn ghost" onClick={() => onAntwoord(null, null)}>{tr('pick.followupGeen')}</button>
+      {onLater && <button type="button" className="linkbtn fu-later" onClick={onLater}>{tr('pick.followupLater')}</button>}
     </div>
   );
 }

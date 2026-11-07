@@ -12,6 +12,7 @@ import { downloadText } from '../lib/csv.js';
 import ImportPanel from '../components/ImportPanel.jsx';
 import ScoresPreview from '../components/ScoresPreview.jsx';
 import MatchPicker from '../components/MatchPicker.jsx';
+import LetterboxdLive from '../components/LetterboxdLive.jsx';
 
 export default function Instellingen({ app }) {
   const { t: tr, lang } = useT();
@@ -214,6 +215,8 @@ export default function Instellingen({ app }) {
           </div>
         )}
       </div>
+
+      {PROXY_URL && <LetterboxdLive app={app} />}
 
       <div className="card" style={{ marginBottom: 18 }}>
         <p className="label" style={{ marginBottom: 12 }}>{tr('setup.reloadData')}</p>

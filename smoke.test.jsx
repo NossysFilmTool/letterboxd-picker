@@ -2765,6 +2765,154 @@ describe('V2 smoke', () => {
     expect(r2.winner.key).toBe('b');
   });
 
+  it('kaartjesdoos: het afscheurmoment, en de vraag staat op elk scherm (of later)', async () => {
+    localStorage.clear();
+    const gisteren = new Date(Date.now() - 20 * 3600e3).toISOString();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2001', name: 'Film A', year: 2001 }]));
+    localStorage.setItem('nossyV2.kaartjes', JSON.stringify([{ id: '1', key: 'a|2001', name: 'Film A', year: 2001, datum: gisteren, bron: 'pick', personen: 1 }]));
+    render(<App />);
+    // ook op de Bieb staat de vraag
+    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    expect(screen.getByText(/Film A \(2001\): Gekeken\?/)).toBeTruthy();
+    // later: weg tot morgen
+    fireEvent.click(screen.getByText('Later'));
+    expect(screen.queryByText(/Gekeken\?/)).toBeNull();
+    expect(JSON.parse(localStorage.getItem('nossyV2.vraagLater')).id).toBe('1');
+    // de volgende keer (later verlopen) wel, en dan scheurt hij af
+    cleanup();
+    localStorage.setItem('nossyV2.vraagLater', JSON.stringify({ id: '1', tot: Date.now() - 1000 }));
+    render(<App />);
+    fireEvent.click(screen.getByLabelText('Geef 5 sterren'));
+    expect(screen.getByText('Kaartje 1 in de doos')).toBeTruthy();
+    expect(document.querySelector('.afgescheurd .kaartje-stub-titel').textContent).toBe('FILM A');
+    fireEvent.click(screen.getByText('Bekijk de doos'));
+    // meteen op de tab Kaartjes
+    expect(document.querySelector('.modus-tab.actief').textContent).toBe('Kaartjes (1)');
+    expect(document.querySelector('.kaartje-stub-stempel').textContent).toBe('★★★★★');
+  });
+
+  it('kaartjesdoos: beheren, notitie, toch (niet) gekeken en je filmjaar', async () => {
+    localStorage.clear();
+    const dag = 24 * 3600e3;
+    const iso = (ms) => new Date(ms).toISOString();
+    const nu = Date.now();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2001', name: 'Film A', year: 2001 }, { key: 'b|2002', name: 'Film B', year: 2002 }]));
+    localStorage.setItem('nossyV2.kaartjes', JSON.stringify([
+      { id: 'a', key: 'a|2001', name: 'Film A', year: 2001, datum: iso(nu - 3 * dag), bron: 'samen', personen: 2, namen: ['Sonny', 'Sanne'], antwoord: 'gekeken', sterren: 4 },
+      { id: 'b', key: 'b|2002', name: 'Film B', year: 2002, datum: iso(nu - 5 * dag), bron: 'pick', personen: 1, antwoord: 'niet' },
+    ]));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getByText('Kaartjes (1)'));
+    // je filmjaar
+    expect(screen.getByText(`Jouw filmjaar ${new Date(nu - 3 * dag).getFullYear()}`)).toBeTruthy();
+    expect(document.querySelector('.kd-jaar').textContent).toContain('Sanne');
+    // recent gekozen, niet in de doos: toch gekeken
+    fireEvent.click(screen.getByText('Recent gekozen, niet in de doos (1)'));
+    expect(document.body.textContent).toContain('je zei: niet gekeken');
+    fireEvent.click(screen.getByText('Toch gekeken'));
+    expect(screen.getByText('Kaartje 2 in de doos')).toBeTruthy();
+    expect(screen.getByText('Kaartjes (2)')).toBeTruthy();
+    // een kaartje openen: notitie en sterren aanpassen
+    fireEvent.click(screen.getByLabelText(/^Film A, gekeken op/));
+    const notitie = screen.getByPlaceholderText(/Met wie, waar/);
+    fireEvent.change(notitie, { target: { value: 'met Sanne, in Lab111' } });
+    fireEvent.blur(notitie);
+    fireEvent.click(screen.getAllByLabelText('Geef 2,5 sterren')[0]);
+    let k = JSON.parse(localStorage.getItem('nossyV2.kaartjes')).find((x) => x.id === 'a');
+    expect(k).toMatchObject({ notitie: 'met Sanne, in Lab111', sterren: 2.5 });
+    expect(JSON.parse(localStorage.getItem('nossyV2.ownRatings'))['a|2001'].rating).toBe(2.5);
+    // toch niet gekeken: uit de doos
+    fireEvent.click(screen.getByText(/Toch niet gekeken/));
+    expect(screen.getByText('Kaartjes (1)')).toBeTruthy();
+    k = JSON.parse(localStorage.getItem('nossyV2.kaartjes')).find((x) => x.id === 'a');
+    expect(k.antwoord).toBe('niet');
+  });
+
+  it('kaartjesdoos: jaaroverzicht en kaartjes met poster van buiten je lijst', async () => {
+    const { jaarOverzicht, nieuwKaartje, buitenDeDoos } = await import('./src/lib/kaartjesdoos.js');
+    const doos = [
+      { id: '1', name: 'A', gekekenOp: '2026-10-03', sterren: 4, namen: ['Sonny', 'Sanne'] },
+      { id: '2', name: 'B', gekekenOp: '2026-10-20', sterren: 5, namen: ['Sonny', 'Sanne', 'Tom'] },
+      { id: '3', name: 'C', gekekenOp: '2026-03-01T20:00:00.000Z', sterren: null },
+      { id: '4', name: 'D', gekekenOp: '2025-12-30', sterren: 3 },
+    ];
+    const o = jaarOverzicht(doos, 2026, { eigenNaam: 'Sonny' });
+    expect(o).toMatchObject({ aantal: 3, gemiddeld: 4.5, besteMaand: { maand: 9, aantal: 2 } });
+    expect(o.hoogste.name).toBe('B');
+    expect(o.vaakstMet).toEqual({ naam: 'Sanne', aantal: 2 });
+    expect(jaarOverzicht(doos, 2024)).toBeNull();
+    const k = nieuwKaartje({ key: 'x', name: 'X' }, { bron: 'voorjou', poster: '/p.jpg', doorgeklikt: true });
+    expect(k).toMatchObject({ bron: 'voorjou', poster: '/p.jpg', doorgeklikt: true });
+    const nu = Date.now();
+    const st = [{ id: 'o', datum: new Date(nu - 40 * 864e5).toISOString(), status: 'verlopen' }, { id: 'n', datum: new Date(nu - 2 * 864e5).toISOString(), status: 'niet' }, { id: 'g', datum: new Date(nu).toISOString(), status: 'gekeken' }];
+    expect(buitenDeDoos(st, { nu }).map((x) => x.id)).toEqual(['n']);
+  });
+
+  it('letterboxd live: de feed wordt dagboek, gezien en sterren; kaartjes scheuren vanzelf', async () => {
+    const { normaliseerNaam, leesDagboekFeed, voegDagboekSamen } = await import('./src/lib/lbLive.js');
+    const { lokaleDag } = await import('./src/lib/kaartjesdoos.js');
+    expect(normaliseerNaam('https://letterboxd.com/Sonny_N/films/')).toBe('Sonny_N');
+    expect(normaliseerNaam('@sonny')).toBe('sonny');
+    expect(normaliseerNaam('niet geldig!')).toBeNull();
+    const pick = Date.now() - 20 * 3600e3;
+    const dag = lokaleDag(pick);
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:letterboxd="https://letterboxd.com" xmlns:tmdb="https://themoviedb.org">
+<channel><title>Letterboxd - Sonny</title>
+<item><title>Aftersun, 2022 - ★★★★½</title><letterboxd:watchedDate>${dag}</letterboxd:watchedDate><letterboxd:rewatch>No</letterboxd:rewatch><letterboxd:filmTitle>Aftersun</letterboxd:filmTitle><letterboxd:filmYear>2022</letterboxd:filmYear><letterboxd:memberRating>4.5</letterboxd:memberRating><tmdb:movieId>965150</tmdb:movieId></item>
+<item><title>Stalker, 1979</title><letterboxd:watchedDate>2026-01-02</letterboxd:watchedDate><letterboxd:rewatch>Yes</letterboxd:rewatch><letterboxd:filmTitle>Stalker</letterboxd:filmTitle><letterboxd:filmYear>1979</letterboxd:filmYear></item>
+<item><title>Een lijst</title><link>https://letterboxd.com/sonny/list/x/</link></item>
+</channel></rss>`;
+    const regels = leesDagboekFeed(xml);
+    expect(regels).toHaveLength(2);
+    expect(regels[0]).toMatchObject({ key: 'aftersun|2022', watchedDate: dag, rating: 4.5, tmdbId: 965150, rewatch: false });
+    expect(regels[1]).toMatchObject({ key: 'stalker|1979', rating: null, rewatch: true });
+    const { diary, erbij } = voegDagboekSamen([{ key: 'stalker|1979', watchedDate: '2026-01-02' }], regels);
+    expect(erbij.map((r) => r.key)).toEqual(['aftersun|2022']);
+    expect(diary).toHaveLength(2);
+    expect(erbij[0].tmdbId).toBeUndefined();
+
+    // De Worker geeft de feed door, alleen voor nette gebruikersnamen
+    const worker = (await import('./worker/worker.js')).default;
+    const gevraagd = [];
+    global.fetch = async (url) => { gevraagd.push(String(url)); return { ok: true, status: 200, text: async () => xml }; };
+    try {
+      const res = await worker.fetch(new Request('https://w.dev/lb/sonny', { headers: { Origin: 'http://localhost:5173' } }), {});
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain('letterboxd:filmTitle');
+      expect(gevraagd[0]).toBe('https://letterboxd.com/sonny/rss/');
+      const fout = await worker.fetch(new Request('https://w.dev/lb/so%20nny', { headers: { Origin: 'http://localhost:5173' } }), {});
+      expect(fout.status).toBe(404);
+    } finally { delete global.fetch; }
+
+    // In de app: bij het openen de feed lezen; het kaartje van gisteren scheurt af
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'sonny' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022 }]));
+    localStorage.setItem('nossyV2.kaartjes', JSON.stringify([{ id: '1', key: 'aftersun|2022', name: 'Aftersun', year: 2022, datum: new Date(pick).toISOString(), bron: 'pick', personen: 1 }]));
+    global.fetch = async (url) => (String(url).includes('/lb/sonny')
+      ? { ok: true, status: 200, text: async () => xml }
+      : { ok: true, status: 200, json: async () => ({}) });
+    try {
+      render(<App />);
+      await waitFor(() => expect(JSON.parse(localStorage.getItem('nossyV2.diary') || '[]')).toHaveLength(2));
+      expect(JSON.parse(localStorage.getItem('nossyV2.watchedLb'))).toContain('aftersun|2022');
+      expect(JSON.parse(localStorage.getItem('nossyV2.ratings'))['aftersun|2022']).toBe(4.5);
+      expect(JSON.parse(localStorage.getItem('nossyV2.lbLive'))).toMatchObject({ fout: null, erbij: 2 });
+      // geen vraag meer over gisteren: het dagboek is het bewijs
+      expect(screen.queryByText(/Gekeken\?/)).toBeNull();
+      fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+      fireEvent.click(screen.getByText('Kaartjes (1)'));
+      expect(document.querySelector('.kaartje-stub-stempel').textContent).toBe('★★★★½');
+      // en in Setup zie je de stand
+      fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+      expect(screen.getByText(/2 nieuwe logs uit je dagboek/)).toBeTruthy();
+    } finally { delete global.fetch; }
+  });
+
   it('voor ons: scoren op eigen smaak en een eerlijke groepsranglijst', async () => {
     const { kiesKandidaten, informatieveRatings, scoorKandidaten, scoresUitKeuze, groepsRanglijst } = await import('./src/lib/samen.js');
     // kandidaten: films met filmdata eerst, hooguit het maximum, compact

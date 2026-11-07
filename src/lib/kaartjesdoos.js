@@ -12,8 +12,10 @@
 // naar een dienst of het kaartje delen zet het kaartje alleen vooraan in de
 // vraag. Zonder bewijs verloopt een kaartje na 14 dagen, zonder melding.
 //
-// Een kaartje: { id, key, name, year, datum (ISO), bron: 'pick'|'avond'|'samen',
-//   personen, namen?, doorgeklikt?, antwoord?: 'gekeken'|'niet', sterren?, beantwoord? }
+// Een kaartje: { id, key, name, year, datum (ISO), bron: 'pick'|'avond'|'samen'|'voorjou',
+//   personen, namen?, poster?, doorgeklikt?, antwoord?: 'gekeken'|'niet', sterren?,
+//   beantwoord?, notitie? }. Je eigen antwoord wint altijd van ander bewijs, en
+//   sterren die je op het kaartje zet winnen van die uit het dagboek.
 // Bewijs wordt niet in het kaartje bewaard maar steeds opnieuw afgeleid, zodat
 // een latere Letterboxd-import oude kaartjes alsnog kan afscheuren.
 
@@ -32,10 +34,13 @@ export function lokaleDag(ms) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-export function nieuwKaartje(film, { bron = 'pick', personen = 1, namen = null, nu = new Date() } = {}) {
+export function nieuwKaartje(film, { bron = 'pick', personen = 1, namen = null, poster = null, doorgeklikt = false, nu = new Date() } = {}) {
   const datum = nu.toISOString();
   const k = { id: `${datum}|${film.key}`, key: film.key, name: film.name, year: film.year || null, datum, bron, personen };
   if (namen?.length) k.namen = namen.slice(0, 12);
+  // De poster mee: films van buiten je lijst (Voor jou) staan niet in de filmcache
+  if (poster) k.poster = poster;
+  if (doorgeklikt) k.doorgeklikt = true;
   return k;
 }
 
@@ -80,7 +85,8 @@ export function beoordeelKaartjes(kaartjes = [], { diary = [], gezienOp = {}, ow
     const binnen = (ms) => ms >= t && ms <= t + VENSTER;
 
     if (k.antwoord === 'gekeken') {
-      return { ...k, status: 'gekeken', bewijs: 'antwoord', sterren: k.sterren ?? null, gekekenOp: k.beantwoord || k.datum };
+      // gekeken op de avond van de pick, ook als je het pas de dag erna zei
+      return { ...k, status: 'gekeken', bewijs: 'antwoord', sterren: k.sterren ?? null, gekekenOp: k.datum };
     }
     if (k.antwoord === 'niet') return { ...k, status: 'niet', bewijs: null, sterren: null, gekekenOp: null };
 
@@ -90,19 +96,19 @@ export function beoordeelKaartjes(kaartjes = [], { diary = [], gezienOp = {}, ow
     if (i >= 0) {
       dagboekGebruikt.add(i);
       const d = diary[i];
-      return { ...k, status: 'gekeken', bewijs: 'letterboxd', sterren: d.rating ?? null, gekekenOp: d.watchedDate };
+      return { ...k, status: 'gekeken', bewijs: 'letterboxd', sterren: k.sterren ?? d.rating ?? null, gekekenOp: d.watchedDate };
     }
     // 2. Zelf als gezien gemarkeerd, of sterren gegeven, binnen het venster
     const eigen = ownRatings[k.key];
     const gezien = gezienOp[k.key] != null ? tijd(gezienOp[k.key]) : null;
     if (gezien != null && binnen(gezien) && !gezienGebruikt.has(k.key)) {
       gezienGebruikt.add(k.key);
-      const sterren = eigen?.at && binnen(eigen.at) ? eigen.rating : null;
+      const sterren = k.sterren ?? (eigen?.at && binnen(eigen.at) ? eigen.rating : null);
       return { ...k, status: 'gekeken', bewijs: 'gezien', sterren, gekekenOp: new Date(gezien).toISOString() };
     }
     if (eigen?.at && binnen(eigen.at) && !sterrenGebruikt.has(k.key)) {
       sterrenGebruikt.add(k.key);
-      return { ...k, status: 'gekeken', bewijs: 'gezien', sterren: eigen.rating, gekekenOp: new Date(eigen.at).toISOString() };
+      return { ...k, status: 'gekeken', bewijs: 'gezien', sterren: k.sterren ?? eigen.rating, gekekenOp: new Date(eigen.at).toISOString() };
     }
     return { ...k, status: nu - t > VENSTER ? 'verlopen' : 'open', bewijs: null, sterren: null, gekekenOp: null };
   });
@@ -136,4 +142,39 @@ export function vraagAvond(beoordeeld, nu = Date.now()) {
 export function inDeDoos(beoordeeld) {
   return beoordeeld.filter((k) => k.status === 'gekeken')
     .sort((a, b) => String(b.gekekenOp).localeCompare(String(a.gekekenOp)));
+}
+
+// Recent gekozen maar niet in de doos (geen bewijs, "niet gekeken" of
+// verlopen): daar kun je achteraf alsnog "toch gekeken" op zeggen.
+export function buitenDeDoos(beoordeeld, { nu = Date.now(), dagen = 30 } = {}) {
+  return beoordeeld.filter((k) => k.status !== 'gekeken' && nu - tijd(k.datum) <= dagen * DAG)
+    .sort((a, b) => tijd(b.datum) - tijd(a.datum));
+}
+
+// Het jaar in kaartjes: wat er te vertellen valt over één kalenderjaar.
+// eigenNaam: jouw naam bij Voor ons, zodat "vaakst met" over de anderen gaat.
+export function jaarOverzicht(doos, jaar, { eigenNaam = null } = {}) {
+  const vanJaar = doos.filter((k) => String(k.gekekenOp).slice(0, 4) === String(jaar));
+  if (!vanJaar.length) return null;
+  const metSterren = vanJaar.filter((k) => k.sterren != null);
+  const gemiddeld = metSterren.length ? metSterren.reduce((a, k) => a + k.sterren, 0) / metSterren.length : null;
+  const perMaand = {};
+  vanJaar.forEach((k) => { const m = +String(k.gekekenOp).slice(5, 7) - 1; perMaand[m] = (perMaand[m] || 0) + 1; });
+  const [maand, inMaand] = Object.entries(perMaand).sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
+  const hoogste = metSterren.length ? [...metSterren].sort((a, b) => b.sterren - a.sterren)[0] : null;
+  const met = {};
+  vanJaar.forEach((k) => (k.namen || []).forEach((n, i) => {
+    if ((eigenNaam && n === eigenNaam) || (!eigenNaam && i === 0)) return; // jijzelf
+    met[n] = (met[n] || 0) + 1;
+  }));
+  const [vaakstNaam, vaakstAantal] = Object.entries(met).sort((a, b) => b[1] - a[1])[0] || [];
+  return {
+    jaar,
+    aantal: vanJaar.length,
+    gemiddeld: gemiddeld != null ? Math.round(gemiddeld * 10) / 10 : null,
+    besteMaand: { maand: +maand, aantal: inMaand },
+    hoogste,
+    vaakstMet: vaakstNaam ? { naam: vaakstNaam, aantal: vaakstAantal } : null,
+    kaartjes: vanJaar,
+  };
 }

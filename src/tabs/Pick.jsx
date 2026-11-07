@@ -5,8 +5,6 @@ import { useT } from '../lib/i18n.js';
 import Leader from '../components/Leader.jsx';
 import Winner from '../components/Winner.jsx';
 import ImportPanel from '../components/ImportPanel.jsx';
-import AvondVraag from '../components/AvondVraag.jsx';
-import { vraagAvond } from '../lib/kaartjesdoos.js';
 
 const EMPTY_FILTERS = { minYear: '', maxYear: '', maxRuntime: '', minVote: '', genres: [], providers: [], mood: null, excludeSeen: true };
 
@@ -17,7 +15,7 @@ export default function Pick({ app }) {
   const [winner, setWinner] = useState(null);
   const [context, setContext] = useState(null);
 
-  const { watchlist, meta, seenSet, smart, setSmart, history, setHistory, lbLists, startEnrich, kaartjesStand, beantwoordAvond, geefKaartje, kaartjeDoorgeklikt } = app;
+  const { watchlist, meta, seenSet, smart, setSmart, history, setHistory, lbLists, startEnrich, geefKaartje, kaartjeDoorgeklikt } = app;
   const { t: tr } = useT();
 
   // Bron van de pool: je watchlist, of één van je eigen Letterboxd-lijsten.
@@ -92,10 +90,6 @@ export default function Pick({ app }) {
 
   if (!watchlist.length) return <ImportPanel app={app} hero />;
 
-  // Na een avond: welk kaartje heb je gebruikt? Eén vraag over de laatste
-  // avond, nooit een stapel (lib/kaartjesdoos.js)
-  const NU = Date.now();
-  const avond = vraagAvond(kaartjesStand, NU);
 
   const toggleIn = (arrKey, val) => setFilters((f) => ({
     ...f,
@@ -132,10 +126,6 @@ export default function Pick({ app }) {
             kaartje={1} onKijken={() => kaartjeDoorgeklikt(winner.key)}
           />
         </div>
-      )}
-
-      {avond && (
-        <AvondVraag key={avond[0].id} avond={avond} meta={meta} onAntwoord={(key, sterren) => beantwoordAvond(avond, key, sterren)} />
       )}
 
       <div className="card" style={{ marginBottom: 18 }}>

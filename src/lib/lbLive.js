@@ -1,0 +1,60 @@
+// Letterboxd live: je openbare Letterboxd-dagboek meelezen, zonder export.
+//
+// Elke Letterboxd-gebruiker met een openbaar profiel heeft een RSS-feed met
+// de laatste logs (letterboxd.com/<naam>/rss/), inclusief kijkdatum, sterren
+// en het TMDB-nummer. De browser mag die niet zelf ophalen (CORS); de Worker
+// geeft hem door (/lb/<naam>). Nieuwe logs komen in je dagboek (zo scheuren
+// kaartjes vanzelf af), tellen als gezien, en hun sterren voeden je smaak.
+import { PROXY_URL } from './tmdb.js';
+import { filmKey } from './storage.js';
+
+// "letterboxd.com/naam", "@naam" of "naam" wordt "naam"; ongeldig: null
+export function normaliseerNaam(invoer) {
+  const s = String(invoer || '').trim();
+  const uitUrl = s.match(/letterboxd\.com\/([A-Za-z0-9_]+)/i);
+  const naam = (uitUrl ? uitUrl[1] : s).replace(/^@/, '').replace(/\/+$/, '');
+  return /^[A-Za-z0-9_]{1,40}$/.test(naam) ? naam : null;
+}
+
+// De feed (XML-tekst) naar dagboekregels, in dezelfde vorm als diary.csv
+export function leesDagboekFeed(xml) {
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('FEED_ONLEESBAAR');
+  const veld = (item, naam) => item.getElementsByTagName(naam)[0]?.textContent?.trim() || null;
+  return [...doc.getElementsByTagName('item')].map((item) => {
+    const titel = veld(item, 'letterboxd:filmTitle');
+    const datum = veld(item, 'letterboxd:watchedDate');
+    if (!titel || !datum) return null; // lijsten en andere berichten
+    const jaar = parseInt(veld(item, 'letterboxd:filmYear')) || null;
+    const sterren = veld(item, 'letterboxd:memberRating');
+    return {
+      key: filmKey(titel, jaar || ''),
+      name: titel,
+      year: jaar,
+      watchedDate: datum,
+      rewatch: veld(item, 'letterboxd:rewatch') === 'Yes',
+      rating: sterren ? parseFloat(sterren) : null,
+      tmdbId: parseInt(veld(item, 'tmdb:movieId')) || null,
+    };
+  }).filter(Boolean);
+}
+
+export async function haalDagboek(naam) {
+  const res = await fetch(`${PROXY_URL}/lb/${encodeURIComponent(naam)}`);
+  if (!res.ok) {
+    let fout = null;
+    try { fout = (await res.json())?.error; } catch { /* geen json */ }
+    // Een Worker zonder deze route geeft een eigen 404 ("Alleen TMDB v3-paden")
+    if (res.status === 404) throw new Error(fout === 'LB_404' ? 'NIET_GEVONDEN' : 'WORKER_OUD');
+    throw new Error(fout || `HTTP_${res.status}`);
+  }
+  return leesDagboekFeed(await res.text());
+}
+
+// Nieuwe dagboekregels erbij (op film + kijkdatum ontdubbeld)
+export function voegDagboekSamen(diary, nieuw) {
+  const bekend = new Set(diary.map((d) => `${d.key}|${d.watchedDate}`));
+  const erbij = nieuw.filter((d) => !bekend.has(`${d.key}|${d.watchedDate}`))
+    .map(({ tmdbId, ...regel }) => regel);
+  return { diary: erbij.length ? [...diary, ...erbij] : diary, erbij };
+}

@@ -184,6 +184,30 @@ export default {
       return json({ error: 'NOT_FOUND' }, 404);
     }
 
+    // --- Letterboxd live: je openbare dagboek-feed meelezen ---------------
+    // Een browser mag letterboxd.com niet zelf lezen (CORS). De Worker haalt
+    // de openbare RSS-feed van één gebruiker op en geeft hem ongewijzigd door.
+    // Alleen een gebruikersnaam gaat erin; tien minuten gecachet.
+    const lb = url.pathname.match(/^\/lb\/([A-Za-z0-9_]{1,40})$/);
+    if (lb) {
+      const res = await fetch(`https://letterboxd.com/${lb[1]}/rss/`, {
+        headers: {
+          'User-Agent': 'NossyPicker/1.0 (+https://nossysfilmtool.github.io/letterboxd-picker/)',
+          Accept: 'application/rss+xml, application/xml;q=0.9',
+        },
+        cf: { cacheTtl: 600, cacheEverything: true },
+      });
+      if (!res.ok) {
+        return new Response(JSON.stringify({ error: `LB_${res.status}` }), {
+          status: res.status === 404 ? 404 : 502, headers: { ...cors, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(await res.text(), {
+        status: 200,
+        headers: { ...cors, 'Content-Type': 'application/rss+xml; charset=utf-8', 'Cache-Control': 'public, max-age=600' },
+      });
+    }
+
     if (!url.pathname.startsWith('/3/')) {
       return new Response(JSON.stringify({ error: 'Alleen TMDB v3-paden' }), {
         status: 404, headers: { ...cors, 'Content-Type': 'application/json' },

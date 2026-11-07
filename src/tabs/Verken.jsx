@@ -433,6 +433,7 @@ export default function Verken({ app }) {
             film={f} meta={meta[f.key]} context={tr('bieb.fromLibrary')}
             seen={seenSet.has(f.key)} onToggleSeen={() => app.toggleSeen(f.key)}
             onSimilar={() => app.openSimilar(f, meta[f.key])}
+            onKijken={() => app.geefKaartje(f, { bron: 'voorjou', doorgeklikt: true })}
             onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
           />
         </div>
@@ -451,6 +452,9 @@ export default function Verken({ app }) {
           onGezien={(n) => { gezien(light, n); setOpenFilm(null); }}
           onSimilar={() => openSimilar(light)}
           onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
+          /* Doorklikken naar de dienst vanaf Voor jou (ook Vanavond) is een keuze:
+             dat levert een kaartje op, net als een pick */
+          onKijken={() => app.geefKaartje({ key: filmKey(light.title, light.year), name: light.title, year: light.year }, { bron: 'voorjou', poster: light.poster || m.poster, doorgeklikt: true })}
         />
       </div>
     );

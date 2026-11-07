@@ -3,6 +3,8 @@ import Shell from './components/Shell.jsx';
 import ScoresPreview from './components/ScoresPreview.jsx';
 import RemoteVote from './components/RemoteVote.jsx';
 import SamenGast from './components/SamenGast.jsx';
+import AvondVraag from './components/AvondVraag.jsx';
+import Afgescheurd from './components/Afgescheurd.jsx';
 import SimilarOverlay from './components/SimilarOverlay.jsx';
 import { buildTaste } from './lib/taste.js';
 import Pick from './tabs/Pick.jsx';
@@ -17,7 +19,8 @@ import { setNossyWeights } from './lib/pick.js';
 import { setThemeEmphasis } from './lib/taste.js';
 import { fetchExtRatings } from './lib/omdb.js';
 import { volgAanbod } from './lib/aanbod.js';
-import { nieuwKaartje, voegKaartjeToe, kaartjesUitGeschiedenis, beoordeelKaartjes, AVOND_GAT } from './lib/kaartjesdoos.js';
+import { haalDagboek, voegDagboekSamen } from './lib/lbLive.js';
+import { nieuwKaartje, voegKaartjeToe, kaartjesUitGeschiedenis, beoordeelKaartjes, vraagAvond, inDeDoos, AVOND_GAT } from './lib/kaartjesdoos.js';
 import { useEffect } from 'react';
 import { registerDict, setLang, detectLang, getLang, useT } from './lib/i18n.js';
 import nlDict from './lib/dict/nl.js';
@@ -63,6 +66,15 @@ export default function App() {
   // je een film als gezien markeerde (bewijs dat je een kaartje gebruikte)
   const [kaartjes, setKaartjes] = useLS('kaartjes', null);
   const [gezienOp, setGezienOp] = useLS('gezienOp', {});
+  // De vraag na een avond kun je tot later wegleggen: { id, tot }
+  const [vraagLater, setVraagLater] = useLS('vraagLater', null);
+  // Letterboxd live: wanneer je dagboek-feed voor het laatst is gelezen
+  const [lbLive, setLbLive] = useLS('lbLive', { at: 0, fout: null, erbij: 0 });
+  const [lbBezig, setLbBezig] = useState(false);
+  // Het moment dat een kaartje afscheurt: { kaartje, nummer }
+  const [afgescheurd, setAfgescheurd] = useState(null);
+  // De Bieb op een bepaalde tab openen (bijv. vanuit "Bekijk de doos")
+  const biebStartRef = useRef(null);
   const [shortlist, setShortlist] = useLS('shortlist', []);
   const [skipped, setSkipped] = useLS('skipped', []);
   // Fase 8: het uit jouw beoordelingen geleerde rangschikmodel (Inzicht)
@@ -168,8 +180,18 @@ export default function App() {
   );
   // Een pick (of de winnaar van Avond) levert een kaartje op
   const geefKaartje = (film, opties = {}) => {
-    setKaartjes((lijst) => voegKaartjeToe(lijst || [], nieuwKaartje(film, opties)));
+    const poster = opties.poster || meta[film.key]?.poster || null;
+    setKaartjes((lijst) => voegKaartjeToe(lijst || [], nieuwKaartje(film, { ...opties, poster })));
   };
+  // Een kaartje aanpassen: sterren, notitie, of achteraf toch (niet) gekeken
+  const pasKaartjeAan = (id, wijziging) => {
+    setKaartjes((lijst) => (lijst || []).map((k) => (k.id === id ? { ...k, ...wijziging } : k)));
+  };
+  // Het afscheurmoment: het kaartje schuift de doos in, met zijn nummer
+  const scheurAf = (kaartje, sterren = null) => {
+    setAfgescheurd({ kaartje: { ...kaartje, sterren, poster: kaartje.poster || meta[kaartje.key]?.poster || null }, nummer: inDeDoos(kaartjesStand).length + 1 });
+  };
+  const naarDeDoos = () => { biebStartRef.current = 'kaartjes'; setAfgescheurd(null); setTab('bieb'); };
   // Doorklikken naar een dienst of delen: dit kaartje gaat vooraan in de vraag
   const kaartjeDoorgeklikt = (key) => {
     const nu = Date.now();
@@ -193,9 +215,50 @@ export default function App() {
     }));
     if (!gekozen) return;
     const film = avond.find((k) => k.key === gekozen);
+    if (film) scheurAf(film, sterren);
     markeerAlsGezien(gekozen);
     if (sterren && film) setOwnRatings((prev) => ({ ...prev, [gekozen]: { rating: sterren, name: film.name, year: film.year, at: Date.now() } }));
   };
+  // Letterboxd live (lib/lbLive.js): je openbare dagboek-feed meelezen. Nieuwe
+  // logs gaan je dagboek in (kaartjes scheuren dan vanzelf af), tellen als
+  // gezien, en hun sterren tellen mee in je smaak. Bij het openen hooguit
+  // eens per zes uur, en altijd als je zelf op bijwerken drukt.
+  const syncLetterboxd = async (naam = settings.lbNaam) => {
+    if (!naam || lbBezig) return;
+    setLbBezig(true);
+    try {
+      const regels = await haalDagboek(naam);
+      const { diary: nieuwDagboek, erbij } = voegDagboekSamen(diary, regels);
+      if (erbij.length) setDiary(nieuwDagboek);
+      const keys = [...new Set(regels.map((r) => r.key))];
+      setWatchedLb((prev) => (keys.every((k) => prev.includes(k)) ? prev : [...new Set([...prev, ...keys])]));
+      setWatchedFilms((prev) => {
+        const bekend = new Set(prev.map((f) => f.key));
+        const nieuw = regels.filter((r) => !bekend.has(r.key)).map((r) => ({ key: r.key, name: r.name, year: r.year, uri: '' }));
+        const uniek = [...new Map(nieuw.map((f) => [f.key, f])).values()];
+        return uniek.length ? [...prev, ...uniek] : prev;
+      });
+      // De nieuwste sterren per film (de feed staat nieuwste eerst)
+      const sterren = {};
+      regels.forEach((r) => { if (r.rating != null && !(r.key in sterren)) sterren[r.key] = r; });
+      if (Object.keys(sterren).length) {
+        setRatings((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(sterren).map(([k, r]) => [k, r.rating])) }));
+        setRatedFilms((prev) => [
+          ...prev.filter((f) => !(f.key in sterren)),
+          ...Object.values(sterren).map((r) => ({ key: r.key, name: r.name, year: r.year, uri: '', rating: r.rating })),
+        ]);
+      }
+      setLbLive({ at: Date.now(), fout: null, erbij: erbij.length });
+    } catch (e) {
+      setLbLive((s) => ({ ...s, at: Date.now(), fout: e.message }));
+    }
+    setLbBezig(false);
+  };
+  useEffect(() => {
+    if (settings.lbNaam && Date.now() - (lbLive.at || 0) > 6 * 3600e3) syncLetterboxd();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.lbNaam]);
+
   const ignoredSet = useMemo(() => new Set(ignored), [ignored]);
   // Markeer een lijst-item als 'geen film' (bijv. een tv-serie die Letterboxd
   // meesmokkelde): het verdwijnt uit aanbevelingen, Avond en de mismatch-lijst.
@@ -448,7 +511,9 @@ export default function App() {
     ratings: mergedRatings, setRatings, lbRatings: ratings,
     ratedFilms: mergedRatedFilms, setRatedFilms,
     ownRatings, setOwnRatings,
-    kaartjesStand, geefKaartje, kaartjeDoorgeklikt, beantwoordAvond,
+    kaartjesStand, geefKaartje, kaartjeDoorgeklikt, beantwoordAvond, pasKaartjeAan, scheurAf,
+    pakBiebStart: () => { const s = biebStartRef.current; biebStartRef.current = null; return s; },
+    lbLive, lbBezig, syncLetterboxd,
     diary, setDiary, lbLists, setLbLists,
     seen, seenSet, toggleSeen, markeerGezien, smaakModel, setSmaakModel,
     meta, setMeta,
@@ -523,6 +588,19 @@ export default function App() {
           <div className="progressbar"><div style={{ width: `${(extEnrich.done / Math.max(extEnrich.total, 1)) * 100}%` }} /></div>
         </div>
       )}
+      {/* De vraag na een avond: op het eerste scherm dat je opent, niet alleen bij Pick */}
+      {(() => {
+        if (tab === 'instellingen' || !watchlist.length) return null;
+        const avond = vraagAvond(kaartjesStand);
+        if (!avond) return null;
+        if (vraagLater && vraagLater.id === avond[0].id && Date.now() < vraagLater.tot) return null;
+        return (
+          <AvondVraag key={avond[0].id} avond={avond} meta={meta}
+            onAntwoord={(key, sterren) => beantwoordAvond(avond, key, sterren)}
+            onLater={() => setVraagLater({ id: avond[0].id, tot: Date.now() + 12 * 3600e3 })} />
+        );
+      })()}
+      {afgescheurd && <Afgescheurd melding={afgescheurd} onSluit={() => setAfgescheurd(null)} onBekijk={naarDeDoos} />}
       <div className="tabfade" key={tab}>
         {tab === 'pick' && <Pick app={app} />}
         {tab === 'bieb' && <Bieb app={app} />}

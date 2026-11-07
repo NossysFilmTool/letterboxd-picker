@@ -2,7 +2,7 @@ import { t, getLang } from './i18n.js';
 import { filmKey } from './storage.js';
 import { IMG } from './tmdb.js';
 import { leesFilmkleur } from './filmkleur.js';
-import { kaartjeInhoud, streepjes } from './kaartje.js';
+import { kaartjeInhoud, streepjes, drukletters, kaartjeDatum } from './kaartje.js';
 
 const DEMO_TITLES = [
   ['Aftersun', 2022], ['Past Lives', 2023], ['The Zone of Interest', 2023],
@@ -189,6 +189,106 @@ export async function renderShareCard(film, meta) {
   ctx.textAlign = 'center';
   ctx.fillText(t('kaartje.voet'), W / 2, H - 52);
 
+  return new Promise((resolve) => c.toBlob(resolve, 'image/png'));
+}
+
+// "Mijn filmjaar in kaartjes" (1080x1350) als PNG-blob: de kop, de cijfers
+// en de laatste twaalf afgescheurde stroken, zoals in de kaartjesdoos.
+export async function renderJaarKaart(overzicht, meta = {}) {
+  const lang = getLang();
+  const kop = drukletters(t('kaartje.jaarKop', { jaar: overzicht.jaar }), lang);
+  const stroken = overzicht.kaartjes.slice(0, 12);
+  const tekst = [kop, ...stroken.map((k) => drukletters(k.name, lang)), '0123456789-★½'].join(' ');
+  try {
+    await Promise.all([
+      document.fonts.load('700 110px "Archivo Narrow"', tekst),
+      document.fonts.load('400 30px Archivo', tekst),
+      document.fonts.load('20px DotGothic16', tekst),
+    ]);
+  } catch { /* lettertypes optioneel */ }
+  const W = 1080; const H = 1350;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  const INK = '#121110'; const PAPIER = '#ece6dc'; const DRUK = '#1b1a18';
+  const ticketFont = (px) => `${px}px DotGothic16, "Courier New", monospace`;
+  const sterrenTekst = (s) => '★'.repeat(Math.floor(s)) + (s % 1 >= 0.5 ? '½' : '');
+  const fmt = (v) => (lang === 'nl' ? String(v).replace('.', ',') : String(v));
+
+  ctx.fillStyle = INK;
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = PAPIER;
+  ctx.fillText(pasIn(ctx, kop, W - 120, (px) => `700 ${px}px "Archivo Narrow", Archivo, sans-serif`, 110, 60), 60, 160);
+  ctx.fillStyle = '#a69f94';
+  ctx.font = '400 30px Archivo, sans-serif';
+  const regel = overzicht.gemiddeld != null
+    ? t('kaartje.jaarRegelSterren', { count: overzicht.aantal, n: overzicht.aantal, s: fmt(overzicht.gemiddeld) })
+    : t('kaartje.jaarRegel', { count: overzicht.aantal, n: overzicht.aantal });
+  ctx.fillText(regel, 60, 214);
+
+  // De stroken: drie naast elkaar, vier rijen
+  const SW = 300; const SH = 200; const GAP = 30; const RIJ = 26; const PW = 110;
+  for (let i = 0; i < stroken.length; i += 1) {
+    const k = stroken[i];
+    const x = 60 + (i % 3) * (SW + GAP);
+    const y = 260 + Math.floor(i / 3) * (SH + RIJ);
+    ctx.fillStyle = PAPIER;
+    roundRect(ctx, x, y, SW, SH, 4);
+    ctx.fill();
+    const pad = meta[k.key]?.poster || k.poster;
+    if (pad) {
+      try {
+        const img = await loadImage(IMG(pad, 'w185'));
+        const schaal = Math.max(PW / img.width, SH / img.height);
+        const sw = PW / schaal; const sh = SH / schaal;
+        ctx.save();
+        roundRect(ctx, x, y, SW, SH, 4);
+        ctx.clip();
+        ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, PW, SH);
+        ctx.restore();
+      } catch { /* zonder poster */ }
+    }
+    ctx.strokeStyle = 'rgba(27,26,24,0.45)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath(); ctx.moveTo(x + PW, y); ctx.lineTo(x + PW, y + SH); ctx.stroke();
+    ctx.setLineDash([]);
+    const tx = x + PW + 14; const tb = SW - PW - 24;
+    const d = new Date(String(k.gekekenOp).length === 10 ? `${k.gekekenOp}T12:00:00` : k.gekekenOp);
+    ctx.fillStyle = '#4a4640';
+    ctx.font = ticketFont(16);
+    ctx.fillText(pasIn(ctx, kaartjeDatum(d, lang), tb, ticketFont, 16, 12), tx, y + 32);
+    ctx.fillStyle = DRUK;
+    // De titel over hooguit twee regels; past het dan nog niet, afkappen
+    const titelFont = (px) => `700 ${px}px "Archivo Narrow", Archivo, sans-serif`;
+    ctx.font = titelFont(28);
+    const woorden = drukletters(k.name, lang).split(' ');
+    const regels = [''];
+    woorden.forEach((w) => {
+      const proef = regels[regels.length - 1] ? `${regels[regels.length - 1]} ${w}` : w;
+      if (ctx.measureText(proef).width <= tb || !regels[regels.length - 1]) regels[regels.length - 1] = proef;
+      else regels.push(w);
+    });
+    const tweede = regels.slice(1).join(' ');
+    ctx.fillText(pasIn(ctx, regels[0], tb, titelFont, 28, 18), tx, y + 70);
+    if (tweede) ctx.fillText(pasIn(ctx, tweede, tb, titelFont, 28, 18), tx, y + 100);
+    if (k.sterren != null) {
+      ctx.fillStyle = '#a8463a';
+      ctx.font = ticketFont(22);
+      const st = sterrenTekst(k.sterren);
+      const sw2 = ctx.measureText(st).width;
+      ctx.strokeStyle = '#a8463a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + SW - sw2 - 30, y + SH - 50, sw2 + 18, 34);
+      ctx.fillText(st, x + SW - sw2 - 21, y + SH - 25);
+    }
+  }
+
+  ctx.fillStyle = '#a69f94';
+  ctx.font = '400 24px Archivo, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(t('kaartje.voet'), W / 2, H - 52);
   return new Promise((resolve) => c.toBlob(resolve, 'image/png'));
 }
 

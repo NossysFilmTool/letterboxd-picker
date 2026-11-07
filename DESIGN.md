@@ -41,8 +41,14 @@ Wil je er een breken, pas dan eerst dit document aan.
   zaal, rij of stoel.
 - Het deelplaatje is hetzelfde kaartje, met het filmbeeld als doek erboven.
 - Een gekeken pick wordt een afgescheurde strook in de kaartjesdoos (Bieb,
-  tab Kaartjes): poster, kijkdatum, titel en je sterren als rode stempel.
-  Wanneer een kaartje als gekeken telt, staat in `src/lib/kaartjesdoos.js`.
+  tab Kaartjes): poster, kijkdatum, titel, eventueel een notitie, en je
+  sterren als rode stempel. Wanneer een kaartje als gekeken telt, staat in
+  `src/lib/kaartjesdoos.js`.
+- Het afscheuren is een moment: de strook scheurt schuin los en schuift in
+  beeld met "Kaartje 12 in de doos" (`Afgescheurd.jsx`). Met "beperk
+  beweging" aan verschijnt hij gewoon.
+- Bovenaan de doos staat je filmjaar; het deelbare beeld is een raster van
+  dezelfde stroken.
 
 ## Doek en korrel
 

@@ -4,8 +4,9 @@ import { IMG, resolveFilm } from '../lib/tmdb.js';
 import { nossyScore, fmtScore } from '../lib/pick.js';
 import { useT } from '../lib/i18n.js';
 import Winner from '../components/Winner.jsx';
-import Kaartjesdoos from '../components/Kaartjesdoos.jsx';
-import { inDeDoos } from '../lib/kaartjesdoos.js';
+import Kaartjesdoos, { KaartjeBeheer } from '../components/Kaartjesdoos.jsx';
+import { inDeDoos, buitenDeDoos } from '../lib/kaartjesdoos.js';
+import { useLS } from '../lib/storage.js';
 
 const SORTS = [
   ['titel', 'titleAZ'],
@@ -19,7 +20,9 @@ const SORTS = [
 export default function Bieb({ app }) {
   const { t: tr } = useT();
   const { watchlist, watchedFilms, ratedFilms, ratings, meta, setMeta, seenSet, settings, freshenProviders, tmdbKey } = app;
-  const [scope, setScope] = useState('watchlist'); // watchlist | gezien | kaartjes
+  // watchlist | gezien | kaartjes; "Bekijk de doos" opent meteen op kaartjes
+  const [scope, setScope] = useState(() => app.pakBiebStart?.() || 'watchlist');
+  const [samenNaam] = useLS('samenNaam', '');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('titel');
   const [hideSeen, setHideSeen] = useState(false);
@@ -41,6 +44,11 @@ export default function Bieb({ app }) {
 
   const base = scope === 'watchlist' ? watchlist : gezienList;
   const doos = useMemo(() => inDeDoos(app.kaartjesStand || []), [app.kaartjesStand]);
+  const buiten = useMemo(() => buitenDeDoos(app.kaartjesStand || []), [app.kaartjesStand]);
+  const tochGekeken = (k) => {
+    app.pasKaartjeAan(k.id, { antwoord: 'gekeken', beantwoord: new Date().toISOString() });
+    app.scheurAf(k, k.sterren ?? null);
+  };
 
   const genresAvail = useMemo(() => {
     const count = {};
@@ -122,6 +130,20 @@ export default function Bieb({ app }) {
         <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setSel(null)}>
           <ArrowLeft size={15} /> {tr('bieb.terug')}
         </button>
+        {sel.kaartjeId && (() => {
+          // Vanuit de doos: dit kaartje beheren (sterren, notitie, toch niet)
+          const k = (app.kaartjesStand || []).find((x) => x.id === sel.kaartjeId);
+          if (!k || k.status !== 'gekeken') return null;
+          return (
+            <KaartjeBeheer key={k.id} k={k}
+              onSterren={(n) => {
+                app.pasKaartjeAan(k.id, { sterren: n });
+                app.setOwnRatings((prev) => ({ ...prev, [k.key]: { rating: n, name: k.name, year: k.year, at: Date.now() } }));
+              }}
+              onNotitie={(tekst) => app.pasKaartjeAan(k.id, { notitie: tekst || undefined })}
+              onNietGekeken={() => { app.pasKaartjeAan(k.id, { antwoord: 'niet' }); setSel(null); }} />
+          );
+        })()}
         <Winner
           film={sel} meta={meta[sel.key]}
           context={scope === 'kaartjes' ? tr('bieb.fromTickets') : scope === 'gezien'
@@ -154,7 +176,10 @@ export default function Bieb({ app }) {
         <button type="button" className={`modus-tab ${scope === 'kaartjes' ? 'actief' : ''}`} aria-pressed={scope === 'kaartjes'} onClick={() => setScope('kaartjes')}>{tr('bieb.ticketsTab', { count: doos.length })}</button>
       </div>
 
-      {scope === 'kaartjes' && <Kaartjesdoos kaartjes={doos} meta={meta} onOpen={open} />}
+      {scope === 'kaartjes' && (
+        <Kaartjesdoos kaartjes={doos} buiten={buiten} meta={meta} eigenNaam={samenNaam.trim() || null}
+          onOpen={(k) => open({ key: k.key, name: k.name, year: k.year, kaartjeId: k.id })} onTochGekeken={tochGekeken} />
+      )}
 
       {scope !== 'kaartjes' && (<>
       {scope === 'gezien' && watchedFilms.length === 0 && app.watchedLb.length > 0 && (
