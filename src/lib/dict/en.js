@@ -45,6 +45,10 @@ export default {
     toegang: { one: 'Admit {n}', other: 'Admit {n}' },
     aftitelingBeide: 'A film by {regie}, starring {namen}', aftitelingRegie: 'A film by {regie}', aftitelingCast: 'Starring {namen}', en: 'and',
     voet: "Picked with Nossy's Picker. Film data: TMDB",
+    doosTelling: { one: '{count} ticket in the box', other: '{count} tickets in the box' }, doosGemiddeld: ', {s} stars on average',
+    doosLeeg: 'No tickets in the box yet.',
+    doosLeegUitleg: 'Pick a film in Pick or Movie night. Once it turns out you watched it (your answer the next day, your Letterboxd diary, or you mark it as seen), the ticket is torn and lands here.',
+    bronPick: 'Pick', bronAvond: 'Movie night for {n}', stempelGezien: 'Seen', stubAria: '{name}, watched on {datum}',
   },
   nav: {
     navLabel: 'Main navigation',
@@ -88,6 +92,8 @@ export default {
     vers: 'Fresh', vers_desc: '2020 or later',
   },
   pick: {
+    followupAvondTitel: 'Your last evening', followupAvondQ: 'You got {n} tickets. Which one did you watch?',
+    followupKeek: 'I watched {name}', followupGeen: 'None of them', followupTerug: 'Back',
     source: 'Pick from', sourceWatchlist: 'Watchlist', sourceCount: '({count})',
     followupTitle: 'Your previous pick', followupQ: 'Did you watch it?',
     rateAria: 'Give {n} stars', seenNoStars: 'Seen, no stars', notWatched: 'Didn\u0027t watch',
@@ -104,6 +110,7 @@ export default {
     smartLabel: 'Smart pick:', on: 'on', off: 'off', filters: 'Filters', filtersActive: '(active)',
   },
   bieb: {
+    ticketsTab: 'Tickets ({count})', yourTickets: 'Your ticket box: every pick you actually watched', fromTickets: 'From your ticket box', terug: 'Back to the library',
     title: 'Library', empty: 'No films yet',
     emptyHint: 'Load your Letterboxd export in Pick, and your whole collection will appear here to browse.',
     fromLibrary: 'From your library', yourWatchlist: 'Your watchlist', yourHistory: 'Your watch history',
@@ -204,6 +211,7 @@ export default {
     themesLine: 'Recurring themes in what you rate highly: <strong>{themes}</strong>. They steer "For you", and you can actively hunt on them.',
   },
   verken: {
+    netBinnenTitel: 'Just arrived on your services', netBinnenTitelAlle: 'Just arrived on streaming', netBinnenOp: '{p}, {wanneer}',
     title: 'Explore', tabSearch: 'Search', tabForYou: 'For you',
     searchSub: 'Search the complete TMDB catalogue by title, creator or criteria, with your taste profile as the lens.',
     forYouSub: 'Your personal picks from your own films{ratings}. {count} suggestions, none of them on your list yet.',

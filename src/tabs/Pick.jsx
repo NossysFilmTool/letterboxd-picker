@@ -1,4 +1,3 @@
-import { IMG } from '../lib/tmdb.js';
 import { useMemo, useState } from 'react';
 import { SlidersHorizontal, Brain, Dice5, ChevronDown, ChevronUp } from 'lucide-react';
 import { MOODS, moodTest, applyFilters, pickWinner, similarPool } from '../lib/pick.js';
@@ -6,6 +5,8 @@ import { useT } from '../lib/i18n.js';
 import Leader from '../components/Leader.jsx';
 import Winner from '../components/Winner.jsx';
 import ImportPanel from '../components/ImportPanel.jsx';
+import AvondVraag from '../components/AvondVraag.jsx';
+import { vraagAvond } from '../lib/kaartjesdoos.js';
 
 const EMPTY_FILTERS = { minYear: '', maxYear: '', maxRuntime: '', minVote: '', genres: [], providers: [], mood: null, excludeSeen: true };
 
@@ -16,8 +17,8 @@ export default function Pick({ app }) {
   const [winner, setWinner] = useState(null);
   const [context, setContext] = useState(null);
 
-  const { watchlist, meta, seenSet, smart, setSmart, history, setHistory, ratings, followups, answerFollowup, lbLists, startEnrich } = app;
-  const { t: tr, lang } = useT();
+  const { watchlist, meta, seenSet, smart, setSmart, history, setHistory, lbLists, startEnrich, kaartjesStand, beantwoordAvond, geefKaartje, kaartjeDoorgeklikt } = app;
+  const { t: tr } = useT();
 
   // Bron van de pool: je watchlist, of één van je eigen Letterboxd-lijsten.
   const [bron, setBron] = useState('watchlist');
@@ -72,6 +73,7 @@ export default function Pick({ app }) {
 
   const finishLeader = () => {
     setPhase('winner');
+    geefKaartje(winner, { bron: 'pick', personen: 1 });
     app.freshenProviders(winner.key);
     setHistory((h) => [{ key: winner.key, name: winner.name, year: winner.year, date: new Date().toISOString(), context }, ...h].slice(0, 80));
   };
@@ -90,22 +92,10 @@ export default function Pick({ app }) {
 
   if (!watchlist.length) return <ImportPanel app={app} hero />;
 
-  // Post-pick-opvolging: de meest recente pick van 6 uur tot 14 dagen terug
-  // waar nog geen antwoord of rating voor is. Eén vraag, nooit een stapel.
+  // Na een avond: welk kaartje heb je gebruikt? Eén vraag over de laatste
+  // avond, nooit een stapel (lib/kaartjesdoos.js)
   const NU = Date.now();
-  const followupPick = history.find((h) => {
-    const t = new Date(h.date).getTime();
-    if (NU - t < 6 * 3600e3 || NU - t > 14 * 24 * 3600e3) return false;
-    if (followups[h.date]) return false;
-    if (ratings[h.key] != null) return false;
-    return true;
-  });
-  const relTijd = (iso) => {
-    try {
-      const dagen = Math.round((new Date(iso).getTime() - NU) / (24 * 3600e3));
-      return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(dagen, 'day');
-    } catch { return ''; }
-  };
+  const avond = vraagAvond(kaartjesStand, NU);
 
   const toggleIn = (arrKey, val) => setFilters((f) => ({
     ...f,
@@ -139,31 +129,13 @@ export default function Pick({ app }) {
             seen={seenSet.has(winner.key)} onToggleSeen={() => app.toggleSeen(winner.key)}
             onSimilar={() => app.openSimilar(winner, meta[winner.key])} onReroll={() => runPick(pool, null)}
             onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
-            kaartje={1}
+            kaartje={1} onKijken={() => kaartjeDoorgeklikt(winner.key)}
           />
         </div>
       )}
 
-      {followupPick && (
-        <div className="card followup-card rise-in" style={{ marginBottom: 18 }}>
-          {meta[followupPick.key]?.poster
-            ? <img className="fu-poster" src={IMG(meta[followupPick.key].poster, 'w154')} alt="" />
-            : <div className="fu-poster" aria-hidden="true" />}
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <p className="label" style={{ marginBottom: 2 }}>{tr('pick.followupTitle')}, {relTijd(followupPick.date)}</p>
-            <p style={{ color: 'var(--paper)', fontSize: 15.5, fontWeight: 600 }}>{followupPick.name}{followupPick.year ? ` (${followupPick.year})` : ''}: {tr('pick.followupQ')}</p>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="fu-stars" role="group" aria-label={tr('pick.followupQ')}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} type="button" className="fu-star" aria-label={tr('pick.rateAria', { n })}
-                  onClick={() => answerFollowup(followupPick, 'rated', n)}>★</button>
-              ))}
-            </span>
-            <button className="btn ghost" onClick={() => answerFollowup(followupPick, 'seen')}>{tr('pick.seenNoStars')}</button>
-            <button className="btn ghost" onClick={() => answerFollowup(followupPick, 'no')}>{tr('pick.notWatched')}</button>
-          </div>
-        </div>
+      {avond && (
+        <AvondVraag key={avond[0].id} avond={avond} meta={meta} onAntwoord={(key, sterren) => beantwoordAvond(avond, key, sterren)} />
       )}
 
       <div className="card" style={{ marginBottom: 18 }}>

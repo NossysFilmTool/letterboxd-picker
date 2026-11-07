@@ -45,6 +45,10 @@ export default {
     toegang: { one: 'Toegang {n} persoon', other: 'Toegang {n} personen' },
     aftitelingBeide: 'Een film van {regie}, met {namen}', aftitelingRegie: 'Een film van {regie}', aftitelingCast: 'Met {namen}', en: 'en',
     voet: "Gekozen met Nossy's Picker. Filmdata: TMDB",
+    doosTelling: { one: '{count} kaartje in de doos', other: '{count} kaartjes in de doos' }, doosGemiddeld: ', gemiddeld {s} sterren',
+    doosLeeg: 'Nog geen kaartjes in de doos.',
+    doosLeegUitleg: 'Kies een film bij Pick of Avond. Blijkt dat je hem keek (je antwoord de dag erna, je Letterboxd-dagboek, of je markeert hem als gezien), dan scheurt het kaartje af en komt het hier.',
+    bronPick: 'Pick', bronAvond: 'Avond met {n}', stempelGezien: 'Gezien', stubAria: '{name}, gekeken op {datum}',
   },
   nav: {
     navLabel: 'Hoofdnavigatie',
@@ -88,6 +92,8 @@ export default {
     vers: 'Vers', vers_desc: '2020 of later',
   },
   pick: {
+    followupAvondTitel: 'Je vorige avond', followupAvondQ: 'Je kreeg {n} kaartjes. Welke heb je gekeken?',
+    followupKeek: 'Ik keek {name}', followupGeen: 'Geen van allen', followupTerug: 'Terug',
     source: 'Pick uit', sourceWatchlist: 'Watchlist', sourceCount: '({count})',
     followupTitle: 'Je vorige pick', followupQ: 'Gekeken?',
     rateAria: 'Geef {n} sterren', seenNoStars: 'Gezien, geen sterren', notWatched: 'Niet gekeken',
@@ -104,6 +110,7 @@ export default {
     smartLabel: 'Slimme pick:', on: 'aan', off: 'uit', filters: 'Filters', filtersActive: '(actief)',
   },
   bieb: {
+    ticketsTab: 'Kaartjes ({count})', yourTickets: 'Je kaartjesdoos: elke pick die je echt gekeken hebt', fromTickets: 'Uit je kaartjesdoos', terug: 'Terug naar de bieb',
     title: 'Bieb', empty: 'Nog geen films',
     emptyHint: 'Laad je Letterboxd-export bij Pick, dan staat hier je hele collectie om doorheen te bladeren.',
     fromLibrary: 'Uit je bieb', yourWatchlist: 'Je watchlist', yourHistory: 'Je kijkgeschiedenis',
@@ -204,6 +211,7 @@ export default {
     themesLine: 'Terugkerende thema\u0027s in wat je hoog waardeert: <strong>{themes}</strong>. Die sturen "Voor jou" mee, en je kunt er actief op jagen.',
   },
   verken: {
+    netBinnenTitel: 'Net binnen op jouw diensten', netBinnenTitelAlle: 'Net binnen op streamingdiensten', netBinnenOp: '{p}, {wanneer}',
     title: 'Verken', tabSearch: 'Zoeken', tabForYou: 'Voor jou',
     searchSub: 'Doorzoek de complete TMDB-catalogus op titel, maker of criteria, met jouw smaakprofiel als lens.',
     forYouSub: 'Je persoonlijke aanbod uit je eigen films{ratings}. {count} suggesties, allemaal nog niet op je lijst.',

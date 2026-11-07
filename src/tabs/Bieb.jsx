@@ -4,6 +4,8 @@ import { IMG, resolveFilm } from '../lib/tmdb.js';
 import { nossyScore, fmtScore } from '../lib/pick.js';
 import { useT } from '../lib/i18n.js';
 import Winner from '../components/Winner.jsx';
+import Kaartjesdoos from '../components/Kaartjesdoos.jsx';
+import { inDeDoos } from '../lib/kaartjesdoos.js';
 
 const SORTS = [
   ['titel', 'titleAZ'],
@@ -17,7 +19,7 @@ const SORTS = [
 export default function Bieb({ app }) {
   const { t: tr } = useT();
   const { watchlist, watchedFilms, ratedFilms, ratings, meta, setMeta, seenSet, settings, freshenProviders, tmdbKey } = app;
-  const [scope, setScope] = useState('watchlist'); // watchlist | gezien
+  const [scope, setScope] = useState('watchlist'); // watchlist | gezien | kaartjes
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('titel');
   const [hideSeen, setHideSeen] = useState(false);
@@ -38,6 +40,7 @@ export default function Bieb({ app }) {
   }, [watchedFilms, ratedFilms]);
 
   const base = scope === 'watchlist' ? watchlist : gezienList;
+  const doos = useMemo(() => inDeDoos(app.kaartjesStand || []), [app.kaartjesStand]);
 
   const genresAvail = useMemo(() => {
     const count = {};
@@ -117,11 +120,11 @@ export default function Bieb({ app }) {
     return (
       <div>
         <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setSel(null)}>
-          <ArrowLeft size={15} /> Terug naar de bieb
+          <ArrowLeft size={15} /> {tr('bieb.terug')}
         </button>
         <Winner
           film={sel} meta={meta[sel.key]}
-          context={scope === 'gezien'
+          context={scope === 'kaartjes' ? tr('bieb.fromTickets') : scope === 'gezien'
             ? `${tr('bieb.fromHistory')}${ratings[sel.key] ? tr('bieb.youGave', { score: fmtScore(ratings[sel.key]) }) : ''}`
             : tr('bieb.fromLibrary')}
           seen={seenSet.has(sel.key)}
@@ -139,15 +142,21 @@ export default function Bieb({ app }) {
         <div>
           <h1 className="page-title">{tr('bieb.title')}</h1>
           <p className="page-sub">
-            {scope === 'watchlist' ? tr('bieb.yourWatchlist') : tr('bieb.yourHistory')}: {tr('bieb.header', { shown: films.length, count: base.length })}{filtersActief ? tr('bieb.filtered') : ''}.
+            {scope === 'kaartjes'
+              ? tr('bieb.yourTickets')
+              : <>{scope === 'watchlist' ? tr('bieb.yourWatchlist') : tr('bieb.yourHistory')}: {tr('bieb.header', { shown: films.length, count: base.length })}{filtersActief ? tr('bieb.filtered') : ''}.</>}
           </p>
         </div>
       </div>
       <div className="modus-tabs">
         <button type="button" className={`modus-tab ${scope === 'watchlist' ? 'actief' : ''}`} aria-pressed={scope === 'watchlist'} onClick={() => { setScope('watchlist'); setSort('titel'); }}>{tr('bieb.watchlist')}</button>
         <button type="button" className={`modus-tab ${scope === 'gezien' ? 'actief' : ''}`} aria-pressed={scope === 'gezien'} onClick={() => { setScope('gezien'); setSort('mijn'); }}>{tr('bieb.seenTab', { count: gezienList.length })}</button>
+        <button type="button" className={`modus-tab ${scope === 'kaartjes' ? 'actief' : ''}`} aria-pressed={scope === 'kaartjes'} onClick={() => setScope('kaartjes')}>{tr('bieb.ticketsTab', { count: doos.length })}</button>
       </div>
 
+      {scope === 'kaartjes' && <Kaartjesdoos kaartjes={doos} meta={meta} onOpen={open} />}
+
+      {scope !== 'kaartjes' && (<>
       {scope === 'gezien' && watchedFilms.length === 0 && app.watchedLb.length > 0 && (
         <p className="notice warn" style={{ marginBottom: 16 }}>
           Je ziet nu alleen je beoordeelde films. Herlaad je Letterboxd-export (Setup) om ook je niet-beoordeelde gezien-films hier te krijgen.
@@ -225,6 +234,7 @@ export default function Bieb({ app }) {
             <button className="btn" onClick={() => setShown(shown + 60)}>{tr('common.showMore', { count: films.length - shown })}</button>
           </div>
         )}
+      </>)}
       </>)}
     </div>
   );

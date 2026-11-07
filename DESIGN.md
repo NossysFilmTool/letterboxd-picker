@@ -40,6 +40,9 @@ Wil je er een breken, pas dan eerst dit document aan.
   is, de aftiteling en een streepjescode uit het TMDB-nummer. Geen verzonnen
   zaal, rij of stoel.
 - Het deelplaatje is hetzelfde kaartje, met het filmbeeld als doek erboven.
+- Een gekeken pick wordt een afgescheurde strook in de kaartjesdoos (Bieb,
+  tab Kaartjes): poster, kijkdatum, titel en je sterren als rode stempel.
+  Wanneer een kaartje als gekeken telt, staat in `src/lib/kaartjesdoos.js`.
 
 ## Doek en korrel
 

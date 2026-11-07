@@ -14,7 +14,9 @@ const fmtVotes = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}
 
 // onGezien(sterren | null): een film van buiten je lijst als gezien markeren
 // kaartje: aantal personen; dan is het een pick en krijg je een bioscoopkaartje
-export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onGezien, onWantScores, kaartje }) {
+// onKijken: je klikte door naar een dienst of deelde het kaartje (een hint
+// voor de vraag na de avond, geen bewijs dat je keek)
+export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onGezien, onWantScores, kaartje, onKijken }) {
   const { t: tr, lang } = useT();
   const [sharing, setSharing] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
@@ -27,7 +29,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
     setSharing(true);
     try {
       const blob = await renderShareCard(film, meta);
-      if (blob) await shareOrDownload(blob, `pick-${film.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`);
+      if (blob) { await shareOrDownload(blob, `pick-${film.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`); onKijken?.(); }
     } catch (e) {
       console.warn('Deelkaart mislukt', e);
       alert(tr('winner.shareFail'));
@@ -176,12 +178,12 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
             <p className="provs">
               {meta.flat?.map((p) => (
                 meta.jwLink
-                  ? <a key={p} className="prov prov-link" href={meta.jwLink} target="_blank" rel="noreferrer" title={tr('winner.provTitle')}><span className="livedot" aria-hidden="true" />{tr('winner.nowOn', { p })}</a>
+                  ? <a key={p} className="prov prov-link" href={meta.jwLink} target="_blank" rel="noreferrer" title={tr('winner.provTitle')} onClick={() => onKijken?.()}><span className="livedot" aria-hidden="true" />{tr('winner.nowOn', { p })}</a>
                   : <span key={p} className="prov"><span className="livedot" aria-hidden="true" />{tr('winner.nowOn', { p })}</span>
               ))}
               {!meta.flat?.length && meta.rent?.map((p) => (
                 meta.jwLink
-                  ? <a key={p} className="prov prov-link" href={meta.jwLink} target="_blank" rel="noreferrer" title={tr('winner.provTitle')}>{tr('winner.rentBuy', { p })}</a>
+                  ? <a key={p} className="prov prov-link" href={meta.jwLink} target="_blank" rel="noreferrer" title={tr('winner.provTitle')} onClick={() => onKijken?.()}>{tr('winner.rentBuy', { p })}</a>
                   : <span key={p} className="prov">{tr('winner.rentBuy', { p })}</span>
               ))}
             </p>

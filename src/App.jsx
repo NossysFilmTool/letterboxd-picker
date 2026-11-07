@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import Shell from './components/Shell.jsx';
 import ScoresPreview from './components/ScoresPreview.jsx';
 import RemoteVote from './components/RemoteVote.jsx';
@@ -15,6 +15,8 @@ import { enrichAll, refreshProviders, resolveFilm, fetchDetailById, setRegion, D
 import { setNossyWeights } from './lib/pick.js';
 import { setThemeEmphasis } from './lib/taste.js';
 import { fetchExtRatings } from './lib/omdb.js';
+import { volgAanbod } from './lib/aanbod.js';
+import { nieuwKaartje, voegKaartjeToe, kaartjesUitGeschiedenis, beoordeelKaartjes, AVOND_GAT } from './lib/kaartjesdoos.js';
 import { useEffect } from 'react';
 import { registerDict, setLang, detectLang, getLang, useT } from './lib/i18n.js';
 import nlDict from './lib/dict/nl.js';
@@ -40,7 +42,10 @@ export default function App() {
   const [ratings, setRatings] = useLS('ratings', {});
   const [ratedFilms, setRatedFilms] = useLS('ratedFilms', []); // uit ratings.csv, incl. films buiten je watchlist
   const [seen, setSeen] = useLS('seen', []);
-  const [meta, setMeta, metaReady] = useMetaStore();
+  const [meta, setMetaRuw, metaReady] = useMetaStore();
+  // Elke wijziging van de filmdata loopt langs volgAanbod: zo onthouden we
+  // sinds wanneer een film op een dienst staat (Net binnen, lib/aanbod.js)
+  const setMeta = useCallback((upd) => setMetaRuw((prev) => volgAanbod(prev, typeof upd === 'function' ? upd(prev) : upd)), [setMetaRuw]);
   const [history, setHistory] = useLS('history', []);
   // Eigen sterren (uit de pick-opvolging), los van de Letterboxd-import zodat
   // een her-import ze nooit wegvaagt. Vorm: { key: { rating, name, year, at } }
@@ -51,6 +56,10 @@ export default function App() {
   const [lbLists, setLbLists] = useLS('lbLists', []);
   // Antwoorden op "gekeken?"-vragen, per pick-datum: 'rated' | 'seen' | 'no'
   const [followups, setFollowups] = useLS('followups', {});
+  // De kaartjesdoos (lib/kaartjesdoos.js): elk kaartje van een pick, en wanneer
+  // je een film als gezien markeerde (bewijs dat je een kaartje gebruikte)
+  const [kaartjes, setKaartjes] = useLS('kaartjes', null);
+  const [gezienOp, setGezienOp] = useLS('gezienOp', {});
   const [shortlist, setShortlist] = useLS('shortlist', []);
   const [skipped, setSkipped] = useLS('skipped', []);
   // Fase 8: het uit jouw beoordelingen geleerde rangschikmodel (Inzicht)
@@ -87,7 +96,8 @@ export default function App() {
         if (stop) return;
         try {
           const p = await refreshProviders(m.id, key);
-          setMeta((prev) => (prev[k] ? { ...prev, [k]: { ...prev[k], ...p } } : prev));
+          // Ander land, ander aanbod: 'net binnen' begint hier opnieuw te tellen
+          setMeta((prev) => (prev[k] ? { ...prev, [k]: { ...prev[k], ...p, flatSinds: null } } : prev));
         } catch { return; }
         await new Promise((r) => setTimeout(r, 250));
       }
@@ -109,6 +119,8 @@ export default function App() {
     setRatedFilms([]);
     setOwnRatings({});
     setFollowups({});
+    setKaartjes([]);
+    setGezienOp({});
     setDiary([]);
     setLbLists([]);
     setSeen([]);
@@ -141,14 +153,45 @@ export default function App() {
     [watchlist, mergedRatedFilms, meta, shortlist, skipped],
   );
 
-  // Eén antwoord per gepickte avond verwerken.
-  const answerFollowup = (entry, antwoord, sterren) => {
-    if (antwoord === 'rated' && sterren) {
-      setOwnRatings((prev) => ({ ...prev, [entry.key]: { rating: sterren, name: entry.name, year: entry.year, at: Date.now() } }));
-      setSeen((s) => (s.includes(entry.key) ? s : [...s, entry.key]));
-    }
-    if (antwoord === 'seen') setSeen((s) => (s.includes(entry.key) ? s : [...s, entry.key]));
-    setFollowups((f) => ({ ...f, [entry.date]: antwoord }));
+  // De kaartjesdoos. Eenmalig bij de start: kaartjes uit de pick-geschiedenis
+  // en de antwoorden op de oude "Gekeken?"-vraag.
+  useEffect(() => {
+    if (kaartjes === null) setKaartjes(kaartjesUitGeschiedenis(history, followups, ownRatings));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const kaartjesStand = useMemo(
+    () => beoordeelKaartjes(kaartjes || [], { diary, gezienOp, ownRatings }),
+    [kaartjes, diary, gezienOp, ownRatings],
+  );
+  // Een pick (of de winnaar van Avond) levert een kaartje op
+  const geefKaartje = (film, opties = {}) => {
+    setKaartjes((lijst) => voegKaartjeToe(lijst || [], nieuwKaartje(film, opties)));
+  };
+  // Doorklikken naar een dienst of delen: dit kaartje gaat vooraan in de vraag
+  const kaartjeDoorgeklikt = (key) => {
+    const nu = Date.now();
+    setKaartjes((lijst) => (lijst || []).map((k) => (
+      k.key === key && nu - Date.parse(k.datum) < AVOND_GAT && !k.doorgeklikt ? { ...k, doorgeklikt: true } : k
+    )));
+  };
+  const markeerAlsGezien = (key) => {
+    setSeen((s) => (s.includes(key) ? s : [...s, key]));
+    setGezienOp((g) => ({ ...g, [key]: new Date().toISOString() }));
+  };
+  // Het antwoord op de vraag na een avond: welk kaartje heb je gebruikt (of
+  // geen). gekozen: key van de gekeken film, of null voor "geen van allen".
+  const beantwoordAvond = (avond, gekozen, sterren = null) => {
+    const nu = new Date().toISOString();
+    const ids = new Set(avond.map((k) => k.id));
+    setKaartjes((lijst) => (lijst || []).map((k) => {
+      if (!ids.has(k.id)) return k;
+      if (k.key === gekozen) return { ...k, antwoord: 'gekeken', sterren: sterren || null, beantwoord: nu };
+      return { ...k, antwoord: 'niet', beantwoord: nu };
+    }));
+    if (!gekozen) return;
+    const film = avond.find((k) => k.key === gekozen);
+    markeerAlsGezien(gekozen);
+    if (sterren && film) setOwnRatings((prev) => ({ ...prev, [gekozen]: { rating: sterren, name: film.name, year: film.year, at: Date.now() } }));
   };
   const ignoredSet = useMemo(() => new Set(ignored), [ignored]);
   // Markeer een lijst-item als 'geen film' (bijv. een tv-serie die Letterboxd
@@ -165,14 +208,20 @@ export default function App() {
   const unignoreFilm = (filmKey) => setIgnored((prev) => prev.filter((k) => k !== filmKey));
 
   const toggleSeen = (key) => {
+    const wasGezien = seen.includes(key);
     setSeen((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
+    setGezienOp((g) => {
+      if (!wasGezien) return { ...g, [key]: new Date().toISOString() };
+      const { [key]: _, ...rest } = g;
+      return rest;
+    });
   };
   // Een film van buiten je lijst als gezien markeren, desgewenst met sterren
   // (bijv. vanuit Voor jou). Sterren tellen als eigen beoordeling en voeden zo
   // je smaakprofiel; de filmdata (`detail`) zetten we er direct bij, met het
   // exacte TMDB-id, zodat er niets op titel geraden hoeft te worden.
   const markeerGezien = (film, sterren = null, detail = null) => {
-    setSeen((s) => (s.includes(film.key) ? s : [...s, film.key]));
+    markeerAlsGezien(film.key);
     if (sterren) setOwnRatings((prev) => ({ ...prev, [film.key]: { rating: sterren, name: film.name, year: film.year, at: Date.now() } }));
     if (detail) setMeta((prev) => (prev[film.key] ? prev : { ...prev, [film.key]: detail }));
   };
@@ -395,7 +444,8 @@ export default function App() {
     omdbKeys,
     ratings: mergedRatings, setRatings, lbRatings: ratings,
     ratedFilms: mergedRatedFilms, setRatedFilms,
-    ownRatings, setOwnRatings, followups, answerFollowup,
+    ownRatings, setOwnRatings,
+    kaartjesStand, geefKaartje, kaartjeDoorgeklikt, beantwoordAvond,
     diary, setDiary, lbLists, setLbLists,
     seen, seenSet, toggleSeen, markeerGezien, smaakModel, setSmaakModel,
     meta, setMeta,

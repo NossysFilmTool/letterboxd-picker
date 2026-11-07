@@ -6,6 +6,17 @@ import { nossyScore, fmtScore } from './pick.js';
 // de streepjescode uit het TMDB-nummer. Gedeeld door het kaartje in de app
 // (components/Kaartje.jsx) en het deelplaatje (lib/extra.js).
 
+// Drukletters: de enige plek in de app waar tekst in hoofdletters gaat, zoals
+// op een gedrukt kaartje (DESIGN.md; bewaakt door stijl.test.js)
+export const drukletters = (s, lang) => String(s).toLocaleUpperCase(lang);
+
+// De datum zoals op het kaartje: "DO 06-11-2026"
+export function kaartjeDatum(d, lang) {
+  const tekst = new Intl.DateTimeFormat(lang, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+    .format(d).replace(/\./g, '').replace(/\//g, '-');
+  return drukletters(tekst, lang);
+}
+
 // Aanvang: het eerstvolgende veelvoud van vijf minuten, nooit nu zelf
 export function aanvangTijd(nu = new Date()) {
   const d = new Date(nu);
@@ -22,13 +33,12 @@ function namenLijst(namen, en) {
 
 // De inhoud van het kaartje. tr en lang uit useT (of t uit i18n.js).
 export function kaartjeInhoud(film, meta, { tr, lang, personen = 1, nu = new Date() }) {
-  const hoofd = (s) => String(s).toLocaleUpperCase(lang);
+  const hoofd = (s) => drukletters(s, lang);
   const tijd = (d) => new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(d);
   const aanvang = aanvangTijd(nu);
   const runtime = meta?.runtime || null;
   const einde = runtime ? new Date(aanvang.getTime() + runtime * 60000) : null;
-  const datum = new Intl.DateTimeFormat(lang, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
-    .format(nu).replace(/\./g, '').replace(/\//g, '-');
+  const datum = kaartjeDatum(nu, lang);
 
   // Aftiteling: regie en de eerste namen van de rolverdeling
   const cast = (meta?.cast || []).slice(0, 3);
@@ -60,7 +70,7 @@ export function kaartjeInhoud(film, meta, { tr, lang, personen = 1, nu = new Dat
   const tmdbId = meta?.id || (film.key?.startsWith('tmdb:') ? film.key.slice(5) : null);
   return {
     kop: hoofd(tr('kaartje.kop')),
-    datum: hoofd(datum),
+    datum,
     titel: hoofd(film.name),
     aftiteling,
     velden,

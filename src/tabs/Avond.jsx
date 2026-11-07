@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePoll } from '../lib/usePoll.js';
 import { useT } from '../lib/i18n.js';
 import { remoteAvailable, createSession, getSession, closeSession, computeWinner } from '../lib/session.js';
@@ -54,6 +54,11 @@ export default function Avond({ app }) {
   const [pairIdx, setPairIdx] = useState(0);
   const [nextRound, setNextRound] = useState([]);
   const [champion, setChampion] = useState(null);
+  // De winnaar van de avond levert een kaartje op, voor iedereen die meedeed
+  useEffect(() => {
+    if (champion) app.geefKaartje(champion, { bron: 'avond', personen: playerCount });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [champion?.key]);
   // Vooraf filteren welke films meedoen aan de avond
   const [fGenres, setFGenres] = useState([]);
   const [fMaxRuntime, setFMaxRuntime] = useState('');
@@ -203,7 +208,7 @@ export default function Avond({ app }) {
         </div>
         <Winner
           film={champion} meta={meta[champion.key]}
-          context={mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')} kaartje={playerCount}
+          context={mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')} kaartje={playerCount} onKijken={() => app.kaartjeDoorgeklikt(champion.key)}
           seen={seenSet.has(champion.key)} onToggleSeen={() => app.toggleSeen(champion.key)}
           onSimilar={() => app.openSimilar(champion, meta[champion.key])}
         />

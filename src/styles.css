@@ -458,7 +458,34 @@ a.prov-link:hover { border-color: var(--paper); }
 
 /* Post-pick-opvolging: "gisteren gepickt — gekeken?" */
 .followup-card { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-.followup-card .fu-poster { width: 46px; height: 69px; border-radius: 6px; object-fit: cover; background: var(--ink); flex-shrink: 0; }
+.followup-card .fu-poster { width: 46px; height: 69px; border-radius: 2px; object-fit: cover; background: var(--ink); flex-shrink: 0; }
+/* De vraag na een avond met meer kaartjes: tik de film aan die je keek */
+.followup-card .fu-keuzes { display: flex; gap: 12px; flex-wrap: wrap; flex: 1 1 100%; }
+.followup-card .fu-keuze { width: 84px; padding: 0; border: none; background: none; color: var(--paper); cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 6px; }
+.followup-card .fu-keuze img, .followup-card .fu-leeg { width: 84px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 2px; background: var(--ink); display: grid; place-items: center; color: var(--fog-dim); }
+.followup-card .fu-keuze:hover img, .followup-card .fu-keuze:focus-visible img { outline: 2px solid var(--paper); outline-offset: 2px; }
+.followup-card .fu-keuze:focus-visible { outline: none; }
+.followup-card .fu-naam { font-size: 12.5px; line-height: 1.25; color: var(--fog); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.followup-card .fu-antwoord { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* De kaartjesdoos (Bieb, Kaartjes): afgescheurde stroken per maand. De
+   rechterrand is de scheurlijn, met halve gaatjes van de perforatie. */
+.kaartjesdoos .kd-telling { font-size: 14px; color: var(--fog); margin-bottom: 20px; font-variant-numeric: tabular-nums; }
+.kaartjesdoos .kd-maand { margin-bottom: 28px; }
+.kaartjesdoos .kd-maand h3 { font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1; margin-bottom: 12px; }
+.kaartjesdoos .kd-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.kaartje-stub { position: relative; display: flex; min-height: 138px; padding: 0; border: none; border-radius: 3px; overflow: hidden; background: var(--paper); color: #1b1a18; text-align: left; cursor: pointer; }
+.kaartje-stub::after { content: ''; position: absolute; top: 0; right: -3px; bottom: 0; width: 6px; background: radial-gradient(circle, var(--ink) 2.6px, transparent 3px) 0 2px / 6px 9px repeat-y; }
+.kaartje-stub:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+.kaartje-stub:hover .kaartje-stub-titel { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.kaartje-stub-poster { position: relative; width: 92px; flex-shrink: 0; display: grid; place-items: center; color: rgba(255, 255, 255, 0.7); }
+.kaartje-stub-poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.kaartje-stub-papier { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 11px 14px 12px; border-left: 2px dashed rgba(27, 26, 24, 0.45); }
+.kaartje-stub-datum { font-family: var(--font-ticket); font-size: 12px; color: #4a4640; }
+.kaartje-stub-titel { font-family: var(--font-display); font-weight: 700; font-size: 23px; line-height: 0.95; overflow-wrap: anywhere; }
+.kaartje-stub-bron { font-size: 12px; color: #6f6a62; }
+.kaartje-stub-stempel { align-self: flex-end; margin-top: auto; font-family: var(--font-ticket); font-size: 15px; line-height: 1.2; color: #a8463a; border: 2px solid currentColor; border-radius: 3px; padding: 2px 8px; transform: rotate(-6deg); }
+.kaartje-stub-stempel.leeg { font-size: 12px; }
 .followup-card .fu-stars { display: inline-flex; gap: 2px; }
 .followup-card .fu-star { background: none; border: none; cursor: pointer; font-size: 21px; line-height: 1; color: var(--fog-dim); padding: 2px; transition: color 0.12s ease, transform 0.12s ease; }
 .followup-card .fu-star:hover, .followup-card .fu-star.lit { color: var(--dot-o); }

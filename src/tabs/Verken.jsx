@@ -17,6 +17,8 @@ import RecCard from '../components/RecCard.jsx';
 import Sterren from '../components/Sterren.jsx';
 import SnelBeoordelen from '../components/SnelBeoordelen.jsx';
 import Vanavond from '../components/Vanavond.jsx';
+import NetBinnen from '../components/NetBinnen.jsx';
+import { netBinnen } from '../lib/aanbod.js';
 import DienstKiezer from '../components/DienstKiezer.jsx';
 import EigenRijMaker from '../components/EigenRijMaker.jsx';
 import { bouwEigenRijen, stelRijenVoor, normaliseer, autoNaam } from '../lib/eigenrijen.js';
@@ -40,6 +42,12 @@ export default function Verken({ app }) {
     mijnDiensten, setMijnDiensten, dienstenKeuze,
     seeds, eigenRijen, setEigenRijen, eigenGeladen,
   } = useForYou(app, mode === 'voorJou');
+  // Net binnen: watchlist-films die deze week op (jouw) diensten verschenen
+  const binnen = useMemo(() => netBinnen(watchlist, meta, { mijnDiensten, seenSet }), [watchlist, meta, mijnDiensten, seenSet]);
+  const openLijstFilm = (f) => {
+    const m = meta[f.key] || {};
+    setOpenFilm({ light: { id: m.id, title: f.name, year: f.year, poster: m.poster, vote: m.vote, votes: m.votes, lijstFilm: f }, detail: m });
+  };
   // Eigen rijen: welke rij staat open in de maker ('nieuw' of een rij-id)
   const [maker, setMaker] = useState(null);
   // De dienstenkiezer: verschijnt zolang je nog geen diensten koos (tot "Niet
@@ -413,6 +421,23 @@ export default function Verken({ app }) {
   const detailOverlay = openFilm ? (() => {
     const { light, detail } = openFilm;
     const m = detail || { poster: light.poster, vote: light.vote, votes: light.votes, plot: light.plot };
+    // Een film van je eigen watchlist (Net binnen): de gewone filmkaart
+    if (light.lijstFilm) {
+      const f = light.lijstFilm;
+      return (
+        <div>
+          <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setOpenFilm(null)}>
+            <ArrowLeft size={15} /> {tr('verken.backToVerken')}
+          </button>
+          <Winner
+            film={f} meta={meta[f.key]} context={tr('bieb.fromLibrary')}
+            seen={seenSet.has(f.key)} onToggleSeen={() => app.toggleSeen(f.key)}
+            onSimilar={() => app.openSimilar(f, meta[f.key])}
+            onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
+          />
+        </div>
+      );
+    }
     return (
       <div>
         <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setOpenFilm(null)}>
@@ -549,6 +574,7 @@ export default function Verken({ app }) {
             onAnder={() => setVanavondWeg((s) => new Set(s).add(vanavondId))}
           />
         ) : detailsLaden && !filterActief ? <div className="skel skel-vanavond" aria-hidden="true" /> : null}
+        <NetBinnen items={binnen} meta={meta} eigenDiensten={mijnDiensten.length > 0} onOpen={openLijstFilm} />
         {weergaveRijen.length > 0 ? (
           <div className="rec-rows">
             {weergaveRijen.map((rij, i) => (

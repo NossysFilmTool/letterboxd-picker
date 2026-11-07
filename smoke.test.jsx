@@ -89,6 +89,10 @@ describe('V2 smoke', () => {
     expect(kaartje.textContent).toContain('TOEGANG 1 PERSOON');
     expect(kaartje.textContent).toContain('Aanvang');
     expect(kaartje.textContent).not.toMatch(/Rij|Stoel/);
+    // het kaartje is bewaard, maar zit nog niet in de doos: een pick is geen bewijs
+    const bewaard = JSON.parse(localStorage.getItem('nossyV2.kaartjes'));
+    expect(bewaard[0]).toMatchObject({ bron: 'pick', personen: 1 });
+    expect(bewaard[0].antwoord).toBeUndefined();
   });
 
   it('kaartje: aanvang op vijf minuten, einde uit de speelduur, echte gegevens', async () => {
@@ -2527,12 +2531,133 @@ describe('V2 smoke', () => {
     expect(screen.queryByText(/Gekeken\?/)).toBeNull();
     const own = JSON.parse(localStorage.getItem('nossyV2.ownRatings'));
     expect(own['aftersun|2022'].rating).toBe(4);
-    const fu = JSON.parse(localStorage.getItem('nossyV2.followups'));
-    expect(fu[gisteren]).toBe('rated');
+    // het kaartje uit de geschiedenis is afgescheurd, met jouw sterren
+    const kaartjes = JSON.parse(localStorage.getItem('nossyV2.kaartjes'));
+    expect(kaartjes).toHaveLength(1);
+    expect(kaartjes[0]).toMatchObject({ key: 'aftersun|2022', antwoord: 'gekeken', sterren: 4 });
     // en de film staat nu bij gezien, met jouw ster zichtbaar in de Bieb
     fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
     fireEvent.click(screen.getByText(/^Gezien \(/));
     expect(document.body.textContent).toContain('Aftersun');
+    // en in de kaartjesdoos, met de sterren als stempel
+    fireEvent.click(screen.getByText('Kaartjes (1)'));
+    expect(document.querySelector('.kaartje-stub-titel').textContent).toBe('AFTERSUN');
+    expect(document.querySelector('.kaartje-stub-stempel').textContent).toBe('★★★★');
+  });
+
+  it('opvolging: na een avond met meer picks één vraag, je tikt de gekeken film aan', () => {
+    localStorage.clear();
+    const t0 = Date.now() - 20 * 3600e3;
+    const iso = (ms) => new Date(ms).toISOString();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([
+      { key: 'a|2001', name: 'Film A', year: 2001 }, { key: 'b|2002', name: 'Film B', year: 2002 }, { key: 'c|2003', name: 'Film C', year: 2003 },
+    ]));
+    // drie picks binnen een half uur: één avond, drie kaartjes
+    localStorage.setItem('nossyV2.kaartjes', JSON.stringify([
+      { id: '3', key: 'c|2003', name: 'Film C', year: 2003, datum: iso(t0 + 30 * 60e3), bron: 'pick', personen: 1 },
+      { id: '2', key: 'b|2002', name: 'Film B', year: 2002, datum: iso(t0 + 10 * 60e3), bron: 'pick', personen: 1, doorgeklikt: true },
+      { id: '1', key: 'a|2001', name: 'Film A', year: 2001, datum: iso(t0), bron: 'pick', personen: 1 },
+    ]));
+    render(<App />);
+    expect(screen.getByText('Je kreeg 3 kaartjes. Welke heb je gekeken?')).toBeTruthy();
+    // het kaartje waar je doorklikte staat vooraan
+    const keuzes = [...document.querySelectorAll('.fu-keuze')].map((b) => b.getAttribute('aria-label'));
+    expect(keuzes).toEqual(['Ik keek Film B', 'Ik keek Film C', 'Ik keek Film A']);
+    fireEvent.click(screen.getByLabelText('Ik keek Film C'));
+    fireEvent.click(screen.getByLabelText('Geef 3 sterren'));
+    expect(screen.queryByText(/Welke heb je gekeken/)).toBeNull();
+    const k = JSON.parse(localStorage.getItem('nossyV2.kaartjes'));
+    const per = Object.fromEntries(k.map((x) => [x.key, x]));
+    expect(per['c|2003']).toMatchObject({ antwoord: 'gekeken', sterren: 3 });
+    expect(per['a|2001'].antwoord).toBe('niet');
+    expect(per['b|2002'].antwoord).toBe('niet');
+    expect(JSON.parse(localStorage.getItem('nossyV2.ownRatings'))['c|2003'].rating).toBe(3);
+  });
+
+  it('kaartjesdoos: alleen met bewijs, nooit een stapel vragen', async () => {
+    const { beoordeelKaartjes, vraagAvond, kaartjesUitGeschiedenis, voegKaartjeToe, nieuwKaartje, inDeDoos } = await import('./src/lib/kaartjesdoos.js');
+    const DAG = 24 * 3600e3;
+    const nu = new Date(2026, 10, 7, 12, 0).getTime();
+    const iso = (ms) => new Date(ms).toISOString();
+    const k = (id, key, ms, extra = {}) => ({ id, key, name: key, year: 2000, datum: iso(ms), bron: 'pick', personen: 1, ...extra });
+    // een pick alleen is geen bewijs: open, en na 14 dagen verlopen
+    let st = beoordeelKaartjes([k('1', 'a', nu - 2 * DAG)], { nu });
+    expect(st[0].status).toBe('open');
+    st = beoordeelKaartjes([k('1', 'a', nu - 20 * DAG)], { nu });
+    expect(st[0].status).toBe('verlopen');
+    // Letterboxd-dagboek op of na de pick-dag: afgescheurd, met die sterren
+    const pick = new Date(2026, 10, 3, 20, 0).getTime();
+    st = beoordeelKaartjes([k('1', 'a', pick)], { nu, diary: [{ key: 'a', watchedDate: '2026-11-03', rating: 4.5 }] });
+    expect(st[0]).toMatchObject({ status: 'gekeken', bewijs: 'letterboxd', sterren: 4.5, gekekenOp: '2026-11-03' });
+    // een dagboekregel van vóór de pick telt niet
+    st = beoordeelKaartjes([k('1', 'a', pick)], { nu, diary: [{ key: 'a', watchedDate: '2026-11-01', rating: 3 }] });
+    expect(st[0].status).toBe('open');
+    // één dagboekregel scheurt één kaartje: het nieuwste dat ervoor lag
+    st = beoordeelKaartjes([k('oud', 'a', pick - 2 * DAG), k('nieuw', 'a', pick)], { nu, diary: [{ key: 'a', watchedDate: '2026-11-04' }] });
+    expect(st.find((x) => x.id === 'nieuw').status).toBe('gekeken');
+    expect(st.find((x) => x.id === 'oud').status).toBe('open');
+    // zelf als gezien gemarkeerd binnen 14 dagen: telt, met sterren als die er zijn
+    st = beoordeelKaartjes([k('1', 'a', pick)], { nu, gezienOp: { a: iso(pick + 3 * 3600e3) }, ownRatings: { a: { rating: 5, at: pick + 3 * 3600e3 } } });
+    expect(st[0]).toMatchObject({ status: 'gekeken', bewijs: 'gezien', sterren: 5 });
+    // "niet gekeken" blijft buiten de doos
+    st = beoordeelKaartjes([k('1', 'a', pick, { antwoord: 'niet' })], { nu, gezienOp: { a: iso(pick + 3600e3) } });
+    expect(inDeDoos(st)).toHaveLength(0);
+    // de vraag: alleen over de laatste avond die minstens 6 uur voorbij is
+    const avondA = [k('a1', 'a', nu - 3 * DAG), k('a2', 'b', nu - 3 * DAG + 3600e3)];
+    const avondB = [k('b1', 'c', nu - DAG)];
+    const vraag = vraagAvond(beoordeelKaartjes([...avondA, ...avondB], { nu }), nu);
+    expect(vraag.map((x) => x.id)).toEqual(['b1']);
+    // is die laatste avond al bekend (bewijs), dan komt er geen vraag over oudere
+    const zonder = vraagAvond(beoordeelKaartjes([...avondA, k('b1', 'c', nu - DAG, { antwoord: 'gekeken' })], { nu }), nu);
+    expect(zonder).toBeNull();
+    // en niet over de avond van nu (minder dan 6 uur geleden)
+    expect(vraagAvond(beoordeelKaartjes([k('x', 'a', nu - 2 * 3600e3)], { nu }), nu)).toBeNull();
+    // dezelfde film twee keer op één avond: één kaartje
+    const eerst = nieuwKaartje({ key: 'a', name: 'A' }, { nu: new Date(nu) });
+    const lijst = voegKaartjeToe(voegKaartjeToe([], eerst), nieuwKaartje({ key: 'a', name: 'A' }, { nu: new Date(nu + 3600e3) }));
+    expect(lijst).toHaveLength(1);
+    // de start: kaartjes uit de geschiedenis, met de oude antwoorden
+    const start = kaartjesUitGeschiedenis(
+      [{ key: 'b', name: 'B', date: iso(nu - DAG) }, { key: 'a', name: 'A', date: iso(nu - 9 * DAG) }],
+      { [iso(nu - 9 * DAG)]: 'rated' }, { a: { rating: 4 } },
+    );
+    expect(start.map((x) => x.key)).toEqual(['b', 'a']);
+    expect(start[1]).toMatchObject({ antwoord: 'gekeken', sterren: 4 });
+  });
+
+  it('net binnen: onthoudt sinds wanneer een film op een dienst staat', async () => {
+    const { aanbodSinds, volgAanbod, netBinnen } = await import('./src/lib/aanbod.js');
+    const DAG = 24 * 3600e3;
+    const nu = 1_800_000_000_000;
+    // de eerste keer weten we het niet: 0, dus nooit "net binnen"
+    let m = aanbodSinds(undefined, { id: 1, flat: ['Netflix'] }, nu);
+    expect(m.flatSinds).toEqual({ Netflix: 0 });
+    // er komt een dienst bij: die krijgt de datum van nu
+    m = aanbodSinds(m, { ...m, flat: ['Netflix', 'MUBI'] }, nu + DAG);
+    expect(m.flatSinds).toEqual({ Netflix: 0, MUBI: nu + DAG });
+    // een hapering (weg en binnen drie dagen terug) houdt de oude datum
+    const weg = aanbodSinds(m, { ...m, flat: ['Netflix'] }, nu + 2 * DAG);
+    const terug = aanbodSinds(weg, { ...weg, flat: ['Netflix', 'MUBI'] }, nu + 3 * DAG);
+    expect(terug.flatSinds.MUBI).toBe(nu + DAG);
+    // na een regiowissel (flatSinds: null) begint het opnieuw, zonder "nieuw"
+    const regio = aanbodSinds(terug, { ...terug, flat: ['Videoland'], flatSinds: null }, nu + 4 * DAG);
+    expect(regio.flatSinds).toEqual({ Videoland: 0 });
+    // over de hele cache: alleen veranderde films worden bijgewerkt
+    const prev = { a: m, b: { id: 2, flat: [] , flatSinds: {} } };
+    const next = volgAanbod(prev, { ...prev, b: { ...prev.b, flat: ['Netflix'] } }, nu + 5 * DAG);
+    expect(next.a).toBe(m);
+    expect(next.b.flatSinds).toEqual({ Netflix: nu + 5 * DAG });
+    // de rij: watchlist-films die deze week op jouw diensten kwamen
+    const watchlist = [{ key: 'a', name: 'A' }, { key: 'b', name: 'B' }, { key: 'c', name: 'C' }];
+    const meta = {
+      a: { flat: ['MUBI'], flatSinds: { MUBI: nu - 2 * DAG } },
+      b: { flat: ['Netflix'], flatSinds: { Netflix: nu - 10 * DAG } },
+      c: { flat: ['Prime'], flatSinds: { Prime: nu - DAG } },
+    };
+    expect(netBinnen(watchlist, meta, { nu }).map((x) => x.film.key)).toEqual(['c', 'a']);
+    expect(netBinnen(watchlist, meta, { nu, mijnDiensten: ['MUBI'] }).map((x) => x.dienst)).toEqual(['MUBI']);
+    expect(netBinnen(watchlist, meta, { nu, seenSet: new Set(['c']) }).map((x) => x.film.key)).toEqual(['a']);
   });
 
   it('opvolging: "Niet gekeken" ruimt op zonder rating, en verse picks vragen niks', () => {
