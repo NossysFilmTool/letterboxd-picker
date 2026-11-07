@@ -89,6 +89,7 @@ async function fetchDetail(id, key) {
     bios: d.release_dates ? [1, 2, 3].some((t) => releaseTypes.has(t)) : null,
     collectie: d.belongs_to_collection?.id || null,
     country: d.production_countries?.[0]?.iso_3166_1 || null,
+    lang: d.original_language || null,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null,
     flat: provNames(prov.flatrate),
     rent: provNames([...(prov.rent || []), ...(prov.buy || [])]).slice(0, 4),

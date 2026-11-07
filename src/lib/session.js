@@ -20,6 +20,26 @@ export function createSession(films, host) {
   });
 }
 
+// "Voor ons": een sessie waarin elke gast de films op eigen smaak scoort.
+// Een oudere Worker kent dit nog niet (geen versie terug): dan WORKER_OUD.
+export async function createSamen(films, host) {
+  const data = await call('/session/new', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'samen', films, host }),
+  });
+  if (!data?.versie || data.versie < 2) throw new Error('WORKER_OUD');
+  return data;
+}
+
+export function sendScores(code, player, scores) {
+  return call(`/session/${code}/scores`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ player, scores }),
+  });
+}
+
 export function getSession(code) {
   return call(`/session/${code}`);
 }

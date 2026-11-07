@@ -12,8 +12,8 @@
 // naar een dienst of het kaartje delen zet het kaartje alleen vooraan in de
 // vraag. Zonder bewijs verloopt een kaartje na 14 dagen, zonder melding.
 //
-// Een kaartje: { id, key, name, year, datum (ISO), bron: 'pick'|'avond',
-//   personen, doorgeklikt?, antwoord?: 'gekeken'|'niet', sterren?, beantwoord? }
+// Een kaartje: { id, key, name, year, datum (ISO), bron: 'pick'|'avond'|'samen',
+//   personen, namen?, doorgeklikt?, antwoord?: 'gekeken'|'niet', sterren?, beantwoord? }
 // Bewijs wordt niet in het kaartje bewaard maar steeds opnieuw afgeleid, zodat
 // een latere Letterboxd-import oude kaartjes alsnog kan afscheuren.
 
@@ -32,9 +32,11 @@ export function lokaleDag(ms) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-export function nieuwKaartje(film, { bron = 'pick', personen = 1, nu = new Date() } = {}) {
+export function nieuwKaartje(film, { bron = 'pick', personen = 1, namen = null, nu = new Date() } = {}) {
   const datum = nu.toISOString();
-  return { id: `${datum}|${film.key}`, key: film.key, name: film.name, year: film.year || null, datum, bron, personen };
+  const k = { id: `${datum}|${film.key}`, key: film.key, name: film.name, year: film.year || null, datum, bron, personen };
+  if (namen?.length) k.namen = namen.slice(0, 12);
+  return k;
 }
 
 // Erbij, nieuwste eerst; dezelfde film op dezelfde avond telt één keer

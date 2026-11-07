@@ -2765,6 +2765,213 @@ describe('V2 smoke', () => {
     expect(r2.winner.key).toBe('b');
   });
 
+  it('voor ons: scoren op eigen smaak en een eerlijke groepsranglijst', async () => {
+    const { kiesKandidaten, informatieveRatings, scoorKandidaten, scoresUitKeuze, groepsRanglijst } = await import('./src/lib/samen.js');
+    // kandidaten: films met filmdata eerst, hooguit het maximum, compact
+    const pool = [{ key: 'a', name: 'A' }, { key: 'b', name: 'B' }, { key: 'c', name: 'C' }];
+    const meta = { b: { id: 2, genres: ['Drama'], keywords: [{ id: 9, name: 'x' }], vote: 7.5, votes: 900 } };
+    const k = kiesKandidaten(pool, meta, 2);
+    expect(k).toHaveLength(2);
+    expect(k[0]).toMatchObject({ key: 'b', id: 2, genres: ['Drama'], keywords: [9] });
+    // de beoordelingen die het meest zeggen: de uitschieters eerst
+    const r = informatieveRatings([{ key: 'm', rating: 3 }, { key: 'h', rating: 5 }, { key: 'l', rating: 0.5 }, { key: 'n', rating: 3.5 }], 2);
+    expect(r.map((x) => x.key)).toEqual(['l', 'h']);
+    // scoren: watchlist geeft een duw, al gezien wordt gemarkeerd
+    const smaak = { genres: { Drama: 1 }, decades: {}, themes: {}, topThemes: [], nietEngels: 0.3, medianVotes: 1000 };
+    const kand = [{ key: 'b', id: 2, genres: ['Drama'], vote: 7.5, votes: 900 }, { key: 'd', id: 4, genres: ['Horror'], vote: 7.5, votes: 900 }];
+    const zonder = scoorKandidaten(kand, smaak);
+    const met = scoorKandidaten(kand, smaak, { lijstIds: new Set([2]), gezienKeys: new Set(['d']) });
+    expect(zonder.b.s).toBeGreaterThan(zonder.d.s);
+    expect(met.b.s).toBe(Math.min(99, zonder.b.s + 12));
+    expect(met.b.w).toBe(true);
+    expect(met.d.g).toBe(true);
+    expect(scoresUitKeuze(kand, ['d'])).toEqual({ b: { s: 40, w: false, g: false }, d: { s: 80, w: false, g: false } });
+    // de ranglijst: niemand onder de ondergrens en niemand zag hem al gaat voor
+    const films = [{ key: 'x', name: 'X' }, { key: 'y', name: 'Y' }, { key: 'z', name: 'Z' }];
+    const lijst = groepsRanglijst(films, {
+      Jij: { x: { s: 95 }, y: { s: 70 }, z: { s: 90 } },
+      Sanne: { x: { s: 30 }, y: { s: 72 }, z: { s: 80, g: true } },
+    });
+    expect(lijst.map((x) => x.film.key)).toEqual(['y', 'x', 'z']);
+    expect(lijst[1].ellende).toBe(true);
+    expect(lijst[2].gezienDoor).toEqual(['Sanne']);
+    expect(lijst[0].gemiddeld).toBe(71);
+  });
+
+  it('voor ons: de Worker bewaart alleen nette scores, per gast', async () => {
+    const kv = new Map();
+    const env = { SESSIONS: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); } }, TMDB_KEY: 'x' };
+    const worker = (await import('./worker/worker.js')).default;
+    const vraag = (pad, body) => worker.fetch(new Request(`https://w.dev${pad}`, body
+      ? { method: 'POST', body: JSON.stringify(body), headers: { Origin: 'http://localhost:5173', 'Content-Type': 'application/json' } }
+      : { headers: { Origin: 'http://localhost:5173' } }), env);
+    const films = Array.from({ length: 70 }, (_, i) => ({ key: `f${i}`, name: `F${i}`, year: 2000, id: i + 1, genres: ['Drama'], keywords: [1, 2], vote: 7, votes: 100, extra: 'weg' }));
+    const nieuw = await (await vraag('/session/new', { type: 'samen', films, host: 'Sonny' })).json();
+    expect(nieuw.versie).toBe(2);
+    const opgeslagen = JSON.parse(kv.get(`s:${nieuw.code}`));
+    expect(opgeslagen.type).toBe('samen');
+    expect(opgeslagen.films).toHaveLength(60);
+    expect(opgeslagen.films[0]).toMatchObject({ id: 1, genres: ['Drama'], keywords: [1, 2] });
+    expect(opgeslagen.films[0].extra).toBeUndefined();
+    // scores: alleen bekende films, afgerond en begrensd
+    const ok = await vraag(`/session/${nieuw.code}/scores`, { player: 'Sanne', scores: { f0: { s: 87.6, w: 1 }, f1: { s: 250 }, onbekend: { s: 50 } } });
+    expect(ok.status).toBe(200);
+    const sessie = await (await vraag(`/session/${nieuw.code}`)).json();
+    expect(sessie.scores).toEqual({ Sanne: { f0: { s: 88, w: true, g: false }, f1: { s: 100, w: false, g: false } } });
+    // een gewone stemronde blijft zoals hij was
+    const stem = await (await vraag('/session/new', { films: films.slice(0, 3), host: 'x' })).json();
+    expect(JSON.parse(kv.get(`s:${stem.code}`)).films[0].genres).toBeUndefined();
+  });
+
+  it('voor ons: een gast zonder export tikt aan wat hij ziet zitten', async () => {
+    history.pushState({}, '', '?samen=SAM234');
+    const calls = [];
+    global.fetch = async (url, opts) => {
+      calls.push({ url: String(url), body: opts?.body });
+      if (String(url).endsWith('/session/SAM234')) {
+        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Sonny', winner: null, scores: {}, films: [
+          { key: 'w|2016', name: 'The Wailing', year: 2016, poster: null },
+          { key: 'l|2008', name: 'Lake Mungo', year: 2008, poster: null },
+        ] }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    };
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+      render(<App />);
+      expect(await screen.findByText('Sonny kiest een film voor jullie samen')).toBeTruthy();
+      expect(document.body.textContent).toContain('Je export blijft op deze telefoon');
+      fireEvent.change(screen.getByLabelText('Je naam'), { target: { value: 'Pim' } });
+      fireEvent.click(screen.getByText(/Geen export bij de hand/));
+      fireEvent.click(screen.getByLabelText('Lake Mungo (2008)'));
+      fireEvent.click(screen.getByText('Verstuur je stem'));
+      expect(await screen.findByText('Verstuurd')).toBeTruthy();
+      const post = calls.find((c) => c.url.includes('/scores'));
+      expect(JSON.parse(post.body)).toEqual({ player: 'Pim', scores: {
+        'w|2016': { s: 40, w: false, g: false }, 'l|2008': { s: 80, w: false, g: false },
+      } });
+    } finally {
+      delete global.fetch;
+      history.pushState({}, '', '/');
+    }
+  });
+
+  it('voor ons: een gast laadt zijn export; alleen scores verlaten het toestel', async () => {
+    history.pushState({}, '', '?samen=SAM234');
+    const calls = [];
+    const detail = (id, title, jaar, genres) => ({ id, title, release_date: `${jaar}-01-01`, runtime: 100, genres: genres.map((name) => ({ name })), vote_average: 7.5, vote_count: 5000, credits: { crew: [], cast: [] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} }, keywords: { keywords: [] } });
+    const films = { Drama1: [1, 2001, ['Drama']], Drama2: [2, 2002, ['Drama']], Horror1: [3, 2003, ['Horror']], Gezien: [4, 2004, ['Drama']] };
+    global.fetch = async (url, opts) => {
+      const u = String(url);
+      calls.push({ url: u, body: opts?.body });
+      if (u.endsWith('/session/SAM234')) {
+        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Sonny', winner: null, scores: {}, films: [
+          { key: 'drama nieuw|2020', name: 'Drama Nieuw', year: 2020, genres: ['Drama'], vote: 7.5, votes: 5000 },
+          { key: 'horror nieuw|2020', name: 'Horror Nieuw', year: 2020, genres: ['Horror'], vote: 7.5, votes: 5000 },
+          { key: 'gezien|2004', name: 'Gezien', year: 2004, id: 4, genres: ['Drama'], vote: 7.5, votes: 5000 },
+        ] }) };
+      }
+      const zoek = u.match(/search\/movie\?query=([^&]+)/);
+      if (zoek) {
+        const naam = decodeURIComponent(zoek[1].replace(/\+/g, ' '));
+        const f = films[naam];
+        return { ok: true, status: 200, json: async () => ({ results: f ? [{ id: f[0], title: naam, release_date: `${f[1]}-01-01`, vote_count: 5000 }] : [] }) };
+      }
+      const det = u.match(/\/movie\/(\d+)\?/);
+      if (det) {
+        const [naam, f] = Object.entries(films).find(([, v]) => v[0] === +det[1]);
+        return { ok: true, status: 200, json: async () => detail(f[0], naam, f[1], f[2]) };
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    };
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+      render(<App />);
+      expect(await screen.findByText('Sonny kiest een film voor jullie samen')).toBeTruthy();
+      fireEvent.change(screen.getByLabelText('Je naam'), { target: { value: 'Eef' } });
+      const csv = 'Date,Name,Year,Letterboxd URI,Rating\n2026-01-01,Drama1,2001,x,5\n2026-01-02,Drama2,2002,x,4.5\n2026-01-03,Horror1,2003,x,1\n2026-01-04,Gezien,2004,x,4';
+      const bestand = new File([csv], 'ratings.csv', { type: 'text/csv' });
+      fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [bestand] } });
+      expect(await screen.findByText('Verstuurd', {}, { timeout: 5000 })).toBeTruthy();
+      const post = JSON.parse(calls.find((c) => c.url.includes('/scores')).body);
+      expect(post.player).toBe('Eef');
+      // drama past bij Eef beter dan horror; een film die Eef al beoordeelde is "gezien"
+      expect(post.scores['drama nieuw|2020'].s).toBeGreaterThan(post.scores['horror nieuw|2020'].s);
+      expect(post.scores['gezien|2004'].g).toBe(true);
+      // de export zelf gaat nergens heen: geen enkele aanvraag bevat de ratings
+      expect(calls.some((c) => c.body && c.body.includes('Drama1'))).toBe(false);
+      expect(document.body.textContent).toContain('Wat het best bij jou past');
+    } finally {
+      delete global.fetch;
+      history.pushState({}, '', '/');
+    }
+  });
+
+  it('voor ons: de gastheer ziet de ranglijst en kiest; het kaartje draagt alle namen', async () => {
+    const calls = [];
+    global.fetch = async (url, opts) => {
+      const u = String(url);
+      calls.push({ url: u, body: opts?.body });
+      if (u.endsWith('/session/new')) return { ok: true, status: 200, json: async () => ({ code: 'SAM777', versie: 2 }) };
+      if (u.endsWith('/session/SAM777')) {
+        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Sonny', winner: null, films: [], scores: {
+          Sanne: { 'a|2020': { s: 90, w: true, g: false }, 'b|2021': { s: 20, w: false, g: false }, 'c|2022': { s: 60, w: false, g: false } },
+        } }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    };
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+      localStorage.setItem('nossyV2.watchlist', JSON.stringify([
+        { key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 }, { key: 'c|2022', name: 'C', year: 2022 },
+      ]));
+      render(<App />);
+      fireEvent.click(screen.getAllByText('Avond')[0]);
+      fireEvent.change(screen.getAllByLabelText('Je naam')[0], { target: { value: 'Sonny' } });
+      fireEvent.click(screen.getByText('Start Voor ons'));
+      expect(await screen.findByText('Code: SAM777')).toBeTruthy();
+      const nieuw = JSON.parse(calls.find((c) => c.url.endsWith('/session/new')).body);
+      expect(nieuw.type).toBe('samen');
+      expect(nieuw.host).toBe('Sonny');
+      expect(await screen.findByText('Doen mee: Sonny, Sanne', {}, { timeout: 8000 })).toBeTruthy();
+      expect(screen.getByText('Voor jullie samen')).toBeTruthy();
+      expect(screen.getByText('Op de watchlist van Sanne')).toBeTruthy();
+      // bovenaan staat A (Sanne 90, op haar lijst); B zakt (Sanne 20)
+      const titels = [...document.querySelectorAll('.samen-titel')].map((t) => t.textContent);
+      expect(titels[0]).toBe('A (2020)');
+      expect(titels[titels.length - 1]).toBe('B (2021)');
+      fireEvent.click(screen.getAllByText('Deze kijken we')[0]);
+      const kaartje = await waitFor(() => { const k = document.querySelector('.kaartje'); if (!k) throw new Error('nog niet'); return k; });
+      expect(kaartje.textContent).toContain('SONNY, SANNE');
+      expect(kaartje.textContent).toContain('TOEGANG 2 PERSONEN');
+      expect(JSON.parse(calls.find((c) => c.url.includes('/close')).body).winner).toBe('a|2020');
+      const k = JSON.parse(localStorage.getItem('nossyV2.kaartjes'));
+      expect(k[0]).toMatchObject({ key: 'a|2020', bron: 'samen', personen: 2, namen: ['Sonny', 'Sanne'] });
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('voor ons: een oude Worker zegt eerlijk dat hij bijgewerkt moet worden', async () => {
+    global.fetch = async (url) => (String(url).endsWith('/session/new')
+      ? { ok: true, status: 200, json: async () => ({ code: 'OUD234' }) }
+      : { ok: true, status: 200, json: async () => ({}) });
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+      localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 }]));
+      render(<App />);
+      fireEvent.click(screen.getAllByText('Avond')[0]);
+      fireEvent.click(screen.getByText('Start Voor ons'));
+      expect(await screen.findByText(/De Worker kent Voor ons nog niet/)).toBeTruthy();
+    } finally {
+      delete global.fetch;
+    }
+  });
+
   it('op afstand: deellink toont het stemscherm en verstuurt een stem', async () => {
     history.pushState({}, '', '?avond=ABC234');
     const calls = [];

@@ -18,7 +18,8 @@ function Strook({ k, poster, onOpen }) {
   const { t: tr, lang } = useT();
   const kleur = useFilmkleur(poster);
   const d = alsDatum(k.gekekenOp);
-  const bron = k.bron === 'avond' ? tr('kaartje.bronAvond', { n: k.personen || 2 }) : tr('kaartje.bronPick');
+  const bron = k.bron === 'samen' ? tr('kaartje.bronSamen', { namen: (k.namen || []).join(', ') || k.personen })
+    : k.bron === 'avond' ? tr('kaartje.bronAvond', { n: k.personen || 2 }) : tr('kaartje.bronPick');
   return (
     <button type="button" className="kaartje-stub" onClick={() => onOpen({ key: k.key, name: k.name, year: k.year })}
       aria-label={tr('kaartje.stubAria', { name: k.name, datum: new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'long' }).format(d) })}>

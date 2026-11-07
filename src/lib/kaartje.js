@@ -32,7 +32,7 @@ function namenLijst(namen, en) {
 }
 
 // De inhoud van het kaartje. tr en lang uit useT (of t uit i18n.js).
-export function kaartjeInhoud(film, meta, { tr, lang, personen = 1, nu = new Date() }) {
+export function kaartjeInhoud(film, meta, { tr, lang, personen = 1, namen = null, nu = new Date() }) {
   const hoofd = (s) => drukletters(s, lang);
   const tijd = (d) => new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(d);
   const aanvang = aanvangTijd(nu);
@@ -65,6 +65,8 @@ export function kaartjeInhoud(film, meta, { tr, lang, personen = 1, nu = new Dat
     cijfer ? { k: cijfer.label, v: cijfer.waarde } : null,
     dienst ? { k: tr('kaartje.kijkOp'), v: hoofd(dienst), breed: true } : null,
     prijs ? { k: tr('kaartje.prijs'), v: hoofd(prijs), breed: true } : null,
+    // "Voor ons": wie er meekijken, over de hele breedte
+    namen?.length ? { k: tr('kaartje.voor'), v: hoofd(namen.join(', ')), vol: true } : null,
   ].filter(Boolean);
 
   const tmdbId = meta?.id || (film.key?.startsWith('tmdb:') ? film.key.slice(5) : null);

@@ -8,12 +8,12 @@ import { kaartjeInhoud, streepjes } from '../lib/kaartje.js';
 // een afscheurstrook met de poster. Het kaartje schuift bij het verschijnen
 // uit een sleuf, zoals uit een kaartjesautomaat (zie .kaartje-sleuf).
 //   personen: hoeveel mensen er kijken ("Toegang 3 personen" bij Avond)
-export default function Kaartje({ film, meta, personen = 1, kleur }) {
+export default function Kaartje({ film, meta, personen = 1, namen, kleur }) {
   const { t: tr, lang } = useT();
   // Aanvang en einde staan vast zolang dit kaartje er ligt
   const inhoud = useMemo(
-    () => kaartjeInhoud(film, meta, { tr, lang, personen }),
-    [film.key, meta, lang, personen], // tr hoort bij lang
+    () => kaartjeInhoud(film, meta, { tr, lang, personen, namen }),
+    [film.key, meta, lang, personen, namen?.join('|')], // tr hoort bij lang
   );
   const balken = useMemo(() => streepjes(inhoud.code || film.key), [inhoud.code, film.key]);
 
@@ -26,7 +26,7 @@ export default function Kaartje({ film, meta, personen = 1, kleur }) {
           {inhoud.aftiteling && <p className="kaftiteling">{inhoud.aftiteling}</p>}
           <dl className="kvelden">
             {inhoud.velden.map((v) => (
-              <div key={v.k} className={v.breed ? 'breed' : undefined}>
+              <div key={v.k} className={v.vol ? 'vol' : v.breed ? 'breed' : undefined}>
                 <dt>{v.k}</dt>
                 <dd>{v.v}</dd>
               </div>

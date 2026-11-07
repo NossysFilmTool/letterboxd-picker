@@ -303,6 +303,7 @@ select.field { appearance: none; }
 .kaartje .kaftiteling { font-family: var(--font-display); font-weight: 500; font-size: 14px; color: #4a4640; }
 .kaartje .kvelden { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; margin: 16px 0 0; }
 .kaartje .kvelden .breed { grid-column: span 2; }
+.kaartje .kvelden .vol { grid-column: 1 / -1; }
 .kaartje dt { font-size: 11.5px; color: #6f6a62; margin-bottom: 3px; }
 .kaartje dd { margin: 0; font-family: var(--font-ticket); font-size: 16px; line-height: 1.15; color: #1b1a18; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .kaartje .kvoet { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; margin-top: 16px; }
@@ -673,3 +674,20 @@ a.prov-link:hover { border-color: var(--paper); }
 .spin { animation: spinR 0.9s linear infinite; }
 @keyframes spinR { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+/* Voor ons (SamenHost bij Avond, SamenGast via de link) */
+.samen-host .samen-lijstkop { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1; margin: 20px 0 6px; }
+.samen-lijst { list-style: none; margin: 0; padding: 0; }
+.samen-lijst li { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.samen-lijst li.zwak { opacity: 0.6; }
+.samen-poster { width: 40px; height: 60px; flex-shrink: 0; border-radius: 2px; overflow: hidden; background: var(--ink); display: grid; place-items: center; color: var(--fog-dim); }
+.samen-poster img { width: 100%; height: 100%; object-fit: cover; }
+.samen-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.samen-titel { color: var(--paper); font-weight: 600; font-size: 14.5px; }
+.samen-per { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12.5px; color: var(--fog); font-variant-numeric: tabular-nums; }
+.samen-per .laag { color: var(--dot-o); }
+.samen-noot { font-size: 12px; color: var(--dot-g); }
+.samen-score { display: flex; align-items: center; gap: 12px; }
+.samen-score .n { font-family: var(--font-display); font-weight: 700; font-size: 26px; color: var(--paper); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+.samen-gast .samen-kop { font-family: var(--font-display); font-weight: 700; font-size: 34px; line-height: 1; margin-bottom: 10px; }
+.samen-top { margin: 0; padding-left: 20px; color: var(--paper); display: grid; gap: 4px; }
+@media (max-width: 560px) { .samen-score { flex-direction: column; align-items: flex-end; gap: 6px; } }

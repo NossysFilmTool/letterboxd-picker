@@ -63,6 +63,19 @@ Testen: start in de tool bij Avond een stemronde. Krijg je de melding
 dat de Worker nog geen stemrondes kent, check dan de binding-naam
 (exact SESSIONS). Sessies verlopen na 24 uur vanzelf.
 
+## Voor ons aanzetten (samen kiezen op smaak)
+
+"Voor ons" gebruikt dezelfde KV-opslag als de stemrondes, met een nieuwe
+route (`/session/CODE/scores`). Er hoeft niets nieuws aangezet te worden:
+
+1. Plak de nieuwste `worker.js` in Edit code en Deploy.
+
+Testen: start bij Avond "Voor ons". Zie je de melding dat de Worker
+Voor ons nog niet kent, dan draait er nog een oude versie: plak de code
+opnieuw en deploy. De Worker bewaart per gast alleen een score per film
+(0 tot 100) en of die film op diens watchlist staat of al gezien is;
+exports en beoordelingen komen nooit bij de Worker.
+
 ## Goed om te weten
 
 - De sleutel staat alléén als Secret bij Cloudflare, nooit in de code of

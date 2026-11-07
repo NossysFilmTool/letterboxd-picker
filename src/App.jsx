@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import Shell from './components/Shell.jsx';
 import ScoresPreview from './components/ScoresPreview.jsx';
 import RemoteVote from './components/RemoteVote.jsx';
+import SamenGast from './components/SamenGast.jsx';
 import SimilarOverlay from './components/SimilarOverlay.jsx';
 import { buildTaste } from './lib/taste.js';
 import Pick from './tabs/Pick.jsx';
@@ -32,6 +33,8 @@ export default function App() {
   // Binnengekomen via een deellink? Dan is dit apparaat een stemmer, geen
   // volwaardige tool-sessie. Werkt ook zonder watchlist of sleutel.
   const avondCode = new URLSearchParams(location.search).get('avond');
+  // Of als gast bij "Voor ons" (?samen=CODE): smaak lezen, scores sturen
+  const samenCode = new URLSearchParams(location.search).get('samen');
   const [settings, setSettings] = useLS('settings', { tmdbKey: '' });
   // Eigen sleutel wint; zonder eigen sleutel loopt alles via de tool-proxy
   // (zodra die geconfigureerd is). Guards en API-calls zien gewoon 'een sleutel'.
@@ -468,6 +471,7 @@ export default function App() {
   const needsKey = watchlist.length > 0 && !tmdbKey;
 
   if (avondCode) return <RemoteVote code={avondCode} />;
+  if (samenCode) return <SamenGast code={samenCode} />;
 
   return (
     <>

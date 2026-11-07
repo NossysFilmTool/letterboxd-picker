@@ -75,22 +75,40 @@ export default {
       if (url.pathname === '/session/new' && request.method === 'POST') {
         let body;
         try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
-        const films = (body.films || []).slice(0, 20).map((f) => ({
-          key: String(f.key || '').slice(0, 120),
-          name: String(f.name || '').slice(0, 120),
-          year: parseInt(f.year) || null,
-          poster: typeof f.poster === 'string' ? f.poster.slice(0, 60) : null,
-        })).filter((f) => f.key && f.name);
+        // Twee soorten: 'stem' (films aantikken, tot 20) en 'samen' ("Voor
+        // ons": elke gast scoort tot 60 films op eigen smaak, op het eigen
+        // toestel). Een 'samen'-film draagt wat daarvoor nodig is.
+        const samen = body.type === 'samen';
+        const getal = (v) => (Number.isFinite(+v) ? +v : null);
+        const films = (body.films || []).slice(0, samen ? 60 : 20).map((f) => {
+          const film = {
+            key: String(f.key || '').slice(0, 120),
+            name: String(f.name || '').slice(0, 120),
+            year: parseInt(f.year) || null,
+            poster: typeof f.poster === 'string' ? f.poster.slice(0, 60) : null,
+          };
+          if (samen) {
+            film.id = parseInt(f.id) || null;
+            film.genres = (Array.isArray(f.genres) ? f.genres : []).slice(0, 6).map((g) => String(g).slice(0, 30));
+            film.keywords = (Array.isArray(f.keywords) ? f.keywords : []).slice(0, 15).map((k) => parseInt(k)).filter(Boolean);
+            film.vote = getal(f.vote);
+            film.votes = parseInt(f.votes) || null;
+            film.runtime = parseInt(f.runtime) || null;
+            film.lang = typeof f.lang === 'string' ? f.lang.slice(0, 5) : null;
+          }
+          return film;
+        }).filter((f) => f.key && f.name);
         const host = String(body.host || '').slice(0, 24) || 'host';
         if (films.length < 2) return json({ error: 'TOO_FEW_FILMS' }, 400);
         const alfabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
         const rnd = crypto.getRandomValues(new Uint8Array(6));
         const code = [...rnd].map((b) => alfabet[b % alfabet.length]).join('');
-        await env.SESSIONS.put(`s:${code}`, JSON.stringify({ films, host, at: Date.now(), winner: null }), TTL);
-        return json({ code });
+        await env.SESSIONS.put(`s:${code}`, JSON.stringify({ type: samen ? 'samen' : 'stem', films, host, at: Date.now(), winner: null }), TTL);
+        // versie: zo ziet de tool of deze Worker "Voor ons" al kent
+        return json({ code, versie: 2 });
       }
 
-      const m = url.pathname.match(/^\/session\/([A-Z2-9]{6})(\/vote|\/close)?$/);
+      const m = url.pathname.match(/^\/session\/([A-Z2-9]{6})(\/vote|\/scores|\/close)?$/);
       if (!m) return json({ error: 'NOT_FOUND' }, 404);
       const code = m[1];
       const raw = await env.SESSIONS.get(`s:${code}`);
@@ -100,7 +118,7 @@ export default {
       if (!m[2] && request.method === 'GET') {
         // Stemmen zitten in het sessie-object zelf: één get(), geen list().
         // Dat houdt de 5-seconden-poll ruim binnen de KV-limieten.
-        return json({ ...sessie, votes: sessie.votes || {} });
+        return json({ ...sessie, votes: sessie.votes || {}, scores: sessie.scores || {} });
       }
 
       if (m[2] === '/vote' && request.method === 'POST') {
@@ -122,6 +140,34 @@ export default {
           // korte controle of onze stem bleef staan; zo niet, opnieuw
           const check = JSON.parse(await env.SESSIONS.get(`s:${code}`));
           if (JSON.stringify(check.votes?.[speler]) === JSON.stringify(picks)) break;
+        }
+        return json({ ok: true });
+      }
+
+      // "Voor ons": een gast stuurt per film een score (0-100) die zijn eigen
+      // toestel uitrekende, plus of de film op zijn watchlist staat (w) of
+      // al gezien is (g). Geen export, geen ratings: alleen deze getallen.
+      if (m[2] === '/scores' && request.method === 'POST') {
+        let body;
+        try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
+        const speler = String(body.player || '').slice(0, 24).trim();
+        if (!speler) return json({ error: 'NO_PLAYER' }, 400);
+        const geldig = new Set(sessie.films.map((f) => f.key));
+        const scores = {};
+        Object.entries(body.scores || {}).forEach(([k, v]) => {
+          if (!geldig.has(k) || !v || typeof v !== 'object') return;
+          const s = Number.isFinite(+v.s) ? Math.max(0, Math.min(100, Math.round(+v.s))) : null;
+          scores[k] = { s, w: !!v.w, g: !!v.g };
+        });
+        if (!Object.keys(scores).length) return json({ error: 'NO_SCORES' }, 400);
+        for (let poging = 0; poging < 3; poging++) {
+          const vers = JSON.parse(poging === 0 ? raw : await env.SESSIONS.get(`s:${code}`));
+          const alle = vers.scores || {};
+          if (!(speler in alle) && Object.keys(alle).length >= 12) return json({ error: 'FULL' }, 400);
+          vers.scores = { ...alle, [speler]: scores };
+          await env.SESSIONS.put(`s:${code}`, JSON.stringify(vers), TTL);
+          const check = JSON.parse(await env.SESSIONS.get(`s:${code}`));
+          if (check.scores?.[speler]) break;
         }
         return json({ ok: true });
       }

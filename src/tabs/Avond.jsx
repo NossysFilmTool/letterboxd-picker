@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePoll } from '../lib/usePoll.js';
+import SamenHost from '../components/SamenHost.jsx';
 import { useT } from '../lib/i18n.js';
 import { remoteAvailable, createSession, getSession, closeSession, computeWinner } from '../lib/session.js';
 import { Users, Swords, Ban, Clapperboard, RotateCcw, Upload, Info, ArrowLeft, X, Send } from 'lucide-react';
@@ -54,9 +55,15 @@ export default function Avond({ app }) {
   const [pairIdx, setPairIdx] = useState(0);
   const [nextRound, setNextRound] = useState([]);
   const [champion, setChampion] = useState(null);
+  // Bij "Voor ons": wie er meededen (namen op het kaartje)
+  const [championNamen, setChampionNamen] = useState(null);
   // De winnaar van de avond levert een kaartje op, voor iedereen die meedeed
   useEffect(() => {
-    if (champion) app.geefKaartje(champion, { bron: 'avond', personen: playerCount });
+    if (champion) {
+      app.geefKaartje(champion, championNamen
+        ? { bron: 'samen', personen: championNamen.length, namen: championNamen }
+        : { bron: 'avond', personen: playerCount });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [champion?.key]);
   // Vooraf filteren welke films meedoen aan de avond
@@ -134,7 +141,14 @@ export default function Avond({ app }) {
     } catch (e) { alert(`Laden mislukt: ${e.message}`); }
   };
 
+  const kiesSamen = (film, namen) => {
+    setChampionNamen(namen);
+    setChampion(film);
+    app.freshenProviders(film.key);
+  };
+
   const startVeto = () => {
+    setChampionNamen(null);
     const n = Math.min(8, basePool.length);
     setVetoFilms(sample(basePool, n));
     setStruckKeys([]);
@@ -143,6 +157,7 @@ export default function Avond({ app }) {
   };
 
   const startBracket = () => {
+    setChampionNamen(null);
     const n = basePool.length >= 8 ? 8 : 4;
     setRounds([sample(basePool, n)]);
     setPairIdx(0);
@@ -172,7 +187,7 @@ export default function Avond({ app }) {
     }
   };
 
-  const reset = () => { setMode(null); setChampion(null); };
+  const reset = () => { setMode(null); setChampion(null); setChampionNamen(null); };
 
   if (!watchlist.length) {
     return (
@@ -208,7 +223,8 @@ export default function Avond({ app }) {
         </div>
         <Winner
           film={champion} meta={meta[champion.key]}
-          context={mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')} kaartje={playerCount} onKijken={() => app.kaartjeDoorgeklikt(champion.key)}
+          context={championNamen ? tr('samen.gekozenContext') : mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')}
+          kaartje={championNamen?.length || playerCount} namen={championNamen || undefined} onKijken={() => app.kaartjeDoorgeklikt(champion.key)}
           seen={seenSet.has(champion.key)} onToggleSeen={() => app.toggleSeen(champion.key)}
           onSimilar={() => app.openSimilar(champion, meta[champion.key])}
         />
@@ -360,6 +376,12 @@ export default function Avond({ app }) {
           </div>
         )}
       </div>
+
+      {remoteAvailable() && (
+        <div style={{ marginBottom: 16 }}>
+          <SamenHost app={app} pool={basePool} meta={meta} onKies={kiesSamen} />
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
         {remoteAvailable() && (
