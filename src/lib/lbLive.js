@@ -51,6 +51,25 @@ export async function haalDagboek(naam) {
   return leesDagboekFeed(await res.text());
 }
 
+// Hoe lang tot de volgende blik op je dagboek. Het ontdekmoment moet komen
+// als je het verwacht, maar Letterboxd en de Worker mogen niet overbelast
+// raken. Dus: vaak als er net iets te verwachten valt (een pick of vondst van
+// de laatste uren), af en toe als er nog iets openstaat, zelden als er niets
+// openstaat. Na een fout: rustig aan. (Bij openen en terugkomen kijkt de app
+// los daarvan, hooguit eens per minuut.)
+export const LB_MIN_TUSSEN = 60e3;
+export function volgendeLbCheck({ kaartjes = [], vondsten = {}, nu = Date.now(), fout = false } = {}) {
+  if (fout) return 10 * 60e3;
+  const UUR = 3600e3;
+  const inDoos = new Set(kaartjes.filter((k) => k.status === 'gekeken').map((k) => k.key));
+  const open = kaartjes.filter((k) => k.status === 'open').map((k) => Date.parse(k.datum));
+  const vers = Object.values(vondsten || {}).filter((v) => !inDoos.has(v.key) && nu - v.laatst < 7 * 24 * UUR).map((v) => v.laatst);
+  const momenten = [...open, ...vers];
+  if (momenten.some((t) => nu - t < 6 * UUR)) return 2 * 60e3;
+  if (momenten.length) return 10 * 60e3;
+  return 30 * 60e3;
+}
+
 // Nieuwe dagboekregels erbij (op film + kijkdatum ontdubbeld). Het TMDB-nummer
 // blijft erbij: daarmee herkennen we Gevonden-films ook bij een andere titel.
 export function voegDagboekSamen(diary, nieuw) {

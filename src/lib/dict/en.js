@@ -58,7 +58,7 @@ export default {
   },
   lbLive: {
     titel: 'Letterboxd live',
-    uitleg: 'Fill in your Letterboxd username. The app then follows your public diary (your latest logs, via the RSS feed of your profile): what you log counts as seen, your stars count towards your taste, and tickets tear by themselves. No export needed: the app checks by itself, on opening, when you come back and every half hour.',
+    uitleg: 'Fill in your Letterboxd username. The app then follows your public diary (your latest logs, via the RSS feed of your profile): what you log counts as seen, your stars count towards your taste, and tickets tear by themselves. No export needed: the app checks by itself, on opening, when you come back, and while it is open every few minutes after a pick or find (otherwise every half hour).',
     placeholder: 'your Letterboxd name', naam: 'Letterboxd username',
     koppel: 'Connect and follow', nuBijwerken: 'Update now', bezig: 'Working…', ontkoppel: 'Disconnect',
     ongeldig: "That isn't a Letterboxd username. Use letters, digits or an underscore, as in letterboxd.com/name.",

@@ -90,7 +90,8 @@ ophalen, dus de Worker geeft hem door via `/lb/<naam>`. Niets aan te zetten:
    dan weten, dan zoeken we een andere route.
 
 De Worker accepteert alleen een gebruikersnaam (letters, cijfers, liggend
-streepje), haalt alleen die openbare feed op en cachet hem tien minuten.
+streepje), haalt alleen die openbare feed op en cachet hem een minuut. De
+tool kijkt elke twee minuten na een pick of vondst, anders veel minder vaak.
 
 ## Sync tussen je apparaten aanzetten
 

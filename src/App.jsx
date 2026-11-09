@@ -22,7 +22,7 @@ import { setNossyWeights } from './lib/pick.js';
 import { setThemeEmphasis } from './lib/taste.js';
 import { fetchExtRatings } from './lib/omdb.js';
 import { volgAanbod } from './lib/aanbod.js';
-import { haalDagboek, voegDagboekSamen } from './lib/lbLive.js';
+import { haalDagboek, voegDagboekSamen, volgendeLbCheck, LB_MIN_TUSSEN } from './lib/lbLive.js';
 import { useSync } from './lib/useSync.js';
 import { normaliseerCode } from './lib/sync.js';
 import { nieuwKaartje, voegKaartjeToe, kaartjesUitGeschiedenis, beoordeelKaartjes, vraagAvond, inDeDoos, AVOND_GAT } from './lib/kaartjesdoos.js';
@@ -81,6 +81,7 @@ export default function App() {
   // Letterboxd live: wanneer je dagboek-feed voor het laatst is gelezen
   const [lbLive, setLbLive] = useLS('lbLive', { at: 0, fout: null, erbij: 0 });
   const [lbBezig, setLbBezig] = useState(false);
+  const lbBezigRef = useRef(false); // ook binnen dezelfde render: nooit twee tegelijk
   // Je smaakmodel opnieuw laten leren (na nieuwe sterren via Letterboxd live)
   const [herleren, setHerleren] = useState(false);
   // Afgescheurde kaartjes die je al voorbij zag komen (dit apparaat), en de
@@ -298,7 +299,8 @@ export default function App() {
   // gezien, en hun sterren tellen mee in je smaak. Bij het openen hooguit
   // eens per zes uur, en altijd als je zelf op bijwerken drukt.
   const syncLetterboxd = async (naam = settings.lbNaam) => {
-    if (!naam || lbBezig) return;
+    if (!naam || lbBezigRef.current) return;
+    lbBezigRef.current = true;
     setLbBezig(true);
     try {
       const regels = await haalDagboek(naam);
@@ -330,6 +332,7 @@ export default function App() {
     } catch (e) {
       setLbLive((s) => ({ ...s, at: Date.now(), fout: e.message }));
     }
+    lbBezigRef.current = false;
     setLbBezig(false);
   };
   useEffect(() => {
@@ -356,26 +359,54 @@ export default function App() {
     return () => { weg = true; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [herleren, metaReady]);
-  // Vanzelf meelezen: bij het openen, als je terugkomt naar dit tabblad, en
-  // elk half uur zolang de app openstaat. De Worker cachet de feed tien
-  // minuten, dus vaker dan elke twintig minuten heeft geen zin.
+  // Vanzelf meelezen, zodat het ontdekmoment komt wanneer je het verwacht:
+  // meteen bij het openen en als je terugkomt naar dit tabblad (hooguit eens
+  // per minuut), en zolang de app openstaat op een slim tempo: elke twee
+  // minuten na een pick of vondst van de laatste uren, elke tien minuten als
+  // er nog iets openstaat, anders elk half uur (volgendeLbCheck). Een
+  // verborgen tabblad kijkt niet. De Worker bewaart de feed een minuut, dus
+  // al je apparaten samen vragen Letterboxd hooguit eens per minuut.
   const syncLbRef = useRef(null);
   syncLbRef.current = syncLetterboxd;
   const lbAtRef = useRef(lbLive.at);
   lbAtRef.current = lbLive.at;
+  const lbFoutRef = useRef(lbLive.fout);
+  lbFoutRef.current = lbLive.fout;
+  const lbStandRef = useRef({ kaartjesStand, vondsten });
+  lbStandRef.current = { kaartjesStand, vondsten };
+  const lbHerplanRef = useRef(null);
   useEffect(() => {
     if (!settings.lbNaam) return undefined;
-    const LB_MIN = 20 * 60e3;
-    const misschien = (altijd = false) => {
-      if (!altijd && document.visibilityState !== 'visible') return;
-      if (Date.now() - (lbAtRef.current || 0) > LB_MIN) syncLbRef.current?.();
+    let timer = null;
+    let weg = false;
+    const kijk = async () => {
+      if (document.visibilityState === 'hidden') return;
+      if (Date.now() - (lbAtRef.current || 0) < LB_MIN_TUSSEN) return;
+      await syncLbRef.current?.();
     };
-    misschien(true);
-    const klok = setInterval(() => misschien(), 30 * 60e3);
-    const terug = () => misschien();
+    const plan = () => {
+      clearTimeout(timer);
+      if (weg) return;
+      const { kaartjesStand: ks, vondsten: vs } = lbStandRef.current;
+      const wacht = volgendeLbCheck({ kaartjes: ks, vondsten: vs, fout: !!lbFoutRef.current });
+      timer = setTimeout(async () => { await kijk(); plan(); }, wacht);
+    };
+    lbHerplanRef.current = plan;
+    const terug = () => { kijk(); plan(); };
+    kijk();
+    plan();
     document.addEventListener('visibilitychange', terug);
-    return () => { clearInterval(klok); document.removeEventListener('visibilitychange', terug); };
+    window.addEventListener('focus', terug);
+    return () => {
+      weg = true;
+      clearTimeout(timer);
+      lbHerplanRef.current = null;
+      document.removeEventListener('visibilitychange', terug);
+      window.removeEventListener('focus', terug);
+    };
   }, [settings.lbNaam]);
+  // Net een pick of vondst: dan meteen het snellere tempo
+  useEffect(() => { lbHerplanRef.current?.(); }, [kaartjes, vondsten]);
 
   const ignoredSet = useMemo(() => new Set(ignored), [ignored]);
   // Markeer een lijst-item als 'geen film' (bijv. een tv-serie die Letterboxd

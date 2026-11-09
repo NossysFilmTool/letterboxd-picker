@@ -2950,6 +2950,44 @@ describe('V2 smoke', () => {
     } finally { delete global.fetch; }
   });
 
+  it('letterboxd live: vaak kijken als er iets te verwachten valt, zelden als niet', async () => {
+    const { volgendeLbCheck } = await import('./src/lib/lbLive.js');
+    const nu = Date.now();
+    const UUR = 3600e3;
+    const iso = (ms) => new Date(ms).toISOString();
+    // niets open: elk half uur
+    expect(volgendeLbCheck({ kaartjes: [], vondsten: {}, nu })).toBe(30 * 60e3);
+    // een pick van net: elke twee minuten
+    expect(volgendeLbCheck({ kaartjes: [{ key: 'a', status: 'open', datum: iso(nu - UUR) }], nu })).toBe(2 * 60e3);
+    // een vondst van net (kaart geopend in Verken): ook elke twee minuten
+    expect(volgendeLbCheck({ vondsten: { b: { key: 'b', laatst: nu - 10 * 60e3 } }, nu })).toBe(2 * 60e3);
+    // nog iets open, maar van gisteren: elke tien minuten
+    expect(volgendeLbCheck({ kaartjes: [{ key: 'a', status: 'open', datum: iso(nu - 30 * UUR) }], nu })).toBe(10 * 60e3);
+    // een vondst die al in de doos zit, telt niet meer
+    expect(volgendeLbCheck({ kaartjes: [{ key: 'b', status: 'gekeken', datum: iso(nu) }], vondsten: { b: { key: 'b', laatst: nu } }, nu })).toBe(30 * 60e3);
+    // na een fout: rustig aan
+    expect(volgendeLbCheck({ kaartjes: [{ key: 'a', status: 'open', datum: iso(nu) }], fout: true, nu })).toBe(10 * 60e3);
+
+    // bij het openen kijkt de app meteen, ook als de vorige keer pas vijf minuten geleden was
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'sonny' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2001', name: 'A', year: 2001 }]));
+    localStorage.setItem('nossyV2.lbLive', JSON.stringify({ at: nu - 5 * 60e3, fout: null, erbij: 0 }));
+    let gevraagd = 0;
+    global.fetch = async (url) => {
+      if (String(url).includes('/lb/sonny')) { gevraagd += 1; return { ok: true, status: 200, text: async () => '<?xml version="1.0"?><rss><channel></channel></rss>' }; }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    try {
+      render(<App />);
+      await waitFor(() => expect(gevraagd).toBe(1));
+      // terugkomen binnen een minuut: niet opnieuw
+      window.dispatchEvent(new Event('focus'));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(gevraagd).toBe(1);
+    } finally { delete global.fetch; }
+  });
+
   it('ontdekt: wat er al lag speelt niet opnieuw af, en je eigen antwoord krijgt het kleine moment', () => {
     localStorage.clear();
     const gisteren = new Date(Date.now() - 20 * 3600e3).toISOString();

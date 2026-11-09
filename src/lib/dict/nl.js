@@ -58,7 +58,7 @@ export default {
   },
   lbLive: {
     titel: 'Letterboxd live',
-    uitleg: 'Vul je Letterboxd-gebruikersnaam in. De app leest dan je openbare dagboek mee (je laatste logs, via de RSS-feed van je profiel): wat je logt telt als gezien, je sterren tellen mee in je smaak, en kaartjes scheuren vanzelf af. Zonder export: de app kijkt vanzelf, bij het openen, als je terugkomt en elk half uur.',
+    uitleg: 'Vul je Letterboxd-gebruikersnaam in. De app leest dan je openbare dagboek mee (je laatste logs, via de RSS-feed van je profiel): wat je logt telt als gezien, je sterren tellen mee in je smaak, en kaartjes scheuren vanzelf af. Zonder export: de app kijkt vanzelf, bij het openen, als je terugkomt, en zolang hij openstaat elke paar minuten na een pick of vondst (anders elk half uur).',
     placeholder: 'je Letterboxd-naam', naam: 'Letterboxd-gebruikersnaam',
     koppel: 'Koppel en lees mee', nuBijwerken: 'Nu bijwerken', bezig: 'Bezig…', ontkoppel: 'Ontkoppel',
     ongeldig: 'Dat is geen Letterboxd-gebruikersnaam. Gebruik letters, cijfers of een liggend streepje, zoals in letterboxd.com/naam.',

@@ -231,7 +231,9 @@ export default {
     // --- Letterboxd live: je openbare dagboek-feed meelezen ---------------
     // Een browser mag letterboxd.com niet zelf lezen (CORS). De Worker haalt
     // de openbare RSS-feed van één gebruiker op en geeft hem ongewijzigd door.
-    // Alleen een gebruikersnaam gaat erin; tien minuten gecachet.
+    // Alleen een gebruikersnaam gaat erin. Een minuut gecachet: vers genoeg voor
+    // het ontdekmoment, en al je apparaten samen vragen Letterboxd zo hooguit
+    // eens per minuut.
     const lb = url.pathname.match(/^\/lb\/([A-Za-z0-9_]{1,40})$/);
     if (lb) {
       const res = await fetch(`https://letterboxd.com/${lb[1]}/rss/`, {
@@ -239,7 +241,7 @@ export default {
           'User-Agent': 'NossyPicker/1.0 (+https://nossysfilmtool.github.io/letterboxd-picker/)',
           Accept: 'application/rss+xml, application/xml;q=0.9',
         },
-        cf: { cacheTtl: 600, cacheEverything: true },
+        cf: { cacheTtl: 60, cacheEverything: true },
       });
       if (!res.ok) {
         return new Response(JSON.stringify({ error: `LB_${res.status}` }), {
@@ -248,7 +250,7 @@ export default {
       }
       return new Response(await res.text(), {
         status: 200,
-        headers: { ...cors, 'Content-Type': 'application/rss+xml; charset=utf-8', 'Cache-Control': 'public, max-age=600' },
+        headers: { ...cors, 'Content-Type': 'application/rss+xml; charset=utf-8', 'Cache-Control': 'public, max-age=60' },
       });
     }
 
