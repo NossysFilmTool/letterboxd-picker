@@ -45,7 +45,7 @@ export default function ImportPanel({ app, hero }) {
         setReport({ ...diff, lijsten: res.lists?.length || 0 });
       }
     } catch (e) {
-      alert(`Import mislukt: ${e.message}`);
+      alert(tr('imp.mislukt', { msg: e.message }));
     }
     setBusy(false);
   };

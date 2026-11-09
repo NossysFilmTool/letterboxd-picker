@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useT } from '../lib/i18n.js';
 
 // Filmleader-aftelling: 3… 2… 1… met roterende klok-wipe, dan flits en klaar.
 // Bij prefers-reduced-motion wordt de overlay via CSS verborgen; onDone vuurt dan direct.
 export default function Leader({ onDone }) {
+  const { t: tr } = useT();
   const [num, setNum] = useState(3);
   const [sweep, setSweep] = useState(0);
   const [flash, setFlash] = useState(false);
@@ -50,7 +52,7 @@ export default function Leader({ onDone }) {
   // Portal naar <body>: geen enkele ouder-animatie (tab-crossfade e.d.) kan de
   // fixed-positionering dan nog kapen — gegarandeerd schermvullend.
   return createPortal(
-    <div className={`leader ${flash ? 'flash' : ''}`} role="status" aria-label="Aftellen naar je pick">
+    <div className={`leader ${flash ? 'flash' : ''}`} role="status" aria-label={tr('pick.aftellenAria')}>
       <div className="flick" aria-hidden="true" />
       <div className="frame">
         <div className="cross-h" />
@@ -60,7 +62,7 @@ export default function Leader({ onDone }) {
         <div className="ring inner-ring" />
         <div className="num">{num}</div>
         {hair && <div className="hair" aria-hidden="true" />}
-        <div className="cap">Jouw pick komt eraan</div>
+        <div className="cap">{tr('pick.komtEraan')}</div>
       </div>
     </div>,
     document.body,

@@ -1,4 +1,5 @@
 import { beoordeelCijfer } from './opgeblazen.js';
+import { decimaal } from './i18n.js';
 
 export const MOODS = [
   { id: 'kort' }, { id: 'topper' }, { id: 'parel' }, { id: 'klassieker' }, { id: 'vers' },
@@ -127,4 +128,4 @@ export function nossyScore(m) {
 }
 
 // Altijd één decimaal: "8,0" i.p.v. een kaal "8" naast "IMDb 7,9"
-export const fmtScore = (n) => (Math.round(Number(n) * 10) / 10).toFixed(1).replace('.', ',');
+export const fmtScore = (n) => decimaal((Math.round(Number(n) * 10) / 10).toFixed(1));

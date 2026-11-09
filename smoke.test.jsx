@@ -2873,7 +2873,8 @@ describe('V2 smoke', () => {
     const { diary, erbij } = voegDagboekSamen([{ key: 'stalker|1979', watchedDate: '2026-01-02' }], regels);
     expect(erbij.map((r) => r.key)).toEqual(['aftersun|2022']);
     expect(diary).toHaveLength(2);
-    expect(erbij[0].tmdbId).toBeUndefined();
+    // het TMDB-nummer blijft bewaard (voor Gevonden-kaartjes met een andere titel)
+    expect(erbij[0].tmdbId).toBe(965150);
 
     // De Worker geeft de feed door, alleen voor nette gebruikersnamen
     const worker = (await import('./worker/worker.js')).default;
@@ -2910,6 +2911,411 @@ describe('V2 smoke', () => {
       // en in Setup zie je de stand
       fireEvent.click(screen.getAllByLabelText('Setup')[0]);
       expect(screen.getByText(/2 nieuwe logs uit je dagboek/)).toBeTruthy();
+    } finally { delete global.fetch; }
+  });
+
+  it('ontdekt: de app ziet zelf dat je een gekozen film keek, op elk scherm', async () => {
+    const { lokaleDag } = await import('./src/lib/kaartjesdoos.js');
+    const pick = Date.now() - 20 * 3600e3;
+    const xml = `<?xml version="1.0" encoding="utf-8"?><rss version="2.0" xmlns:letterboxd="https://letterboxd.com" xmlns:tmdb="https://themoviedb.org"><channel>
+<item><title>Aftersun</title><letterboxd:watchedDate>${lokaleDag(pick)}</letterboxd:watchedDate><letterboxd:filmTitle>Aftersun</letterboxd:filmTitle><letterboxd:filmYear>2022</letterboxd:filmYear><letterboxd:memberRating>4</letterboxd:memberRating></item>
+</channel></rss>`;
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'sonny' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022 }]));
+    localStorage.setItem('nossyV2.kaartjes', JSON.stringify([{ id: 'k1', key: 'aftersun|2022', name: 'Aftersun', year: 2022, datum: new Date(pick).toISOString(), bron: 'pick', personen: 1 }]));
+    localStorage.setItem('nossyV2.kaartjesGemeld', JSON.stringify([]));
+    // de feed komt pas even later binnen; ondertussen zit je in Setup
+    let laat;
+    const binnen = new Promise((r) => { laat = r; });
+    global.fetch = async (url) => {
+      if (String(url).includes('/lb/sonny')) { await binnen; return { ok: true, status: 200, text: async () => xml }; }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+      laat();
+      const moment = await waitFor(() => { const m = document.querySelector('.kaartje-ontdekt'); if (!m) throw new Error('nog niet'); return m; });
+      expect(moment.textContent).toContain('Gezien op Letterboxd');
+      expect(moment.querySelector('.kaartje-ontdekt-titel').textContent).toBe('AFTERSUN');
+      expect(moment.querySelector('.kaartje-ontdekt-stempel').textContent).toBe('GEKEKEN★★★★');
+      expect(moment.textContent).toContain('Kaartje 1 in de doos');
+      // we zitten nog steeds in Setup
+      expect(document.body.textContent).toContain('Letterboxd live');
+      expect(JSON.parse(localStorage.getItem('nossyV2.kaartjesGemeld'))).toContain('k1');
+      // tik: weg
+      fireEvent.click(moment);
+      expect(document.querySelector('.kaartje-ontdekt')).toBeNull();
+    } finally { delete global.fetch; }
+  });
+
+  it('ontdekt: wat er al lag speelt niet opnieuw af, en je eigen antwoord krijgt het kleine moment', () => {
+    localStorage.clear();
+    const gisteren = new Date(Date.now() - 20 * 3600e3).toISOString();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2001', name: 'Film A', year: 2001 }]));
+    localStorage.setItem('nossyV2.kaartjes', JSON.stringify([
+      { id: 'oud', key: 'a|2001', name: 'Film A', year: 2001, datum: new Date(Date.now() - 5 * 864e5).toISOString(), bron: 'pick', personen: 1, antwoord: 'gekeken' },
+      { id: 'nieuw', key: 'b|2002', name: 'Film B', year: 2002, datum: gisteren, bron: 'pick', personen: 1 },
+    ]));
+    render(<App />);
+    // de eerste keer: alleen onthouden wat er al lag
+    expect(document.querySelector('.kaartje-ontdekt')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('nossyV2.kaartjesGemeld'))).toEqual(['oud']);
+    // zelf antwoorden: het kleine afscheurmoment, niet het grote
+    fireEvent.click(screen.getByLabelText('Geef 3 sterren'));
+    expect(screen.getByText('Kaartje 2 in de doos')).toBeTruthy();
+    expect(document.querySelector('.kaartje-ontdekt')).toBeNull();
+  });
+
+  it('gevonden: een film die de tool vond en die je daarna keek, wordt een kaartje', async () => {
+    const { onthoudVondst, gevondenKaartjes, voegVondstenSamen, recentGelogd } = await import('./src/lib/vondsten.js');
+    const DAG = 864e5;
+    const t0 = new Date(2026, 10, 3, 21, 0).getTime();
+    const film = { key: 'perfect days|2023', id: 976893, name: 'Perfect Days', year: 2023, poster: '/p.jpg' };
+    // vondst: kaart geopend in Zoeken; later nog eens aangeraakt
+    let v = onthoudVondst({}, film, { bron: 'zoeken', nu: t0 });
+    v = onthoudVondst(v, film, { bron: 'voorjou', nu: t0 + DAG });
+    expect(v[film.key]).toMatchObject({ bron: 'zoeken', eerst: t0, laatst: t0 + DAG, sterk: false });
+    // een log in je dagboek dezelfde avond: een Gevonden-kaartje
+    let k = gevondenKaartjes(v, { diary: [{ key: film.key, watchedDate: '2026-11-03', rating: 4.5 }] });
+    expect(k).toHaveLength(1);
+    expect(k[0]).toMatchObject({ id: 'gevonden|perfect days|2023', bron: 'gevonden', vondst: 'zoeken', status: 'gekeken', bewijs: 'letterboxd', sterren: 4.5, gekekenOp: '2026-11-03' });
+    // ook als Letterboxd de titel anders schrijft: op TMDB-nummer
+    k = gevondenKaartjes(v, { diary: [{ key: 'pafekuto deizu|2023', tmdbId: 976893, watchedDate: '2026-11-04' }] });
+    expect(k).toHaveLength(1);
+    // stond hij al eerder in je dagboek, dan vond de tool hem niet voor je
+    k = gevondenKaartjes(v, { diary: [{ key: film.key, watchedDate: '2025-01-01' }, { key: film.key, watchedDate: '2026-11-03' }] });
+    expect(k).toHaveLength(0);
+    // te laat (zonder shortlist: 60 dagen na de laatste keer)
+    k = gevondenKaartjes(v, { diary: [{ key: film.key, watchedDate: '2027-02-01' }] });
+    expect(k).toHaveLength(0);
+    // meteen "al gezien" binnen een uur: die kende je al; later wel
+    expect(gevondenKaartjes(v, { gezienOp: { [film.key]: new Date(t0 + 10 * 60e3).toISOString() } })).toHaveLength(0);
+    expect(gevondenKaartjes(v, { gezienOp: { [film.key]: new Date(t0 + 3 * 3600e3).toISOString() }, ownRatings: { [film.key]: { rating: 5, at: t0 + 3 * 3600e3 } } })[0])
+      .toMatchObject({ bewijs: 'gezien', sterren: 5 });
+    // heeft de film al een eigen kaartje in de doos, dan geen tweede
+    expect(gevondenKaartjes(v, { diary: [{ key: film.key, watchedDate: '2026-11-03' }], overslaanKeys: new Set([film.key]) })).toHaveLength(0);
+    // samenvoegen (sync): vroegste vondst, laatste aanraking, sterk als het ergens sterk was
+    const ander = onthoudVondst({}, film, { bron: 'voorjou', sterk: true, nu: t0 + 5 * DAG });
+    expect(voegVondstenSamen(v, ander)[film.key]).toMatchObject({ eerst: t0, laatst: t0 + 5 * DAG, sterk: true });
+    // recente logs die nog niet in de doos zitten, nieuwste eerst, per film één keer
+    const nu = new Date(2026, 10, 9).getTime();
+    const g = recentGelogd([
+      { key: 'a', watchedDate: '2026-11-08' }, { key: 'b', watchedDate: '2026-11-07' }, { key: 'a', watchedDate: '2026-11-01' }, { key: 'oud', watchedDate: '2026-08-01' },
+    ], new Set(['b']), { nu });
+    expect(g.map((d) => `${d.key}|${d.watchedDate}`)).toEqual(['a|2026-11-08']);
+  });
+
+  it('gevonden: in de doos, zelf toevoegen vanuit je dagboek, en aanpassen', () => {
+    localStorage.clear();
+    const dag = 864e5;
+    const nu = Date.now();
+    const lokaal = (ms) => { const d = new Date(ms); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'w|2001', name: 'Watchlistfilm', year: 2001 }]));
+    localStorage.setItem('nossyV2.kaartjesGemeld', JSON.stringify([]));
+    // een vondst uit Zoeken van twee dagen terug, en je logde hem gisteren
+    localStorage.setItem('nossyV2.vondsten', JSON.stringify({
+      'perfect days|2023': { key: 'perfect days|2023', id: 1, name: 'Perfect Days', year: 2023, poster: null, bron: 'zoeken', eerst: nu - 2 * dag, laatst: nu - 2 * dag, sterk: false },
+    }));
+    localStorage.setItem('nossyV2.diary', JSON.stringify([
+      { key: 'perfect days|2023', name: 'Perfect Days', year: 2023, watchedDate: lokaal(nu - dag), rating: 4 },
+      { key: 'paterson|2016', name: 'Paterson', year: 2016, watchedDate: lokaal(nu - dag), rating: 4.5 },
+    ]));
+    render(<App />);
+    // het ontdekmoment: gevonden met Zoeken
+    const moment = document.querySelector('.kaartje-ontdekt');
+    expect(moment.querySelector('.kaartje-ontdekt-kop').textContent).toMatch(/^Gevonden met Zoeken\. Gezien op Letterboxd/);
+    fireEvent.click(moment);
+    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getByText('Kaartjes (1)'));
+    expect(document.querySelector('.kaartje-stub-bron').textContent).toBe('Gevonden met Zoeken, 2023');
+    expect(document.querySelector('.kd-jaar').textContent).toContain('Gevonden met Nossy');
+    // Paterson keek je ook, maar dat vond je niet via de tool: zelf toevoegen
+    fireEvent.click(screen.getByText('Recent gelogd, niet in de doos (1)'));
+    fireEvent.click(screen.getByText('Gevonden via Nossy'));
+    expect(screen.getByText('Kaartje 2 in de doos')).toBeTruthy();
+    expect(screen.getByText('Kaartjes (2)')).toBeTruthy();
+    // een afgeleid Gevonden-kaartje aanpassen maakt er een eigen kaartje van
+    fireEvent.click(screen.getByLabelText(/^Perfect Days, gekeken op/));
+    const notitie = screen.getByPlaceholderText(/Met wie, waar/);
+    fireEvent.change(notitie, { target: { value: 'alleen, op de bank' } });
+    fireEvent.blur(notitie);
+    const k = JSON.parse(localStorage.getItem('nossyV2.kaartjes')).find((x) => x.id === 'gevonden|perfect days|2023');
+    expect(k).toMatchObject({ bron: 'gevonden', vondst: 'zoeken', antwoord: 'gekeken', notitie: 'alleen, op de bank' });
+    // terug in de doos: nog steeds twee kaartjes (geen dubbele), met de notitie
+    fireEvent.click(screen.getByText('Terug naar de bieb'));
+    expect(screen.getByText('Kaartjes (2)')).toBeTruthy();
+    expect(document.body.textContent).toContain('alleen, op de bank');
+  });
+
+  it('sync: samenvoegen per kaartje, per film en per log', async () => {
+    const { voegKaartjesSamen, voegGezienSamen, voegSterrenSamen, maakCode, normaliseerCode } = await import('./src/lib/sync.js');
+    // kaartjes: per id, de laatst gewijzigde wint; nieuwe van beide kanten blijven
+    const a = [{ id: '1', datum: '2026-11-01T20:00:00Z', sterren: 3, bij: 100 }, { id: '2', datum: '2026-11-02T20:00:00Z' }];
+    const b = [{ id: '1', datum: '2026-11-01T20:00:00Z', sterren: 5, bij: 200 }, { id: '3', datum: '2026-11-03T20:00:00Z' }];
+    const k = voegKaartjesSamen(a, b);
+    expect(k.map((x) => x.id)).toEqual(['3', '2', '1']);
+    expect(k.find((x) => x.id === '1').sterren).toBe(5);
+    // sterren: per film de nieuwste
+    expect(voegSterrenSamen({ x: { rating: 3, at: 5 } }, { x: { rating: 4, at: 9 }, y: { rating: 2, at: 1 } }))
+      .toEqual({ x: { rating: 4, at: 9 }, y: { rating: 2, at: 1 } });
+    // gezien: toch-niet-gezien na gezien wint, maar opnieuw gezien daarna weer niet
+    const g = voegGezienSamen(
+      { seen: ['a', 'b'], gezienOp: { a: '2026-11-01T00:00:00Z', b: '2026-11-01T00:00:00Z' }, gezienWeg: {} },
+      { seen: ['c'], gezienOp: { c: '2026-11-02T00:00:00Z' }, gezienWeg: { b: Date.parse('2026-11-05T00:00:00Z') } },
+    );
+    expect(g.seen.sort()).toEqual(['a', 'c']);
+    // de code: 25 tekens in vijf groepjes, ook uit een koppellink te halen
+    const code = maakCode();
+    expect(code).toMatch(/^[A-Z2-9]{5}(-[A-Z2-9]{5}){4}$/);
+    expect(normaliseerCode(`https://x.io/?sync=${code}`)).toBe(code);
+    expect(normaliseerCode(code.toLowerCase().replace(/-/g, ' '))).toBe(code);
+    expect(normaliseerCode('kort')).toBeNull();
+  });
+
+  it('sync: twee apparaten komen op hetzelfde uit, versleuteld', async () => {
+    if (!globalThis.crypto?.subtle) {
+      const { webcrypto } = await import('node:crypto');
+      Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+    }
+    const { synchroniseer, versleutel, ontsleutel, sleutelsVan, maakCode } = await import('./src/lib/sync.js');
+    const code = maakCode();
+    // versleutelen en terug
+    const { sleutel, id } = await sleutelsVan(code);
+    expect(id).toMatch(/^[a-f0-9]{64}$/);
+    const geheim = await versleutel({ hallo: 'wereld' }, sleutel);
+    expect(geheim).not.toContain('wereld');
+    expect(await ontsleutel(geheim, sleutel)).toEqual({ hallo: 'wereld' });
+    // een server die alleen bewaart, met een versiecontrole
+    let doc = null; let schrijven = 0;
+    const server = {
+      haal: async () => doc,
+      zet: async (_, data, basis) => { if (doc && basis !== doc.at) throw new Error('CONFLICT'); schrijven += 1; doc = { at: (doc?.at || 0) + 1, data }; return { ok: true, at: doc.at }; },
+    };
+    const opslag = (start) => { const m = new Map(Object.entries(start)); return { lees: (s) => (m.has(s) ? m.get(s) : null), schrijf: (s, v) => m.set(s, v), m }; };
+    const tk = (id, extra = {}) => ({ id, key: id, name: id, datum: '2026-11-0' + id + 'T20:00:00Z', ...extra });
+    const laptop = opslag({ kaartjes: [tk('1')], watchlist: [{ key: 'x' }], settings: { lang: 'nl', lbNaam: 'sonny' } });
+    const pc = opslag({ kaartjes: [tk('2')] });
+    let sL = (await synchroniseer(code, { opslag: laptop, server, nu: 1000 })).staat;
+    // het geheim in de server is onleesbaar
+    expect(doc.data).not.toContain('sonny');
+    const eersteKeerPc = await synchroniseer(code, { opslag: pc, server, nu: 2000 });
+    let sP = eersteKeerPc.staat;
+    expect(pc.m.get('kaartjes').map((x) => x.id).sort()).toEqual(['1', '2']);
+    expect(pc.m.get('watchlist')).toEqual([{ key: 'x' }]);
+    expect(pc.m.get('settings').lbNaam).toBe('sonny');
+    expect(eersteKeerPc.toegepast).toEqual(expect.arrayContaining(['kaartjes', 'watchlist', 'settings']));
+    sL = (await synchroniseer(code, { opslag: laptop, staat: sL, server, nu: 3000 })).staat;
+    expect(laptop.m.get('kaartjes').map((x) => x.id).sort()).toEqual(['1', '2']);
+    // niets veranderd: geen nieuwe schrijfactie
+    const voor = schrijven;
+    sP = (await synchroniseer(code, { opslag: pc, staat: sP, server, nu: 4000 })).staat;
+    expect(schrijven).toBe(voor);
+    // op beide tegelijk iets gewijzigd: allebei bewaard
+    laptop.schrijf('kaartjes', laptop.m.get('kaartjes').map((x) => (x.id === '1' ? { ...x, sterren: 5, bij: Date.parse('2026-11-05T00:00:00Z') } : x)));
+    pc.schrijf('kaartjes', [...pc.m.get('kaartjes'), tk('3')]);
+    sL = (await synchroniseer(code, { opslag: laptop, staat: sL, server, nu: 6000 })).staat;
+    sP = (await synchroniseer(code, { opslag: pc, staat: sP, server, nu: 7000 })).staat;
+    sL = (await synchroniseer(code, { opslag: laptop, staat: sL, server, nu: 8000 })).staat;
+    for (const apparaat of [laptop, pc]) {
+      const ks = apparaat.m.get('kaartjes');
+      expect(ks.map((x) => x.id).sort()).toEqual(['1', '2', '3']);
+      expect(ks.find((x) => x.id === '1').sterren).toBe(5);
+    }
+    // een instelling op de pc gewijzigd: die gaat naar de laptop
+    pc.schrijf('settings', { lang: 'en', lbNaam: 'sonny' });
+    sP = (await synchroniseer(code, { opslag: pc, staat: { ...sP, gewijzigd: { instellingen: 9000 } }, server, nu: 9000 })).staat;
+    sL = (await synchroniseer(code, { opslag: laptop, staat: sL, server, nu: 10000 })).staat;
+    expect(laptop.m.get('settings').lang).toBe('en');
+    // een ander apparaat was net eerder: opnieuw proberen met zijn versie erbij
+    const staleServer = { ...server, zet: async (...arg) => { staleServer.zet = server.zet; doc = { ...doc, at: doc.at + 10 }; throw new Error('CONFLICT'); } };
+    laptop.schrijf('kaartjes', [...laptop.m.get('kaartjes'), tk('4')]);
+    await synchroniseer(code, { opslag: laptop, staat: sL, server: staleServer, nu: 11000 });
+    const { sleutel: s2 } = await sleutelsVan(code);
+    expect((await ontsleutel(doc.data, s2)).kolommen.kaartjes.data.kaartjes.map((x) => x.id)).toContain('4');
+  });
+
+  it('sync: de Worker bewaart alleen versleutelde data, met een versiecontrole', async () => {
+    if (!globalThis.crypto?.subtle) {
+      const { webcrypto } = await import('node:crypto');
+      Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+    }
+    const kv = new Map();
+    const env = { SESSIONS: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); } } };
+    const worker = (await import('./worker/worker.js')).default;
+    const id = 'a'.repeat(64);
+    const vraag = (methode, body) => worker.fetch(new Request(`https://w.dev/sync/${id}`, body
+      ? { method: methode, body: JSON.stringify(body), headers: { Origin: 'http://localhost:5173', 'Content-Type': 'application/json' } }
+      : { method: methode, headers: { Origin: 'http://localhost:5173' } }), env);
+    const token = 'b'.repeat(64);
+    const vreemd = 'c'.repeat(64);
+    expect((await vraag('GET')).status).toBe(404);
+    // zonder schrijfsleutel: geweigerd
+    expect((await vraag('POST', { data: 'g1:abc', basis: null })).status).toBe(403);
+    const eerste = await (await vraag('POST', { data: 'g1:abc', basis: null, token })).json();
+    expect(eerste.ok).toBe(true);
+    const bewaard = JSON.parse(kv.get(`sync:${id}`));
+    expect(bewaard.data).toBe('g1:abc');
+    // de Worker bewaart een vingerafdruk van de schrijfsleutel, niet de sleutel zelf
+    expect(bewaard.schrijf).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(bewaard)).not.toContain(token);
+    // wat je terugkrijgt bevat geen vingerafdruk
+    expect(await (await vraag('GET')).json()).toEqual({ at: eerste.at, data: 'g1:abc' });
+    // wie alleen het id kent, kan niet overschrijven
+    expect((await vraag('POST', { data: 'g1:kapot', basis: eerste.at, token: vreemd })).status).toBe(403);
+    // voortbouwen op een oude versie: geweigerd
+    expect((await vraag('POST', { data: 'g1:def', basis: eerste.at - 1, token })).status).toBe(409);
+    const tweede = await (await vraag('POST', { data: 'g1:def', basis: eerste.at, token })).json();
+    expect(tweede.at).toBeGreaterThan(eerste.at);
+    expect((await (await vraag('GET')).json()).data).toBe('g1:def');
+    expect((await vraag('POST', { data: '', token })).status).toBe(400);
+    // intrekken: alleen met de schrijfsleutel; daarna is de kopie weg en de deur dicht
+    expect((await vraag('POST', { intrekken: true, token: vreemd })).status).toBe(403);
+    expect((await vraag('POST', { intrekken: true, token })).status).toBe(200);
+    expect(JSON.parse(kv.get(`sync:${id}`)).data).toBeUndefined();
+    expect((await vraag('GET')).status).toBe(410);
+    expect((await vraag('POST', { data: 'g1:terug', basis: null, token })).status).toBe(410);
+  });
+
+  it('sync: in Setup wissel je van code; de oude wordt ingetrokken', async () => {
+    if (!globalThis.crypto?.subtle) {
+      const { webcrypto } = await import('node:crypto');
+      Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+    }
+    const { maakCode, sleutelsVan } = await import('./src/lib/sync.js');
+    const oud = maakCode();
+    const oudId = (await sleutelsVan(oud)).id;
+    const docs = new Map();
+    const posts = [];
+    global.fetch = async (url, opts) => {
+      const u = String(url);
+      const m = u.match(/\/sync\/([a-f0-9]{64})$/);
+      if (m) {
+        if (opts?.method === 'POST') {
+          const b = JSON.parse(opts.body); posts.push({ id: m[1], ...b });
+          const d = docs.get(m[1]);
+          if (b.intrekken) { docs.set(m[1], { ingetrokken: true }); return { ok: true, status: 200, json: async () => ({ ok: true }) }; }
+          const at = (d?.at || 0) + 1; docs.set(m[1], { at, data: b.data }); return { ok: true, status: 200, json: async () => ({ ok: true, at }) };
+        }
+        const d = docs.get(m[1]);
+        if (!d) return { ok: false, status: 404, json: async () => ({ error: 'NOT_FOUND' }) };
+        if (d.ingetrokken) return { ok: false, status: 410, json: async () => ({ error: 'INGETROKKEN' }) };
+        return { ok: true, status: 200, json: async () => d };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    const echtConfirm = window.confirm;
+    window.confirm = () => true;
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+      localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2001', name: 'Film A', year: 2001 }]));
+      localStorage.setItem('nossyV2.sync', JSON.stringify({ code: oud, basis: {}, gewijzigd: {} }));
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+      await waitFor(() => expect(screen.getByText(/Gesynchroniseerd/)).toBeTruthy(), { timeout: 6000 });
+      fireEvent.click(screen.getByText('Wissel code'));
+      expect(await screen.findByText(/Nieuwe code gemaakt/, {}, { timeout: 6000 })).toBeTruthy();
+      const nieuw = JSON.parse(localStorage.getItem('nossyV2.sync')).code;
+      expect(nieuw).not.toBe(oud);
+      // de nieuwe code staat meteen zichtbaar, de oude is ingetrokken
+      expect(document.querySelector('.sync-code').textContent).toBe(nieuw);
+      expect(docs.get(oudId).ingetrokken).toBe(true);
+      // elke schrijfactie had een schrijfsleutel bij zich
+      expect(posts.every((p) => /^[a-f0-9]{64}$/.test(p.token))).toBe(true);
+    } finally {
+      delete global.fetch;
+      window.confirm = echtConfirm;
+    }
+  });
+
+  it('sync: een nieuwe code maken trekt de oude in', async () => {
+    if (!globalThis.crypto?.subtle) {
+      const { webcrypto } = await import('node:crypto');
+      Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+    }
+    const { synchroniseer, wisselCode, sleutelsVan, ontsleutel, maakCode } = await import('./src/lib/sync.js');
+    // een nep-Worker met dezelfde regels als de echte
+    const docs = new Map();
+    const server = {
+      haal: async (id) => { const d = docs.get(id); if (!d) return null; if (d.ingetrokken) throw new Error('INGETROKKEN'); return { at: d.at, data: d.data }; },
+      zet: async (id, data, basis, token) => {
+        const d = docs.get(id);
+        if (d?.token && d.token !== token) throw new Error('GEEN_TOEGANG');
+        if (d?.ingetrokken) throw new Error('INGETROKKEN');
+        if (d && basis !== d.at) throw new Error('CONFLICT');
+        const at = (d?.at || 0) + 1; docs.set(id, { at, data, token }); return { ok: true, at };
+      },
+      trekIn: async (id, token) => {
+        const d = docs.get(id);
+        if (d?.token && d.token !== token) throw new Error('GEEN_TOEGANG');
+        docs.set(id, { at: (d?.at || 0) + 1, ingetrokken: true, token }); return { ok: true };
+      },
+    };
+    const opslag = (start) => { const m = new Map(Object.entries(start)); return { lees: (s) => (m.has(s) ? m.get(s) : null), schrijf: (s, v) => m.set(s, v), m }; };
+    const oud = maakCode();
+    const laptop = opslag({ kaartjes: [{ id: '1', datum: '2026-11-01T20:00:00Z' }] });
+    const pc = opslag({ kaartjes: [{ id: '2', datum: '2026-11-02T20:00:00Z' }] });
+    const sL = (await synchroniseer(oud, { opslag: laptop, server })).staat;
+    const sP = (await synchroniseer(oud, { opslag: pc, server })).staat;
+    // de laptop maakt een nieuwe code: eerst alles binnen, dan opnieuw opslaan
+    const { code: nieuw } = await wisselCode(oud, { opslag: laptop, staat: sL, server });
+    expect(nieuw).not.toBe(oud);
+    const oudId = (await sleutelsVan(oud)).id;
+    expect(docs.get(oudId).ingetrokken).toBe(true);
+    expect(docs.get(oudId).data).toBeUndefined();
+    const { id: nieuwId, sleutel } = await sleutelsVan(nieuw);
+    const inhoud = await ontsleutel(docs.get(nieuwId).data, sleutel);
+    expect(inhoud.kolommen.kaartjes.data.kaartjes.map((k) => k.id).sort()).toEqual(['1', '2']);
+    // de pc met de oude code hoort dat die ingetrokken is, en zet hem niet terug
+    await expect(synchroniseer(oud, { opslag: pc, staat: sP, server })).rejects.toThrow('INGETROKKEN');
+    expect(docs.get(oudId).ingetrokken).toBe(true);
+    // met de nieuwe code doet de pc gewoon weer mee
+    await synchroniseer(nieuw, { opslag: pc, server });
+    expect(pc.m.get('kaartjes').map((k) => k.id).sort()).toEqual(['1', '2']);
+  });
+
+  it('sync: in de app komt een kaartje van je andere apparaat binnen', async () => {
+    if (!globalThis.crypto?.subtle) {
+      const { webcrypto } = await import('node:crypto');
+      Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+    }
+    const { synchroniseer, maakCode } = await import('./src/lib/sync.js');
+    const code = maakCode();
+    // het andere apparaat zette er een gekeken kaartje op
+    let doc = null;
+    const nep = { haal: async () => doc, zet: async (_, data) => { doc = { at: (doc?.at || 0) + 1, data }; return { ok: true, at: doc.at }; } };
+    const ander = new Map(Object.entries({
+      kaartjes: [{ id: 'pc1', key: 'aftersun|2022', name: 'Aftersun', year: 2022, datum: new Date(Date.now() - 2 * 864e5).toISOString(), bron: 'pick', personen: 1, antwoord: 'gekeken', sterren: 4.5, bij: Date.now() }],
+    }));
+    await synchroniseer(code, { opslag: { lees: (s) => (ander.has(s) ? ander.get(s) : null), schrijf: (s, v) => ander.set(s, v) }, server: nep });
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
+    localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022 }]));
+    localStorage.setItem('nossyV2.sync', JSON.stringify({ code, basis: {}, gewijzigd: {} }));
+    const posts = [];
+    global.fetch = async (url, opts) => {
+      const u = String(url);
+      if (u.includes('/sync/')) {
+        if (opts?.method === 'POST') { const b = JSON.parse(opts.body); posts.push(b); doc = { at: doc.at + 1, data: b.data }; return { ok: true, status: 200, json: async () => ({ ok: true, at: doc.at }) }; }
+        return { ok: true, status: 200, json: async () => doc };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    try {
+      render(<App />);
+      await waitFor(() => expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes') || '[]').map((k) => k.id)).toContain('pc1'), { timeout: 6000 });
+      fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+      fireEvent.click(screen.getByText('Kaartjes (1)'));
+      expect(document.querySelector('.kaartje-stub-stempel').textContent).toBe('★★★★½');
+      // en in Setup: de stand
+      fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+      expect(screen.getByText(/Gesynchroniseerd/)).toBeTruthy();
+      // wat naar de Worker ging, is onleesbaar
+      expect(posts.every((p) => !p.data.includes('Aftersun'))).toBe(true);
     } finally { delete global.fetch; }
   });
 

@@ -13,6 +13,7 @@ import ImportPanel from '../components/ImportPanel.jsx';
 import ScoresPreview from '../components/ScoresPreview.jsx';
 import MatchPicker from '../components/MatchPicker.jsx';
 import LetterboxdLive from '../components/LetterboxdLive.jsx';
+import SyncApparaten from '../components/SyncApparaten.jsx';
 
 export default function Instellingen({ app }) {
   const { t: tr, lang } = useT();
@@ -83,7 +84,7 @@ export default function Instellingen({ app }) {
             <KeyRound size={15} /> {keyState === 'testing' ? tr('setup.testing') : tr('setup.saveTest')}
           </button>
         </div>
-        {keyState === 'ok' && <p style={{ color: 'var(--dot-g)', fontSize: 13, marginTop: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> Sleutel werkt en is opgeslagen.</p>}
+        {keyState === 'ok' && <p style={{ color: 'var(--dot-g)', fontSize: 13, marginTop: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> {tr('setup.sleutelWerkt')}</p>}
         {keyState === 'fail' && <p style={{ color: 'var(--dot-o)', fontSize: 13, marginTop: 10 }}>{tr('setup.tmdbRejected')}</p>}
         {app.settings.tmdbKey && keyState === 'idle' && <p style={{ color: 'var(--fog-dim)', fontSize: 13, marginTop: 10 }}>{tr('setup.tmdbWorking')}</p>}
       </div>
@@ -216,6 +217,7 @@ export default function Instellingen({ app }) {
         )}
       </div>
 
+      {PROXY_URL && <SyncApparaten app={app} />}
       {PROXY_URL && <LetterboxdLive app={app} />}
 
       <div className="card" style={{ marginBottom: 18 }}>
@@ -350,7 +352,7 @@ export default function Instellingen({ app }) {
             style={{ flex: 1, minWidth: 180, accentColor: 'var(--paper)' }}
           />
           <span style={{ fontSize: 14, color: 'var(--paper)', minWidth: 128 }}>
-            {(() => { const v = app.settings.themeEmphasis ?? DEFAULT_THEME_EMPHASIS; return v === 0 ? 'Uit, geen thema\u2019s' : v <= 0.5 ? 'Licht accent' : v <= 1 ? 'Standaard' : v <= 1.5 ? 'Nadrukkelijk' : 'Sterk themagedreven'; })()}
+            {(() => { const v = app.settings.themeEmphasis ?? DEFAULT_THEME_EMPHASIS; return v === 0 ? tr('setup.themaUit') : v <= 0.5 ? tr('setup.themaLicht') : v <= 1 ? tr('setup.themaStandaard') : v <= 1.5 ? tr('setup.themaNadruk') : tr('setup.themaSterk'); })()}
           </span>
         </div>
       </div>

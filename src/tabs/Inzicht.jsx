@@ -22,7 +22,7 @@ function BarList({ items, color, max }) {
 }
 
 const top = (counter, n) => Object.entries(counter).sort((a, b) => b[1] - a[1]).slice(0, n);
-import { useT, esc } from '../lib/i18n.js';
+import { useT, esc, decimaal } from '../lib/i18n.js';
 
 export default function Inzicht({ app }) {
   const { t: tr, lang } = useT();
@@ -80,8 +80,8 @@ export default function Inzicht({ app }) {
       directors: top(directors, 5).filter(([, n]) => n > 1),
       countries: top(countries, 5),
       avgRuntime: runtimeN ? Math.round(runtimeSum / runtimeN) : null,
-      avgVote: voteN ? (voteSum / voteN).toFixed(1).replace('.', ',') : null,
-      avgOwn: ratingVals.length ? (ratingVals.reduce((a, b) => a + b, 0) / ratingVals.length).toFixed(2).replace('.', ',') : null,
+      avgVote: voteN ? decimaal((voteSum / voteN).toFixed(1)) : null,
+      avgOwn: ratingVals.length ? decimaal((ratingVals.reduce((a, b) => a + b, 0) / ratingVals.length).toFixed(2)) : null,
       ratingCount: ratingVals.length,
       totalHours: runtimeN ? Math.round((runtimeSum / runtimeN) * watchlist.length / 60) : null,
     };
@@ -190,7 +190,7 @@ export default function Inzicht({ app }) {
 
       {sel && (
         <div style={{ marginBottom: 18 }}>
-          <button className="btn ghost" style={{ marginBottom: 10 }} onClick={() => setSel(null)}><X size={14} /> Sluit</button>
+          <button className="btn ghost" style={{ marginBottom: 10 }} onClick={() => setSel(null)}><X size={14} /> {tr('common.close')}</button>
           <Winner film={sel} meta={meta[sel.key]} context={tr('inzicht.prevPick')} seen={seenSet.has(sel.key)} onToggleSeen={() => app.toggleSeen(sel.key)} />
         </div>
       )}
@@ -358,7 +358,7 @@ export default function Inzicht({ app }) {
 
       {history.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>
-          <p className="label" style={{ marginBottom: 12 }}><History size={13} style={{ verticalAlign: -2 }} /> Laatste picks, tik om te heropenen</p>
+          <p className="label" style={{ marginBottom: 12 }}><History size={13} style={{ verticalAlign: -2 }} /> {tr('inzicht.laatstePicks')}</p>
           <div style={{ display: 'grid', gap: 4 }}>
             {history.slice(0, 12).map((h, i) => (
               <button

@@ -6,6 +6,7 @@ import { useT } from '../lib/i18n.js';
 import Winner from '../components/Winner.jsx';
 import Kaartjesdoos, { KaartjeBeheer } from '../components/Kaartjesdoos.jsx';
 import { inDeDoos, buitenDeDoos } from '../lib/kaartjesdoos.js';
+import { recentGelogd } from '../lib/vondsten.js';
 import { useLS } from '../lib/storage.js';
 
 const SORTS = [
@@ -44,7 +45,8 @@ export default function Bieb({ app }) {
 
   const base = scope === 'watchlist' ? watchlist : gezienList;
   const doos = useMemo(() => inDeDoos(app.kaartjesStand || []), [app.kaartjesStand]);
-  const buiten = useMemo(() => buitenDeDoos(app.kaartjesStand || []), [app.kaartjesStand]);
+  const buiten = useMemo(() => buitenDeDoos((app.kaartjesStand || []).filter((k) => k.bron !== 'gevonden')), [app.kaartjesStand]);
+  const gelogd = useMemo(() => recentGelogd(app.diary || [], new Set(doos.map((k) => k.key))), [app.diary, doos]);
   const tochGekeken = (k) => {
     app.pasKaartjeAan(k.id, { antwoord: 'gekeken', beantwoord: new Date().toISOString() });
     app.scheurAf(k, k.sterren ?? null);
@@ -177,14 +179,14 @@ export default function Bieb({ app }) {
       </div>
 
       {scope === 'kaartjes' && (
-        <Kaartjesdoos kaartjes={doos} buiten={buiten} meta={meta} eigenNaam={samenNaam.trim() || null}
-          onOpen={(k) => open({ key: k.key, name: k.name, year: k.year, kaartjeId: k.id })} onTochGekeken={tochGekeken} />
+        <Kaartjesdoos kaartjes={doos} buiten={buiten} gelogd={gelogd} meta={meta} eigenNaam={samenNaam.trim() || null}
+          onOpen={(k) => open({ key: k.key, name: k.name, year: k.year, kaartjeId: k.id })} onTochGekeken={tochGekeken} onGevonden={app.gevondenToevoegen} />
       )}
 
       {scope !== 'kaartjes' && (<>
       {scope === 'gezien' && watchedFilms.length === 0 && app.watchedLb.length > 0 && (
         <p className="notice warn" style={{ marginBottom: 16 }}>
-          Je ziet nu alleen je beoordeelde films. Herlaad je Letterboxd-export (Setup) om ook je niet-beoordeelde gezien-films hier te krijgen.
+          {tr('bieb.alleenBeoordeeld')}
         </p>
       )}
 

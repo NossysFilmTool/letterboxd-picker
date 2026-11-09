@@ -5,6 +5,7 @@ import RemoteVote from './components/RemoteVote.jsx';
 import SamenGast from './components/SamenGast.jsx';
 import AvondVraag from './components/AvondVraag.jsx';
 import Afgescheurd from './components/Afgescheurd.jsx';
+import Ontdekt from './components/Ontdekt.jsx';
 import SimilarOverlay from './components/SimilarOverlay.jsx';
 import { buildTaste } from './lib/taste.js';
 import Pick from './tabs/Pick.jsx';
@@ -13,13 +14,17 @@ import Verken from './tabs/Verken.jsx';
 import Avond from './tabs/Avond.jsx';
 import Inzicht from './tabs/Inzicht.jsx';
 import Instellingen from './tabs/Instellingen.jsx';
-import { useLS, useStorageHealth, useMetaStore } from './lib/storage.js';
-import { enrichAll, refreshProviders, resolveFilm, fetchDetailById, setRegion, DEFAULT_REGION, effectiveTmdbKey, herstelFestivalJaar, FESTIVAL_DREMPEL } from './lib/tmdb.js';
+import { useLS, useStorageHealth, useMetaStore, leesOpslag, filmKey } from './lib/storage.js';
+import { onthoudVondst, gevondenKaartjes } from './lib/vondsten.js';
+import { verzamelVoorbeelden, leerEnToets } from './lib/model.js';
+import { enrichAll, refreshProviders, resolveFilm, fetchDetailById, setRegion, getRegion, DEFAULT_REGION, effectiveTmdbKey, herstelFestivalJaar, FESTIVAL_DREMPEL } from './lib/tmdb.js';
 import { setNossyWeights } from './lib/pick.js';
 import { setThemeEmphasis } from './lib/taste.js';
 import { fetchExtRatings } from './lib/omdb.js';
 import { volgAanbod } from './lib/aanbod.js';
 import { haalDagboek, voegDagboekSamen } from './lib/lbLive.js';
+import { useSync } from './lib/useSync.js';
+import { normaliseerCode } from './lib/sync.js';
 import { nieuwKaartje, voegKaartjeToe, kaartjesUitGeschiedenis, beoordeelKaartjes, vraagAvond, inDeDoos, AVOND_GAT } from './lib/kaartjesdoos.js';
 import { useEffect } from 'react';
 import { registerDict, setLang, detectLang, getLang, useT } from './lib/i18n.js';
@@ -66,11 +71,22 @@ export default function App() {
   // je een film als gezien markeerde (bewijs dat je een kaartje gebruikte)
   const [kaartjes, setKaartjes] = useLS('kaartjes', null);
   const [gezienOp, setGezienOp] = useLS('gezienOp', {});
+  // "Toch niet gezien", met tijd: zodat de sync weet wat het laatst gold
+  const [gezienWeg, setGezienWeg] = useLS('gezienWeg', {});
+  // Films die de tool voor je vond (lib/vondsten.js): kijk je ze daarna,
+  // dan worden ze een Gevonden-kaartje
+  const [vondsten, setVondsten] = useLS('vondsten', {});
   // De vraag na een avond kun je tot later wegleggen: { id, tot }
   const [vraagLater, setVraagLater] = useLS('vraagLater', null);
   // Letterboxd live: wanneer je dagboek-feed voor het laatst is gelezen
   const [lbLive, setLbLive] = useLS('lbLive', { at: 0, fout: null, erbij: 0 });
   const [lbBezig, setLbBezig] = useState(false);
+  // Je smaakmodel opnieuw laten leren (na nieuwe sterren via Letterboxd live)
+  const [herleren, setHerleren] = useState(false);
+  // Afgescheurde kaartjes die je al voorbij zag komen (dit apparaat), en de
+  // wachtrij van kaartjes die de app zelf als gekeken ontdekte
+  const [gemeld, setGemeld] = useLS('kaartjesGemeld', null);
+  const [ontdekt, setOntdekt] = useState([]);
   // Het moment dat een kaartje afscheurt: { kaartje, nummer }
   const [afgescheurd, setAfgescheurd] = useState(null);
   // De Bieb op een bepaalde tab openen (bijv. vanuit "Bekijk de doos")
@@ -174,10 +190,41 @@ export default function App() {
     if (kaartjes === null) setKaartjes(kaartjesUitGeschiedenis(history, followups, ownRatings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const kaartjesStand = useMemo(
-    () => beoordeelKaartjes(kaartjes || [], { diary, gezienOp, ownRatings }),
-    [kaartjes, diary, gezienOp, ownRatings],
+  const kaartjesStand = useMemo(() => {
+    const eigen = beoordeelKaartjes(kaartjes || [], { diary, gezienOp, ownRatings });
+    // Plus de Gevonden-kaartjes, behalve voor films die al een eigen kaartje
+    // in de doos hebben (of waar je er zelf een van maakte)
+    const overslaanIds = new Set((kaartjes || []).map((k) => k.id));
+    const overslaanKeys = new Set(eigen.filter((k) => k.status === 'gekeken').map((k) => k.key));
+    return [...eigen, ...gevondenKaartjes(vondsten, { diary, gezienOp, ownRatings, overslaanIds, overslaanKeys })];
+  },
+    [kaartjes, diary, gezienOp, ownRatings, vondsten],
   );
+  // Ontdekt: een kaartje scheurt af door bewijs dat de app zelf vond (je
+  // Letterboxd-dagboek, of je markeerde de film als gezien). Dan speelt het
+  // ontdekmoment (Ontdekt.jsx), op welk scherm je ook bent. Wat je zelf
+  // beantwoordde, kreeg al het kleine afscheurmoment. De eerste keer onthouden
+  // we alleen wat er al lag, zonder animaties.
+  // (een ref, zodat een effect dat twee keer draait niets dubbel meldt)
+  const gemeldRef = useRef(gemeld);
+  useEffect(() => {
+    if (kaartjes === null) return;
+    const gescheurd = kaartjesStand.filter((k) => k.status === 'gekeken');
+    const al = gemeldRef.current;
+    if (al === null) { gemeldRef.current = gescheurd.map((k) => k.id); setGemeld(gemeldRef.current); return; }
+    const bekend = new Set(al);
+    const nieuw = gescheurd.filter((k) => !bekend.has(k.id));
+    if (!nieuw.length) return;
+    gemeldRef.current = [...al, ...nieuw.map((k) => k.id)].slice(-3000);
+    setGemeld(gemeldRef.current);
+    const tonen = nieuw.filter((k) => k.bewijs !== 'antwoord');
+    if (!tonen.length) return;
+    const totaal = gescheurd.length;
+    setOntdekt((q) => [...q, ...tonen.filter((k) => !q.some((x) => x.k.id === k.id))
+      .map((k, i) => ({ k, nummer: totaal - tonen.length + i + 1 }))]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kaartjesStand]);
+
   // Een pick (of de winnaar van Avond) levert een kaartje op
   const geefKaartje = (film, opties = {}) => {
     const poster = opties.poster || meta[film.key]?.poster || null;
@@ -185,7 +232,34 @@ export default function App() {
   };
   // Een kaartje aanpassen: sterren, notitie, of achteraf toch (niet) gekeken
   const pasKaartjeAan = (id, wijziging) => {
-    setKaartjes((lijst) => (lijst || []).map((k) => (k.id === id ? { ...k, ...wijziging } : k)));
+    setKaartjes((lijst) => {
+      const l = lijst || [];
+      if (l.some((k) => k.id === id)) return l.map((k) => (k.id === id ? { ...k, ...wijziging, bij: Date.now() } : k));
+      // Een Gevonden-kaartje bestaat alleen afgeleid: bij een wijziging wordt
+      // het een eigen kaartje, op de dag dat je de film keek
+      const af = kaartjesStand.find((k) => k.id === id);
+      if (!af) return l;
+      const { status, bewijs, gekekenOp, ...rest } = af;
+      const datum = String(gekekenOp).length === 10 ? new Date(`${gekekenOp}T20:00:00`).toISOString() : gekekenOp;
+      return [{ ...rest, datum, antwoord: 'gekeken', ...wijziging, bij: Date.now() }, ...l];
+    });
+  };
+  // Een vondst onthouden: een film die je in Verken opende, op je shortlist
+  // zette of doorklikte. Wat je al zag, beoordeelde of op je lijst had, niet.
+  const vondst = (film, opties = {}) => {
+    const key = film.key || filmKey(film.title || film.name, film.year || '');
+    if (seenSet.has(key) || mergedRatings[key] != null || watchlist.some((f) => f.key === key)) return;
+    setVondsten((v) => onthoudVondst(v, { key, id: film.id ?? null, name: film.name || film.title, year: film.year, poster: film.poster }, opties));
+  };
+  // Zelf toevoegen vanuit je dagboek: "die vond ik via Nossy"
+  const gevondenToevoegen = (d) => {
+    const k = {
+      id: `gevonden|${d.key}`, key: d.key, name: d.name, year: d.year || null, poster: meta[d.key]?.poster || null,
+      datum: new Date(`${d.watchedDate}T20:00:00`).toISOString(), bron: 'gevonden', vondst: 'zelf', personen: 1,
+      antwoord: 'gekeken', sterren: d.rating ?? null, beantwoord: new Date().toISOString(), bij: Date.now(),
+    };
+    setKaartjes((l) => [k, ...(l || []).filter((x) => x.id !== k.id)]);
+    scheurAf(k, k.sterren);
   };
   // Het afscheurmoment: het kaartje schuift de doos in, met zijn nummer
   const scheurAf = (kaartje, sterren = null) => {
@@ -196,7 +270,7 @@ export default function App() {
   const kaartjeDoorgeklikt = (key) => {
     const nu = Date.now();
     setKaartjes((lijst) => (lijst || []).map((k) => (
-      k.key === key && nu - Date.parse(k.datum) < AVOND_GAT && !k.doorgeklikt ? { ...k, doorgeklikt: true } : k
+      k.key === key && nu - Date.parse(k.datum) < AVOND_GAT && !k.doorgeklikt ? { ...k, doorgeklikt: true, bij: nu } : k
     )));
   };
   const markeerAlsGezien = (key) => {
@@ -210,8 +284,8 @@ export default function App() {
     const ids = new Set(avond.map((k) => k.id));
     setKaartjes((lijst) => (lijst || []).map((k) => {
       if (!ids.has(k.id)) return k;
-      if (k.key === gekozen) return { ...k, antwoord: 'gekeken', sterren: sterren || null, beantwoord: nu };
-      return { ...k, antwoord: 'niet', beantwoord: nu };
+      if (k.key === gekozen) return { ...k, antwoord: 'gekeken', sterren: sterren || null, beantwoord: nu, bij: Date.now() };
+      return { ...k, antwoord: 'niet', beantwoord: nu, bij: Date.now() };
     }));
     if (!gekozen) return;
     const film = avond.find((k) => k.key === gekozen);
@@ -241,6 +315,10 @@ export default function App() {
       // De nieuwste sterren per film (de feed staat nieuwste eerst)
       const sterren = {};
       regels.forEach((r) => { if (r.rating != null && !(r.key in sterren)) sterren[r.key] = r; });
+      // Zijn er een paar sterren bijgekomen of veranderd, en had je al een
+      // smaakmodel (Inzicht), dan leert dat op de achtergrond opnieuw
+      const veranderd = Object.values(sterren).filter((r) => ratings[r.key] !== r.rating).length;
+      if (veranderd >= 3 && smaakModel && Date.now() - (smaakModel.at || 0) > 12 * 3600e3) setHerleren(true);
       if (Object.keys(sterren).length) {
         setRatings((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(sterren).map(([k, r]) => [k, r.rating])) }));
         setRatedFilms((prev) => [
@@ -255,8 +333,48 @@ export default function App() {
     setLbBezig(false);
   };
   useEffect(() => {
-    if (settings.lbNaam && Date.now() - (lbLive.at || 0) > 6 * 3600e3) syncLetterboxd();
+    if (!herleren || !metaReady) return undefined;
+    let weg = false;
+    // Even wachten: eerst de opstart en het verversen, dan het rekenwerk
+    const t = setTimeout(async () => {
+      try {
+        const data = {
+          watchlist, meta: metaRef.current, ratedFilms: mergedRatedFilms, ratings: mergedRatings, seenSet,
+          oeuvres: leesOpslag('oeuvres', {}), details: leesOpslag('kandDetails', {}), regio: getRegion(),
+          shortlist, skipped,
+        };
+        const v = await verzamelVoorbeelden(data);
+        if (weg || !v.genoeg) return;
+        const m = leerEnToets(v.records);
+        if (!m || weg) return;
+        // Had je het model zelf uitgezet terwijl het beter was, dan blijft het uit
+        setSmaakModel((oud) => ({ ...m, aan: m.beter && !(oud?.beter && oud.aan === false) }));
+      } catch { /* dan de volgende keer */ } finally {
+        if (!weg) setHerleren(false);
+      }
+    }, 5000);
+    return () => { weg = true; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [herleren, metaReady]);
+  // Vanzelf meelezen: bij het openen, als je terugkomt naar dit tabblad, en
+  // elk half uur zolang de app openstaat. De Worker cachet de feed tien
+  // minuten, dus vaker dan elke twintig minuten heeft geen zin.
+  const syncLbRef = useRef(null);
+  syncLbRef.current = syncLetterboxd;
+  const lbAtRef = useRef(lbLive.at);
+  lbAtRef.current = lbLive.at;
+  useEffect(() => {
+    if (!settings.lbNaam) return undefined;
+    const LB_MIN = 20 * 60e3;
+    const misschien = (altijd = false) => {
+      if (!altijd && document.visibilityState !== 'visible') return;
+      if (Date.now() - (lbAtRef.current || 0) > LB_MIN) syncLbRef.current?.();
+    };
+    misschien(true);
+    const klok = setInterval(() => misschien(), 30 * 60e3);
+    const terug = () => misschien();
+    document.addEventListener('visibilitychange', terug);
+    return () => { clearInterval(klok); document.removeEventListener('visibilitychange', terug); };
   }, [settings.lbNaam]);
 
   const ignoredSet = useMemo(() => new Set(ignored), [ignored]);
@@ -281,6 +399,7 @@ export default function App() {
       const { [key]: _, ...rest } = g;
       return rest;
     });
+    if (wasGezien) setGezienWeg((w) => ({ ...w, [key]: Date.now() }));
   };
   // Een film van buiten je lijst als gezien markeren, desgewenst met sterren
   // (bijv. vanuit Voor jou). Sterren tellen als eigen beoordeling en voeden zo
@@ -500,7 +619,43 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metaReady]);
 
+  // Sync tussen je apparaten (lib/sync.js): wat binnenkomt, leest de app
+  // opnieuw in. Sleutels die niet hier wonen (bijv. je diensten) lezen hun
+  // eigen schermen bij het openen.
+  const setters = {
+    kaartjes: setKaartjes, ownRatings: setOwnRatings, seen: setSeen, gezienOp: setGezienOp, gezienWeg: setGezienWeg,
+    history: setHistory, diary: setDiary, watchlist: setWatchlist, watchedLb: setWatchedLb, watchedFilms: setWatchedFilms,
+    ratings: setRatings, ratedFilms: setRatedFilms, lbLists: setLbLists, settings: setSettings, smart: setSmart,
+    shortlist: setShortlist, skipped: setSkipped, ignored: setIgnored, smaakModel: setSmaakModel, vondsten: setVondsten,
+  };
+  const sync = useSync({
+    uit: demoMode,
+    pasToe: (sleutels) => {
+      sleutels.forEach((s) => { const v = leesOpslag(s, null); if (v !== null && setters[s]) setters[s](v); });
+      // Een watchlist van een ander apparaat: de filmdata haalt dit apparaat zelf
+      if (sleutels.includes('watchlist')) {
+        const wl = leesOpslag('watchlist', []);
+        setTimeout(() => startEnrichRef.current?.(wl), 500);
+      }
+    },
+  });
+  const startEnrichRef = useRef(null);
+  startEnrichRef.current = startEnrich;
+  // Een koppellink (?sync=CODE) van een ander apparaat: koppelen en de code
+  // meteen uit de adresbalk halen
+  useEffect(() => {
+    const ruw = new URLSearchParams(location.search).get('sync');
+    if (!ruw) return;
+    const code = normaliseerCode(ruw);
+    const p = new URLSearchParams(location.search);
+    p.delete('sync');
+    window.history.replaceState(null, '', `${location.pathname}${p.toString() ? `?${p}` : ''}${location.hash}`);
+    if (code && code !== sync.stand?.code) { sync.koppel(code); setTab('instellingen'); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const app = {
+    sync,
     settings, setSettings,
     watchlist: watchlist.filter((f) => !ignoredSet.has(f.key)),
     watchlistAll: watchlist,
@@ -511,7 +666,7 @@ export default function App() {
     ratings: mergedRatings, setRatings, lbRatings: ratings,
     ratedFilms: mergedRatedFilms, setRatedFilms,
     ownRatings, setOwnRatings,
-    kaartjesStand, geefKaartje, kaartjeDoorgeklikt, beantwoordAvond, pasKaartjeAan, scheurAf,
+    kaartjesStand, geefKaartje, kaartjeDoorgeklikt, beantwoordAvond, pasKaartjeAan, scheurAf, vondst, gevondenToevoegen,
     pakBiebStart: () => { const s = biebStartRef.current; biebStartRef.current = null; return s; },
     lbLive, lbBezig, syncLetterboxd,
     diary, setDiary, lbLists, setLbLists,
@@ -583,7 +738,7 @@ export default function App() {
       {extEnrich.running && (
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12.5, color: 'var(--fog)', marginBottom: 6 }}>
-            Scores ophalen bij OMDb… {extEnrich.done}/{extEnrich.total}
+            {tr('app.omdbBezig', { done: extEnrich.done, total: extEnrich.total })}
           </div>
           <div className="progressbar"><div style={{ width: `${(extEnrich.done / Math.max(extEnrich.total, 1)) * 100}%` }} /></div>
         </div>
@@ -591,7 +746,7 @@ export default function App() {
       {/* De vraag na een avond: op het eerste scherm dat je opent, niet alleen bij Pick */}
       {(() => {
         if (tab === 'instellingen' || !watchlist.length) return null;
-        const avond = vraagAvond(kaartjesStand);
+        const avond = vraagAvond(kaartjesStand.filter((k) => k.bron !== 'gevonden'));
         if (!avond) return null;
         if (vraagLater && vraagLater.id === avond[0].id && Date.now() < vraagLater.tot) return null;
         return (
@@ -601,6 +756,12 @@ export default function App() {
         );
       })()}
       {afgescheurd && <Afgescheurd melding={afgescheurd} onSluit={() => setAfgescheurd(null)} onBekijk={naarDeDoos} />}
+      {ontdekt[0] && (
+        <Ontdekt key={ontdekt[0].k.id} item={ontdekt[0]} meer={ontdekt.length - 1}
+          poster={meta[ontdekt[0].k.key]?.poster || ontdekt[0].k.poster || null}
+          onKlaar={() => setOntdekt((q) => q.slice(1))}
+          onBekijk={() => { setOntdekt([]); naarDeDoos(); }} />
+      )}
       <div className="tabfade" key={tab}>
         {tab === 'pick' && <Pick app={app} />}
         {tab === 'bieb' && <Bieb app={app} />}

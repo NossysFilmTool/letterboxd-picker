@@ -209,7 +209,11 @@ export default function Verken({ app }) {
 
   // Detailkaart voor elke film van buiten je lijst: volledige TMDB-data
   // (backdrop, regisseur, trailer, streamingaanbod) + on-demand OMDb-scores
+  // Een vondst: de tool liet je deze film zien en je opende hem (zie lib/vondsten.js)
+  const bronVondst = mode === 'zoeken' ? 'zoeken' : 'voorjou';
+  const alsVondst = (r, sterk = false) => app.vondst({ key: filmKey(r.title, r.year), id: r.id, name: r.title, year: r.year, poster: r.poster }, { bron: bronVondst, sterk });
   const openDetail = async (r) => {
+    alsVondst(r);
     setOpenFilm({ light: r, detail: detailCache.current.get(r.id) || null });
     if (detailCache.current.has(r.id) || !app.tmdbKey) return;
     try {
@@ -242,6 +246,7 @@ export default function Verken({ app }) {
   const genreNaam = (ids) => (ids || []).map((id) => genreLabelById(id)).filter(Boolean)[0];
   const addToShortlist = (r) => {
     if (shortIds.has(r.id)) return;
+    alsVondst(r, true);
     setShortlist((s) => [...s, { id: r.id, title: r.title, year: r.year, poster: r.poster, vote: r.vote, seeds: r.seeds, genre_ids: r.genre_ids || [] }]);
     const g = genreNaam(r.genre_ids);
     if (g) setNudge(tr('verken.nudgeMore', { genre: g }));
@@ -454,7 +459,7 @@ export default function Verken({ app }) {
           onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
           /* Doorklikken naar de dienst vanaf Voor jou (ook Vanavond) is een keuze:
              dat levert een kaartje op, net als een pick */
-          onKijken={() => app.geefKaartje({ key: filmKey(light.title, light.year), name: light.title, year: light.year }, { bron: 'voorjou', poster: light.poster || m.poster, doorgeklikt: true })}
+          onKijken={() => { alsVondst(light, true); app.geefKaartje({ key: filmKey(light.title, light.year), name: light.title, year: light.year }, { bron: bronVondst, poster: light.poster || m.poster, doorgeklikt: true }); }}
         />
       </div>
     );

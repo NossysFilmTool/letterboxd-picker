@@ -49,6 +49,14 @@ Wil je er een breken, pas dan eerst dit document aan.
   beweging" aan verschijnt hij gewoon.
 - Bovenaan de doos staat je filmjaar; het deelbare beeld is een raster van
   dezelfde stroken.
+- Ontdekt de app zelf dat je een gekozen film keek (je Letterboxd-dagboek,
+  of je markeerde hem als gezien), dan is dat het grote moment
+  (`Ontdekt.jsx`), op welk scherm je ook bent: het kaartje komt in beeld,
+  een rode stempel "Gekeken" slaat erop met een dreun, en de strook scheurt
+  af. Wat je zelf beantwoordt, krijgt het kleine moment.
+- Films die de tool voor je vond (je opende hun kaart in Verken, zette ze op
+  je shortlist of klikte door) en die je daarna keek, worden een
+  Gevonden-kaartje ("Gevonden met Zoeken"). Regels in `src/lib/vondsten.js`.
 
 ## Doek en korrel
 

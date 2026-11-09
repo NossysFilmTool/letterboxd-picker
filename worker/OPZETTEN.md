@@ -92,6 +92,30 @@ ophalen, dus de Worker geeft hem door via `/lb/<naam>`. Niets aan te zetten:
 De Worker accepteert alleen een gebruikersnaam (letters, cijfers, liggend
 streepje), haalt alleen die openbare feed op en cachet hem tien minuten.
 
+## Sync tussen je apparaten aanzetten
+
+De tool kan je kaartjes, sterren, gezien-lijst, watchlist en instellingen
+gelijk houden op je laptop, pc en telefoon. Elk apparaat versleutelt die
+gegevens zelf met een geheime code; de Worker bewaart alleen onleesbare
+data onder `/sync/<id>` (in dezelfde KV-opslag als de stemrondes). Niets
+aan te zetten:
+
+1. Plak de nieuwste `worker.js` in Edit code en Deploy.
+2. In de tool: Setup, "Op al je apparaten", "Zet sync aan op dit
+   apparaat". Kopieer de koppellink en open die op je andere apparaat.
+
+Een half jaar zonder sync en de gegevens verdwijnen vanzelf uit KV; op je
+apparaten blijven ze gewoon staan.
+
+Veiligheid: uit de code komen drie dingen, het id (waar het staat), de
+sleutel (om te versleutelen) en een schrijfsleutel. De Worker bewaart van
+die schrijfsleutel alleen een vingerafdruk en weigert overschrijven of
+intrekken zonder de juiste. Lekt je code, gebruik dan in de tool "Wissel
+code": de oude wordt ingetrokken (de kopie daaronder gewist) en je koppelt
+je andere apparaten opnieuw met de nieuwe link. Gratis KV laat 1000 schrijfacties per
+dag toe; de tool schrijft alleen als er echt iets veranderde, hooguit een
+paar keer per uur.
+
 ## Goed om te weten
 
 - De sleutel staat alléén als Secret bij Cloudflare, nooit in de code of

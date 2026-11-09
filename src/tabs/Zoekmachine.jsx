@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useT } from '../lib/i18n.js';
+import { useT, decimaal } from '../lib/i18n.js';
 import { lbLink, jwLink } from '../lib/links.js';
 import ImdbA from '../components/ImdbA.jsx';
 import { Search, Clapperboard, Plus, X, RefreshCw, SlidersHorizontal } from 'lucide-react';
@@ -113,7 +113,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
       const b = maxVotes !== '' ? (+maxVotes).toLocaleString('nl-NL') : '∞';
       d.push(tr('zoek.qVotesRange', { a, b }));
     }
-    if (minScore) d.push(`${String(minScore).replace('.', ',')}+`);
+    if (minScore) d.push(`${decimaal(minScore)}+`);
     if (runtime) d.push(`${runtime}+ min`);
     return d.length ? d.join(' · ') : tr('zoek.qAll');
   };
@@ -220,7 +220,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: toonFilters ? 14 : 0, alignItems: 'center' }}>
           <button className="btn primary" onClick={() => zoek(1)} disabled={loading}><Search size={15} /> {loading ? tr('zoek.searching') : tr('common.search')}</button>
           <button className="btn ghost" onClick={() => setToonFilters(!toonFilters)}><SlidersHorizontal size={14} /> {toonFilters ? tr('common.hideFilters') : tr('common.showFilters')}</button>
-          <button className="btn ghost" onClick={wis}><X size={14} /> Wis</button>
+          <button className="btn ghost" onClick={wis}><X size={14} /> {tr('common.clear')}</button>
         </div>
 
         {toonFilters && (
@@ -254,7 +254,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
               </select>
               <select className="field" style={{ width: 'auto' }} value={minScore} onChange={(e) => setMinScore(+e.target.value)} aria-label={tr('zoek.minScoreLabel')}>
                 <option value={0}>{tr('common.anyScore')}</option>
-                {[6.0, 6.5, 7.0, 7.5, 8.0].map((s) => <option key={s} value={s}>{String(s).replace('.', ',')}+</option>)}
+                {[6.0, 6.5, 7.0, 7.5, 8.0].map((s) => <option key={s} value={s}>{decimaal(s)}+</option>)}
               </select>
               <select className="field" style={{ width: 'auto' }} value={runtime} onChange={(e) => setRuntime(e.target.value ? +e.target.value : '')} aria-label={tr('zoek.runtime')}>
                 {RUNTIMES.map(([v, l]) => <option key={l} value={v}>{l === 'anyDuration' ? tr('common.anyDuration') : tr(`zoek.${l}`)}</option>)}

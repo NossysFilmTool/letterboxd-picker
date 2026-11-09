@@ -20,7 +20,9 @@ export const sterrenTekst = (s) => '★'.repeat(Math.floor(s)) + (s % 1 >= 0.5 ?
 const alsDatum = (s) => new Date(String(s).length === 10 ? `${s}T12:00:00` : s);
 const posterVan = (k, meta) => meta[k.key]?.poster || k.poster || null;
 
-function bronTekst(k, tr) {
+export function bronTekst(k, tr) {
+  if (k.bron === 'gevonden') return tr(`kaartje.gevonden_${['voorjou', 'zoeken', 'vergelijkbaar'].includes(k.vondst) ? k.vondst : 'nossy'}`);
+  if (k.bron === 'zoeken') return tr('kaartje.bronZoeken');
   if (k.bron === 'samen') return tr('kaartje.bronSamen', { namen: (k.namen || []).join(', ') || k.personen });
   if (k.bron === 'avond') return tr('kaartje.bronAvond', { n: k.personen || 2 });
   if (k.bron === 'voorjou') return tr('kaartje.bronVoorJou');
@@ -99,15 +101,17 @@ function Filmjaar({ overzicht, meta }) {
         <div><dt>{tr('kaartje.jaarMaand')}</dt><dd className="woord">{maand}</dd></div>
         {overzicht.hoogste && <div><dt>{tr('kaartje.jaarHoogste')}</dt><dd className="woord">{overzicht.hoogste.name}</dd></div>}
         {overzicht.vaakstMet && <div><dt>{tr('kaartje.jaarMet')}</dt><dd className="woord">{overzicht.vaakstMet.naam}</dd></div>}
+        {overzicht.gevonden > 0 && <div><dt>{tr('kaartje.jaarGevonden')}</dt><dd>{overzicht.gevonden}</dd></div>}
       </dl>
       <button type="button" className="btn" onClick={deel} disabled={bezig}><Share2 size={14} /> {bezig ? tr('winner.makingCard') : tr('kaartje.jaarDeel')}</button>
     </section>
   );
 }
 
-export default function Kaartjesdoos({ kaartjes, buiten = [], meta, eigenNaam = null, onOpen, onTochGekeken }) {
+export default function Kaartjesdoos({ kaartjes, buiten = [], gelogd = [], meta, eigenNaam = null, onOpen, onTochGekeken, onGevonden }) {
   const { t: tr, lang } = useT();
   const [buitenOpen, setBuitenOpen] = useState(false);
+  const [gelogdOpen, setGelogdOpen] = useState(false);
   const perMaand = useMemo(() => {
     const groepen = [];
     kaartjes.forEach((k) => {
@@ -145,6 +149,27 @@ export default function Kaartjesdoos({ kaartjes, buiten = [], meta, eigenNaam = 
     </section>
   );
 
+  // Je recente Letterboxd-logs die nog niet in de doos zitten: vond je er
+  // een via Nossy, dan voeg je hem hier zelf toe
+  const gelogdLijst = gelogd.length > 0 && onGevonden && (
+    <section className="kd-buiten">
+      <button type="button" className="linkbtn" onClick={() => setGelogdOpen((v) => !v)} aria-expanded={gelogdOpen}>
+        {tr('kaartje.gelogdKop', { count: gelogd.length })}
+      </button>
+      {gelogdOpen && (
+        <ul>
+          {gelogd.slice(0, 15).map((d) => (
+            <li key={`${d.key}|${d.watchedDate}`}>
+              <span className="kd-buiten-naam">{d.name}{d.year ? ` (${d.year})` : ''}</span>
+              <span className="kd-buiten-stand">{new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'short' }).format(alsDatum(d.watchedDate))}</span>
+              <button type="button" className="btn ghost" onClick={() => onGevonden(d)}>{tr('kaartje.gevondenKnop')}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+
   if (!kaartjes.length) {
     return (
       <>
@@ -153,6 +178,7 @@ export default function Kaartjesdoos({ kaartjes, buiten = [], meta, eigenNaam = 
           <p>{tr('kaartje.doosLeegUitleg')}</p>
         </div>
         {buitenLijst}
+        {gelogdLijst}
       </>
     );
   }
@@ -177,6 +203,7 @@ export default function Kaartjesdoos({ kaartjes, buiten = [], meta, eigenNaam = 
         </section>
       ))}
       {buitenLijst}
+      {gelogdLijst}
     </div>
   );
 }

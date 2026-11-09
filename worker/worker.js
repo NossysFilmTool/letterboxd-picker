@@ -43,7 +43,7 @@ export default {
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const url = new URL(request.url);
-    if (request.method !== 'GET' && !(request.method === 'POST' && url.pathname.startsWith('/session'))) return new Response('Alleen GET of sessie-POST', { status: 405, headers: cors });
+    if (request.method !== 'GET' && !(request.method === 'POST' && (url.pathname.startsWith('/session') || url.pathname.startsWith('/sync/')))) return new Response('Alleen GET of sessie-POST', { status: 405, headers: cors });
 
     // Rate-drempel per IP (glijdend venster van 1 minuut)
     const ip = request.headers.get('CF-Connecting-IP') || 'onbekend';
@@ -182,6 +182,50 @@ export default {
         return json({ ok: true });
       }
       return json({ error: 'NOT_FOUND' }, 404);
+    }
+
+    // --- Sync tussen je apparaten ------------------------------------------
+    // Elk apparaat versleutelt je gegevens zelf met een geheime code; hier
+    // komt alleen onleesbare data binnen, onder een id dat ook uit die code
+    // is afgeleid. De Worker kan er niets mee behalve bewaren en teruggeven.
+    // Wie schrijft, zegt op welke versie hij voortbouwde (basis); is er
+    // intussen een nieuwere, dan 409 en voegt het apparaat eerst samen.
+    // Schrijven kan alleen met de schrijfsleutel (ook uit de code afgeleid);
+    // de Worker bewaart daar alleen een vingerafdruk van. Zo kan wie alleen
+    // het id kent je kopie niet overschrijven of intrekken. Een ingetrokken
+    // code (na "code wisselen") is leeg en blijft dicht.
+    const sync = url.pathname.match(/^\/sync\/([a-f0-9]{64})$/);
+    if (sync) {
+      const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
+        status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+      if (!env.SESSIONS) return json({ error: 'NO_KV' }, 501);
+      const sleutel = `sync:${sync[1]}`;
+      const ruw = await env.SESSIONS.get(sleutel);
+      const nu = ruw ? JSON.parse(ruw) : null;
+      if (request.method === 'GET') {
+        if (!nu) return json({ error: 'NOT_FOUND' }, 404);
+        if (nu.ingetrokken) return json({ error: 'INGETROKKEN' }, 410);
+        return json({ at: nu.at, data: nu.data });
+      }
+      let body;
+      try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
+      if (typeof body.token !== 'string' || !/^[a-f0-9]{64}$/.test(body.token)) return json({ error: 'GEEN_TOEGANG' }, 403);
+      const tokenHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body.token)))]
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
+      if (nu?.schrijf && nu.schrijf !== tokenHash) return json({ error: 'GEEN_TOEGANG' }, 403);
+      if (nu?.ingetrokken) return json({ error: 'INGETROKKEN' }, 410);
+      const at = Math.max(Date.now(), (nu?.at || 0) + 1);
+      const TTL = { expirationTtl: 182 * 86400 }; // een half jaar zonder sync en het verdwijnt vanzelf
+      if (body.intrekken) {
+        // De versleutelde kopie weg; alleen een dichte deur blijft staan
+        await env.SESSIONS.put(sleutel, JSON.stringify({ at, ingetrokken: true, schrijf: tokenHash }), TTL);
+        return json({ ok: true, at });
+      }
+      if (typeof body.data !== 'string' || !body.data || body.data.length > 5_000_000) return json({ error: 'BAD_DATA' }, 400);
+      if (nu && body.basis !== nu.at) return json({ error: 'CONFLICT', at: nu.at }, 409);
+      await env.SESSIONS.put(sleutel, JSON.stringify({ at, data: body.data, schrijf: nu?.schrijf || tokenHash }), TTL);
+      return json({ ok: true, at });
     }
 
     // --- Letterboxd live: je openbare dagboek-feed meelezen ---------------

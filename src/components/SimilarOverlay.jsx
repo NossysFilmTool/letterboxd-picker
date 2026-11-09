@@ -7,6 +7,7 @@ import { smartSimilar } from '../lib/similar.js';
 import { lbLink, jwLink } from '../lib/links.js';
 import ImdbA from './ImdbA.jsx';
 import { fmtScore } from '../lib/pick.js';
+import { filmKey } from '../lib/storage.js';
 
 // De slimme aanrader als overlay: vertrekt vanaf één film en legt per
 // suggestie uit waarom die erbij staat.
@@ -42,7 +43,10 @@ export default function SimilarOverlay({ seed, seedMeta, app, onClose }) {
   }, [onClose]);
 
   const shortIds = new Set((app.shortlist || []).map((s) => s.id));
+  // Een vondst via Meer zoals deze (lib/vondsten.js)
+  const alsVondst = (f, sterk = false) => app.vondst?.({ key: filmKey(f.title, f.year), id: f.id, name: f.title, year: f.year, poster: f.poster }, { bron: 'vergelijkbaar', sterk });
   const openFilm = async (f) => {
+    alsVondst(f);
     setDetailF(f);
     setDetailMeta(null);
     try { setDetailMeta(await fetchDetailById(f.id, app.tmdbKey)); } catch { /* kaart op lichte data */ }
@@ -77,7 +81,7 @@ export default function SimilarOverlay({ seed, seedMeta, app, onClose }) {
               meta={detailMeta || { poster: detailF.poster, vote: detailF.vote, genres: [] }}
               context={tr('similar.viaRecommender')}
               onShortlist={!detailF.opWatchlist && !shortIds.has(detailF.id)
-                ? () => app.setShortlist((s) => [...s, { id: detailF.id, title: detailF.title, year: detailF.year, poster: detailF.poster, vote: detailF.vote, seeds: [seed.name], genre_ids: detailF.genre_ids }])
+                ? () => { alsVondst(detailF, true); app.setShortlist((s) => [...s, { id: detailF.id, title: detailF.title, year: detailF.year, poster: detailF.poster, vote: detailF.vote, seeds: [seed.name], genre_ids: detailF.genre_ids }]); }
                 : undefined}
               inShortlist={shortIds.has(detailF.id)}
               onSimilar={() => app.openSimilar({ key: `tmdb:${detailF.id}`, name: detailF.title, year: detailF.year }, detailMeta || { id: detailF.id, genres: [], keywords: [] })}
@@ -114,7 +118,7 @@ export default function SimilarOverlay({ seed, seedMeta, app, onClose }) {
                   <a href={jwLink(null, { name: f.title })} target="_blank" rel="noreferrer">JustWatch</a>
                   {!f.opWatchlist && !shortIds.has(f.id) && (
                     <button className="btn ghost" style={{ marginLeft: 'auto', padding: '3px 9px', fontSize: 12 }}
-                      onClick={() => app.setShortlist((s) => [...s, { id: f.id, title: f.title, year: f.year, poster: f.poster, vote: f.vote, seeds: [seed.name], genre_ids: f.genre_ids }])}>
+                      onClick={() => { alsVondst(f, true); app.setShortlist((s) => [...s, { id: f.id, title: f.title, year: f.year, poster: f.poster, vote: f.vote, seeds: [seed.name], genre_ids: f.genre_ids }]); }}>
                       <Plus size={12} /> Shortlist
                     </button>
                   )}

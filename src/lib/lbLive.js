@@ -51,10 +51,10 @@ export async function haalDagboek(naam) {
   return leesDagboekFeed(await res.text());
 }
 
-// Nieuwe dagboekregels erbij (op film + kijkdatum ontdubbeld)
+// Nieuwe dagboekregels erbij (op film + kijkdatum ontdubbeld). Het TMDB-nummer
+// blijft erbij: daarmee herkennen we Gevonden-films ook bij een andere titel.
 export function voegDagboekSamen(diary, nieuw) {
   const bekend = new Set(diary.map((d) => `${d.key}|${d.watchedDate}`));
-  const erbij = nieuw.filter((d) => !bekend.has(`${d.key}|${d.watchedDate}`))
-    .map(({ tmdbId, ...regel }) => regel);
+  const erbij = nieuw.filter((d) => !bekend.has(`${d.key}|${d.watchedDate}`));
   return { diary: erbij.length ? [...diary, ...erbij] : diary, erbij };
 }

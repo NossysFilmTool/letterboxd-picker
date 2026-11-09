@@ -16,6 +16,8 @@ const listeners = new Set();
 const emit = () => listeners.forEach((l) => l());
 
 export function getLang() { return current; }
+// Een getal met de decimaal zoals de taal hem schrijft: 7,5 (nl) of 7.5 (en)
+export const decimaal = (v) => (current === 'nl' ? String(v).replace('.', ',') : String(v));
 export function setLang(lang) {
   const next = SUPPORTED.includes(lang) ? lang : DEFAULT_LANG;
   if (next === current) return;

@@ -19,6 +19,20 @@ const isOwnKey = (k) => k.startsWith(PREFIX)
 // Kale naam (zonder welk profiel-voorvoegsel dan ook), voor back-ups.
 const bareKey = (k) => k.replace(/^nossyV2\.(p\.[^.]+\.)?/, '');
 
+// Losse lees- en schrijfhulp voor het actieve profiel (achtergrondwerk, sync)
+export function leesOpslag(key, standaard = null) {
+  try {
+    const raw = localStorage.getItem(PREFIX + key);
+    return raw !== null ? JSON.parse(raw) : standaard;
+  } catch { return standaard; }
+}
+export function schrijfOpslag(key, waarde) {
+  try { localStorage.setItem(PREFIX + key, JSON.stringify(waarde)); } catch { reportStorageError(); }
+}
+// Een seintje bij elke opgeslagen wijziging (voor de sync tussen apparaten)
+const luisteraars = new Set();
+export function opWijziging(fn) { luisteraars.add(fn); return () => luisteraars.delete(fn); }
+
 export function useLS(key, defaultValue) {
   const [value, setValue] = useState(() => {
     try {
@@ -31,6 +45,7 @@ export function useLS(key, defaultValue) {
   useEffect(() => {
     try {
       localStorage.setItem(PREFIX + key, JSON.stringify(value));
+      luisteraars.forEach((fn) => { try { fn(key); } catch { /* een luisteraar mag het opslaan niet breken */ } });
     } catch (e) {
       console.warn('Opslag vol of geblokkeerd voor', key, e);
       reportStorageError();

@@ -175,6 +175,8 @@ export function jaarOverzicht(doos, jaar, { eigenNaam = null } = {}) {
     besteMaand: { maand: +maand, aantal: inMaand },
     hoogste,
     vaakstMet: vaakstNaam ? { naam: vaakstNaam, aantal: vaakstAantal } : null,
+    // Gevonden met de tool (Voor jou, Zoeken, Meer zoals deze), niet uit je eigen lijst
+    gevonden: vanJaar.filter((k) => ['gevonden', 'voorjou', 'zoeken'].includes(k.bron)).length,
     kaartjes: vanJaar,
   };
 }

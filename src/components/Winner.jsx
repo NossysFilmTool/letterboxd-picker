@@ -4,13 +4,13 @@ import { IMG } from '../lib/tmdb.js';
 import { imdbLink, jwLink } from '../lib/links.js';
 import { nossyScore, fmtScore, getNossyWeights } from '../lib/pick.js';
 import { renderShareCard, shareOrDownload } from '../lib/extra.js';
-import { useT } from '../lib/i18n.js';
+import { useT, decimaal } from '../lib/i18n.js';
 import Sterren from './Sterren.jsx';
 import { beoordeelCijfer } from '../lib/opgeblazen.js';
 import { useFilmkleur } from '../lib/filmkleur.js';
 import Kaartje from './Kaartje.jsx';
 
-const fmtVotes = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : n);
+const fmtVotes = (n) => (n >= 1000 ? `${decimaal((n / 1000).toFixed(1))}k` : n);
 
 // onGezien(sterren | null): een film van buiten je lijst als gezien markeren
 // kaartje: aantal personen; dan is het een pick en krijg je een bioscoopkaartje

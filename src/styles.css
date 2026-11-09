@@ -726,3 +726,33 @@ a.prov-link:hover { border-color: var(--paper); }
 .kd-buiten li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--line); }
 .kd-buiten-naam { color: var(--paper); font-weight: 600; font-size: 14px; }
 .kd-buiten-stand { flex: 1; font-size: 12.5px; color: var(--fog); }
+/* Sync tussen je apparaten (Setup) */
+.sync-kaart .sync-code { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; color: var(--paper); font-size: 15px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 3px; overflow-wrap: anywhere; }
+/* Ontdekt: de app zag zelf dat je een gekozen film keek. Het kaartje komt
+   in beeld, de stempel slaat erop (met een dreun), de strook scheurt af. */
+.kaartje-ontdekt { position: fixed; inset: 0; z-index: 180; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px 16px; background: rgba(12, 11, 10, 0.88); cursor: pointer; animation: ko-in 0.3s ease-out both; }
+@keyframes ko-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ko-op { from { opacity: 0; transform: translateY(36px); } to { opacity: 1; transform: none; } }
+@keyframes ko-dreun { 0% { transform: none; } 35% { transform: translateY(6px) scale(0.985); } 100% { transform: none; } }
+@keyframes ko-stempel { from { opacity: 0; transform: scale(2.6) rotate(-24deg); } to { opacity: 1; transform: scale(1) rotate(-9deg); } }
+@keyframes ko-links { to { transform: translateX(-8px) rotate(-1deg); } }
+@keyframes ko-scheur { 0% { transform: none; } 30% { transform: translate(4px, 2px) rotate(2deg); } 100% { transform: translate(24px, 16px) rotate(8deg); } }
+.kaartje-ontdekt-kop { color: var(--fog); font-size: 15px; animation: ko-op 0.4s 0.1s ease-out both; }
+.kaartje-ontdekt-ticket { display: flex; width: min(560px, 100%); min-height: 220px; animation: ko-op 0.5s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both, ko-dreun 0.3s 0.95s ease-out; }
+.kaartje-ontdekt-body { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 18px 22px 70px; background: var(--paper); color: #1b1a18; border-radius: 3px 0 0 3px; border-right: 2px dashed rgba(27, 26, 24, 0.45); animation: ko-links 0.6s 1.9s cubic-bezier(0.3, 0.7, 0.2, 1) both; }
+.kaartje-ontdekt-datum { font-family: var(--font-ticket); font-size: 13px; color: #4a4640; }
+.kaartje-ontdekt-titel { font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: 0.92; overflow-wrap: anywhere; }
+.kaartje-ontdekt-bron { font-size: 13px; color: #6f6a62; }
+.kaartje-ontdekt-stempel { position: absolute; right: 18px; bottom: 16px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-family: var(--font-ticket); font-size: 22px; line-height: 1.1; color: #a8463a; border: 3px solid currentColor; border-radius: 4px; padding: 6px 12px; transform: rotate(-9deg); animation: ko-stempel 0.32s 0.65s cubic-bezier(0.5, 0, 0.75, 0) both; }
+.kaartje-ontdekt-sterren { font-size: 18px; }
+.kaartje-ontdekt-strook { position: relative; width: 150px; flex-shrink: 0; overflow: hidden; border-radius: 0 3px 3px 0; display: grid; place-items: center; color: rgba(255, 255, 255, 0.7); transform-origin: 0 0; animation: ko-scheur 0.7s 1.9s cubic-bezier(0.3, 0.7, 0.2, 1) both; }
+.kaartje-ontdekt-strook img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.kaartje-ontdekt-tekst { color: var(--paper); font-family: var(--font-display); font-weight: 700; font-size: 26px; animation: ko-op 0.4s 2.3s ease-out both; }
+.kaartje-ontdekt-acties { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; justify-content: center; color: var(--fog); font-size: 13px; animation: ko-op 0.4s 2.5s ease-out both; }
+@media (max-width: 560px) {
+  .kaartje-ontdekt-strook { width: 96px; }
+  .kaartje-ontdekt-titel { font-size: 30px; }
+  .kaartje-ontdekt-body { padding: 14px 14px 64px; }
+  .kaartje-ontdekt-stempel { font-size: 17px; right: 10px; bottom: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .kaartje-ontdekt, .kaartje-ontdekt * { animation: none !important; } }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePoll } from '../lib/usePoll.js';
 import SamenHost from '../components/SamenHost.jsx';
-import { useT } from '../lib/i18n.js';
+import { useT, decimaal } from '../lib/i18n.js';
 import { remoteAvailable, createSession, getSession, closeSession, computeWinner } from '../lib/session.js';
 import { Users, Swords, Ban, Clapperboard, RotateCcw, Upload, Info, ArrowLeft, X, Send } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
@@ -138,7 +138,7 @@ export default function Avond({ app }) {
       const naam = files[0].name.replace(/\.(zip|csv)$/i, '');
       setFriends((prev) => [...prev.filter((fr) => fr.name !== naam), { name: naam, keys: new Set(res.watchlist.map((f) => f.key)) }]);
       setUseOverlap(true);
-    } catch (e) { alert(`Laden mislukt: ${e.message}`); }
+    } catch (e) { alert(tr('avond.ladenMislukt', { msg: e.message })); }
   };
 
   const kiesSamen = (film, namen) => {
@@ -206,7 +206,7 @@ export default function Avond({ app }) {
     return (
       <div>
         <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setInfo(null)}>
-          <ArrowLeft size={15} /> Terug naar de ronde
+          <ArrowLeft size={15} /> {tr('avond.terugNaarRonde')}
         </button>
         <Winner film={info} meta={meta[info.key]} context={tr('avond.peek')} />
       </div>
@@ -219,7 +219,7 @@ export default function Avond({ app }) {
       <div>
         <div className="toprow">
           <div><h1 className="page-title">{tr('avond.title')}</h1><p className="page-sub">{tr('avond.groupSpoke')}</p></div>
-          <button className="btn" onClick={reset}><RotateCcw size={15} /> Nieuwe ronde</button>
+          <button className="btn" onClick={reset}><RotateCcw size={15} /> {tr('avond.nieuweRonde')}</button>
         </div>
         <Winner
           film={champion} meta={meta[champion.key]}
@@ -241,13 +241,13 @@ export default function Avond({ app }) {
         <div className="toprow">
           <div>
             <h1 className="page-title">{tr('avond.vetoRound')}</h1>
-            <p className="page-sub">Speler {turn + 1} is aan de beurt. Tik de film weg die jíj niet wilt. Nog {left.length} over.</p>
+            <p className="page-sub">{tr('avond.vetoBeurt', { n: turn + 1, over: left.length })}</p>
           </div>
           <button className="btn ghost" onClick={reset}>{tr('common.stop')}</button>
         </div>
         <div className="poster-grid">
           {vetoFilms.map((f, i) => (
-            <Tile key={f.key} film={f} meta={meta[f.key]} index={i} struck={struckKeys.includes(f.key)} onClick={() => strike(f)} label={`Streep ${f.name} weg`} onInfo={peek} />
+            <Tile key={f.key} film={f} meta={meta[f.key]} index={i} struck={struckKeys.includes(f.key)} onClick={() => strike(f)} label={tr('avond.streepWeg', { name: f.name })} onInfo={peek} />
           ))}
         </div>
         <p style={{ color: 'var(--fog-dim)', fontSize: 13, marginTop: 16 }}>{tr('avond.vetoHint')}</p>
@@ -266,7 +266,7 @@ export default function Avond({ app }) {
         <div className="toprow">
           <div>
             <h1 className="page-title">{roundName}</h1>
-            <p className="page-sub">Duel {pairIdx + 1} van {cur.length / 2}. Beslis samen: welke wint?</p>
+            <p className="page-sub">{tr('avond.duelVan', { i: pairIdx + 1, n: cur.length / 2 })}</p>
           </div>
           <button className="btn ghost" onClick={reset}>{tr('common.stop')}</button>
         </div>
@@ -366,7 +366,7 @@ export default function Avond({ app }) {
               </select>
               <select className="field" style={{ width: 'auto' }} value={fMinScore} onChange={(e) => setFMinScore(+e.target.value)} aria-label={tr('avond.minNossy')}>
                 <option value={0}>{tr('common.anyScore')}</option>
-                {[6.5, 7.0, 7.5].map((s) => <option key={s} value={s}>{String(s).replace('.', ',')}+</option>)}
+                {[6.5, 7.0, 7.5].map((s) => <option key={s} value={s}>{decimaal(s)}+</option>)}
               </select>
               <button className={`chip ${fStreamOnly ? 'on-g' : ''}`} onClick={() => setFStreamOnly(!fStreamOnly)}>{tr('avond.onlyStreaming')}</button>
             </div>
@@ -443,7 +443,7 @@ export default function Avond({ app }) {
           </div>
         )}
         <div className="card">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Ban size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> Veto-rondes</h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Ban size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.vetoTitel')}</h2>
           <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
             {tr('avond.vetoExplain', { count: Math.min(8, basePool.length) })}
           </p>
@@ -456,9 +456,9 @@ export default function Avond({ app }) {
           </div>
         </div>
         <div className="card">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Swords size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> Knock-out bracket</h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Swords size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.bracketTitel')}</h2>
           <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
-            {basePool.length >= 8 ? 'Acht' : 'Vier'} films, duel voor duel van {basePool.length >= 8 ? 'kwartfinale' : 'halve finale'} naar de finale. Beslis elk duel samen, of wissel per duel wie kiest.
+            {basePool.length >= 8 ? tr('avond.bracketUitleg8') : tr('avond.bracketUitleg4')}
           </p>
           <div style={{ marginTop: 14 }}>
             <button className="btn primary" onClick={startBracket} disabled={basePool.length < 4}><Swords size={15} /> {tr('avond.startBracket')}</button>
