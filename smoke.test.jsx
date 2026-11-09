@@ -1865,14 +1865,15 @@ describe('V2 smoke', () => {
     expect(vol.akten[0].duur).toBe(sloganDuur('De weg naar grootheid kan je breken.'));
     expect(vol.titel).toBe(sloganDuur('De weg naar grootheid kan je breken.') + AKTE.kaart + AKTE.met);
     expect(vol.paneel).toBe(vol.titel + TITEL_HOUD);
-    expect(vol.totaal).toBe(vol.paneel + pitchDuur(tekst) - 1200);
+    expect(vol.totaal).toBe(vol.paneel + pitchDuur(tekst));
     // zonder slogan, regie of namen: alleen een shot, en dan de titel
     const kaal = trailerPlan({});
     expect(kaal.akten).toEqual([{ soort: 'shot', start: 0, duur: AKTE.shot }]);
     expect(kaal.titel).toBe(AKTE.shot);
     // een lange slogan krijgt meer tijd, maar nooit eindeloos
-    expect(sloganDuur('kort')).toBe(1900);
-    expect(sloganDuur('woord '.repeat(40))).toBe(3200);
+    expect(sloganDuur('kort')).toBe(3000);
+    expect(sloganDuur('woord '.repeat(10))).toBe(1600 + 10 * 300);
+    expect(sloganDuur('woord '.repeat(40))).toBe(6000);
   });
 
   it('trailers: extra beelden uit de film, zonder de hoofdafbeelding', async () => {
@@ -3254,7 +3255,7 @@ describe('V2 smoke', () => {
     expect(kort.endsWith('woord…')).toBe(true);
     // speelduur: leestijd binnen de grenzen
     expect(pitchDuur('')).toBe(PITCH_MIN);
-    expect(pitchDuur('woord '.repeat(20))).toBe(3200 + 20 * 230);
+    expect(pitchDuur('woord '.repeat(20))).toBe(4000 + 20 * 320);
     expect(pitchDuur('woord '.repeat(200))).toBe(PITCH_MAX);
   });
 

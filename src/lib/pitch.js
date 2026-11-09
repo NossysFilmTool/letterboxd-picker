@@ -22,12 +22,13 @@ export function logline(plot, { genoeg = 110, max = 190 } = {}) {
 }
 
 // Hoe lang een trailer in beeld blijft: tijd voor titel en cijfers, plus
-// leestijd voor de logline (een groep leest samen, dus rustig aan).
-export const PITCH_MIN = 6000;
-export const PITCH_MAX = 11000;
+// leestijd voor de logline. Een groep leest samen op een scherm, dus rustig
+// aan: zo'n 320 ms per woord, en nooit korter dan 8 seconden.
+export const PITCH_MIN = 8000;
+export const PITCH_MAX = 16000;
 export function pitchDuur(tekst) {
   const woorden = String(tekst || '').split(/\s+/).filter(Boolean).length;
-  return Math.max(PITCH_MIN, Math.min(PITCH_MAX, 3200 + woorden * 230));
+  return Math.max(PITCH_MIN, Math.min(PITCH_MAX, 4000 + woorden * 320));
 }
 
 // Het draaiboek van een trailer, in milliseconden vanaf de eerste snit.
@@ -35,12 +36,13 @@ export function pitchDuur(tekst) {
 // zwarte kaart "Een film van", een shot met de namen. Dan slaat de titel in
 // beeld, en even later schuift de rest eronder: waar hij over gaat, de
 // cijfers. Wat een film niet heeft, valt weg; een shot zonder tekst blijft,
-// zodat elke trailer met beeld begint.
-export const AKTE = { kaart: 1300, met: 1700, shot: 1400 };
-export const TITEL_HOUD = 800;
+// zodat elke trailer met beeld begint. Elke kaart blijft lang genoeg staan
+// om hem hardop voor te lezen.
+export const AKTE = { kaart: 2300, met: 3000, shot: 2000 };
+export const TITEL_HOUD = 1400;
 export function sloganDuur(slogan) {
   const woorden = String(slogan || '').split(/\s+/).filter(Boolean).length;
-  return Math.max(1900, Math.min(3200, 1100 + woorden * 200));
+  return Math.max(3000, Math.min(6000, 1600 + woorden * 300));
 }
 export function trailerPlan({ slogan, regie, cast, tekst } = {}) {
   const akten = [];
@@ -51,8 +53,7 @@ export function trailerPlan({ slogan, regie, cast, tekst } = {}) {
   if (cast?.length) zet('met', AKTE.met);
   const titel = t;
   const paneel = titel + TITEL_HOUD;
-  // Leestijd na het paneel: de oude speelduur min de tijd die het paneel nodig
-  // heeft om op te komen
-  const totaal = paneel + pitchDuur(tekst) - 1200;
+  // Daarna de leestijd voor het verhaal, de namen en de cijfers
+  const totaal = paneel + pitchDuur(tekst);
   return { akten, titel, paneel, totaal };
 }
