@@ -110,6 +110,16 @@ async function fetchDetail(id, key) {
   };
 }
 
+// Andere beelden uit de film, zonder tekst erop, voor de shots in een
+// trailer (components/Pitch.jsx). De hoofdafbeelding zit er al; die slaan we over.
+export async function fetchStills(id, key, hoofd) {
+  const d = await get(`/movie/${id}/images`, key, { include_image_language: 'null' });
+  return (d.backdrops || [])
+    .filter((b) => b.file_path && b.file_path !== hoofd && (b.aspect_ratio || 1.78) > 1.5)
+    .slice(0, 3)
+    .map((b) => b.file_path);
+}
+
 // Een treffer met minder stemmen dan dit is verdacht als er een bekende film
 // met dezelfde titel een jaar ernaast bestaat (zie resolveFilm)
 export const FESTIVAL_DREMPEL = 100;

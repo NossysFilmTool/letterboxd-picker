@@ -76,25 +76,45 @@ Wil je er een breken, pas dan eerst dit document aan.
 
 ## De trailers
 
-- Voor een veto-ronde krijgt elke film eerst een korte pitch
-  (`Pitch.jsx`), zoals de trailers voor de hoofdfilm. Per film: het
-  filmbeeld als doek, de slogan erop, de titel, regie, jaar, duur en genre,
-  waar hij over gaat (een paar hele zinnen, `src/lib/pitch.js`), wie erin
-  spelen, de cijfers en waar hij te zien is. Het vlak eronder heeft de
-  kleur van de film.
+- Voor een veto-ronde krijgt elke film eerst een trailer (`Pitch.jsx`), zoals
+  de trailers voor de hoofdfilm. Het moet voelen als een zaal, niet als een
+  venster: het zaallicht dimt, de projector slaat aan met een lichtbundel
+  waar stof in hangt, het doek werpt zijn licht op de zaal (een wazige gloed
+  van het filmbeeld), en onderin staan stoelruggen met een randje licht.
+- Elke trailer volgt een draaiboek (`trailerPlan` in `src/lib/pitch.js`): een
+  shot met de slogan, een zwarte kaart "Een film van", een shot met de
+  namen, dan slaat de titel in beeld met een flits. Daarna schuift het vlak
+  eronder op, in de kleur van de film: regie, jaar, duur en genre, waar hij
+  over gaat (een paar hele zinnen), wie erin spelen, de cijfers en waar hij
+  te zien is. De shots zijn andere beelden uit de film (TMDB, zonder tekst);
+  zijn die er niet, dan een andere uitsnede van het filmbeeld.
+- Op het doek mag het filmisch: korrel die beweegt, een licht flikkeren, een
+  beeld dat een fractie danst, donkere hoeken. Alleen daar; de vaste korrel
+  over de rest van de tool blijft stil. Het doek is 2.39:1, op een telefoon
+  16:9, anders wordt het een streep.
 - Alles is echt: geen verzonnen stemmen of quotes. Een opgeblazen
   TMDB-cijfer staat er grijs bij, met "verdacht hoog".
 - De balk bovenin loopt mee en zet de volgende film in beeld; hoe lang hangt
-  af van de leestijd. Tik rechts voor de volgende, links voor de vorige,
-  spatie pauzeert, "Meteen naar de veto" slaat ze over. Uit te zetten bij de
-  veto-rondes ("Eerst de trailers").
+  af van de akten en de leestijd. Tik op het doek om de akten over te slaan,
+  nog eens voor de volgende film, links voor de vorige. Spatie pauzeert,
+  "Meteen naar de veto" slaat alles over. Na de laatste trailer gaat het
+  zaallicht weer aan. Uit te zetten bij de veto-rondes ("Eerst de trailers").
+
+## Geluid
+
+- Alleen bij de trailers, en alleen gemaakt in de browser (Web Audio, geen
+  bestanden): de ratel van de projector, een klak als hij aanslaat, een zoef
+  bij een snit, een dreun onder een zwarte kaart, een diepe hoorn als de
+  titel in beeld slaat. Zacht genoeg om overheen te praten.
+- Een knop bovenin zet het uit, en dat blijft onthouden. Met "beperk
+  beweging" aan is er geen geluid.
 
 ## Beweging
 
 - Twee eigen momenten. Het aftellen (filmleader) bij een pick, waarna het
-  kaartje uit een sleuf schuift. En de trailers voor een veto-ronde: het
-  doek zoomt langzaam in, de titel komt op uit een sleuf, de woorden van
-  het verhaal verschijnen een voor een, de cijfers tellen op, en tussen
-  twee films zit een korte lichtflits zoals bij een filmlas. Met "beperk
-  beweging" aan ligt alles er gewoon en loopt niets vanzelf door.
+  kaartje uit een sleuf schuift. En de trailers voor een veto-ronde (zie
+  boven): het licht dat dimt, harde snitten tussen de akten, de titel die in
+  beeld slaat, de woorden van het verhaal die een voor een verschijnen, de
+  cijfers die optellen. Met "beperk beweging" aan ligt alles er gewoon, is
+  er geen voorprogramma en loopt niets vanzelf door.
 - Verder beweegt alleen wat je zelf aanraakt. Geen invlieg-animaties op lijsten.

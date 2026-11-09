@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePoll } from '../lib/usePoll.js';
 import SamenHost from '../components/SamenHost.jsx';
-import { useT, decimaal } from '../lib/i18n.js';
+import { useT } from '../lib/i18n.js';
 import { remoteAvailable, createSession, getSession, closeSession, computeWinner } from '../lib/session.js';
-import { Users, Swords, Ban, Clapperboard, RotateCcw, Upload, Info, ArrowLeft, X, Send } from 'lucide-react';
+import { Users, Swords, Ban, Clapperboard, RotateCcw, Upload, Info, ArrowLeft, Send } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { sample, nossyScore } from '../lib/pick.js';
 import { parseLetterboxdFiles } from '../lib/csv.js';
 import Winner from '../components/Winner.jsx';
 import Pitch from '../components/Pitch.jsx';
+import AvondFilters from '../components/AvondFilters.jsx';
+import { filterPot, metStandaard } from '../lib/avondFilters.js';
+import { ontgrendel } from '../lib/zaalgeluid.js';
 
 function Tile({ film, meta, onClick, struck, label, index = 0, onInfo }) {
   const { t: tr } = useT();
@@ -53,6 +56,10 @@ export default function Avond({ app }) {
   // Eerst de trailers: elke film krijgt een korte pitch voordat er gestreept wordt
   const [pitchOpen, setPitchOpen] = useState(false);
   const pitchAan = app.settings?.vetoPitch !== false;
+  // Het zaalgeluid bij de trailers; browsers willen dat aanzetten in een klik
+  const geluidAan = app.settings?.pitchGeluid !== false;
+  const openPitch = () => { if (geluidAan) ontgrendel(); setPitchOpen(true); };
+  const zetGeluidAan = (v) => app.setSettings((s) => ({ ...s, pitchGeluid: v }));
   const peek = (film) => { setInfo(film); app.ensureDetail(film); app.freshenProviders(film.key); };
   // bracket state
   const [rounds, setRounds] = useState([]); // [[films...]] per ronde
@@ -71,30 +78,21 @@ export default function Avond({ app }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [champion?.key]);
   // Vooraf filteren welke films meedoen aan de avond
-  const [fGenres, setFGenres] = useState([]);
-  const [fMaxRuntime, setFMaxRuntime] = useState('');
-  const [fMinScore, setFMinScore] = useState(0);
-  const [fJaarVan, setFJaarVan] = useState('');
-  const [fJaarTot, setFJaarTot] = useState('');
-  const [fStreamOnly, setFStreamOnly] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  // (lib/avondFilters.js), onthouden in de instellingen
+  const filters = metStandaard(app.settings?.avondFilters);
+  const zetFilters = (f) => app.setSettings((s) => ({ ...s, avondFilters: f }));
 
   const basePool = useMemo(() => {
     let p = watchlist.filter((f) => !seenSet.has(f.key));
     if (useOverlap && friends.length) p = p.filter((f) => friends.every((fr) => fr.keys.has(f.key)));
-    if (fGenres.length) p = p.filter((f) => meta[f.key]?.genres?.some((g) => fGenres.includes(g)));
-    if (fMaxRuntime) p = p.filter((f) => meta[f.key]?.runtime && meta[f.key].runtime <= fMaxRuntime);
-    if (fMinScore) p = p.filter((f) => (nossyScore(meta[f.key]) ?? 0) >= fMinScore);
-    if (fJaarVan !== '') p = p.filter((f) => f.year && f.year >= +fJaarVan);
-    if (fJaarTot !== '') p = p.filter((f) => f.year && f.year <= +fJaarTot);
-    if (fStreamOnly) p = p.filter((f) => meta[f.key]?.flat?.length);
-    return p;
-  }, [watchlist, seenSet, useOverlap, friends, meta, fGenres, fMaxRuntime, fMinScore, fJaarVan, fJaarTot, fStreamOnly]);
+    return filterPot(p, meta, filters, nossyScore);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchlist, seenSet, useOverlap, friends, meta, JSON.stringify(filters)]);
 
   const genresAvail = useMemo(() => {
     const count = {};
     watchlist.forEach((f) => meta[f.key]?.genres?.forEach((g) => { count[g] = (count[g] || 0) + 1; }));
-    return Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([g]) => g);
+    return Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([g]) => g);
   }, [watchlist, meta]);
 
   const decadesAvail = useMemo(() => {
@@ -131,8 +129,6 @@ export default function Avond({ app }) {
     setRemoteWinner(winner);
   };
 
-  const filtersActief = fGenres.length || fMaxRuntime || fMinScore || fJaarVan !== '' || fJaarTot !== '' || fStreamOnly;
-  const wisFilters = () => { setFGenres([]); setFMaxRuntime(''); setFMinScore(0); setFJaarVan(''); setFJaarTot(''); setFStreamOnly(false); };
 
   const loadFriend = async (files) => {
     if (!files?.length) return;
@@ -158,7 +154,7 @@ export default function Avond({ app }) {
     setVetoFilms(films);
     // Verhaal, regie, rolverdeling en cijfers voor de trailers (en het spieken)
     films.forEach((f) => app.ensureDetail(f));
-    setPitchOpen(pitchAan);
+    if (pitchAan) openPitch(); else setPitchOpen(false);
     setStruckKeys([]);
     setChampion(null);
     setMode('veto');
@@ -259,10 +255,13 @@ export default function Avond({ app }) {
           ))}
         </div>
         <p style={{ color: 'var(--fog-dim)', fontSize: 13, marginTop: 16 }}>{tr('avond.vetoHint')}</p>
-        <button type="button" className="linkbtn" style={{ fontSize: 13, color: 'var(--fog)', marginTop: 10 }} onClick={() => setPitchOpen(true)}>
+        <button type="button" className="linkbtn" style={{ fontSize: 13, color: 'var(--fog)', marginTop: 10 }} onClick={openPitch}>
           {tr('avond.pitchTerugkijken')}
         </button>
-        {pitchOpen && <Pitch films={left} meta={meta} onKlaar={() => setPitchOpen(false)} />}
+        {pitchOpen && (
+          <Pitch films={left} meta={meta} onKlaar={() => setPitchOpen(false)} tmdbKey={app.tmdbKey}
+            geluid={geluidAan} onGeluid={zetGeluidAan} />
+        )}
       </div>
     );
   }
@@ -344,50 +343,7 @@ export default function Avond({ app }) {
         )}
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <p className="label" style={{ margin: 0 }}>{tr('avond.filtersOpt', { suffix: filtersActief ? tr('avond.filtersActiveSuffix', { count: basePool.length }) : tr('avond.filtersOptSuffix') })}</p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {filtersActief && <button className="btn ghost" onClick={wisFilters}><X size={14} /> {tr('common.clear')}</button>}
-            <button className="btn ghost" onClick={() => setShowFilters(!showFilters)}>{showFilters ? tr('common.hide') : tr('common.showFilters')}</button>
-          </div>
-        </div>
-        {showFilters && (
-          <div style={{ marginTop: 14 }}>
-            {genresAvail.length > 0 && (
-              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
-                {genresAvail.map((g) => (
-                  <button key={g} className={`chip ${fGenres.includes(g) ? 'on' : ''}`} style={{ fontSize: 12, padding: '5px 10px' }}
-                    onClick={() => setFGenres((a) => (a.includes(g) ? a.filter((x) => x !== g) : [...a, g]))}>{g}</button>
-                ))}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: 'var(--fog)' }}>{tr('avond.year')}</span>
-              <input className="field" type="number" min="1880" max="2100" style={{ width: 80 }} placeholder={tr('avond.from')}
-                value={fJaarVan} aria-label={tr('avond.yearFrom')} onChange={(e) => setFJaarVan(e.target.value === '' ? '' : +e.target.value)} />
-              <span style={{ color: 'var(--fog-dim)' }}>–</span>
-              <input className="field" type="number" min="1880" max="2100" style={{ width: 80 }} placeholder={tr('avond.to')}
-                value={fJaarTot} aria-label={tr('avond.yearTot')} onChange={(e) => setFJaarTot(e.target.value === '' ? '' : +e.target.value)} />
-              {decadesAvail.slice(0, 6).map((d) => (
-                <button key={d} className="chip" style={{ fontSize: 12, padding: '4px 9px' }} onClick={() => { setFJaarVan(d); setFJaarTot(d + 9); }}>{`'${String(d).slice(2)}`}</button>
-              ))}
-              <select className="field" style={{ width: 'auto' }} value={fMaxRuntime} onChange={(e) => setFMaxRuntime(e.target.value === '' ? '' : +e.target.value)} aria-label={tr('avond.maxDuration')}>
-                <option value="">{tr('common.anyDuration')}</option>
-                {[90, 105, 120, 150].map((d) => <option key={d} value={d}>≤ {d} min</option>)}
-              </select>
-              <select className="field" style={{ width: 'auto' }} value={fMinScore} onChange={(e) => setFMinScore(+e.target.value)} aria-label={tr('avond.minNossy')}>
-                <option value={0}>{tr('common.anyScore')}</option>
-                {[6.5, 7.0, 7.5].map((s) => <option key={s} value={s}>{decimaal(s)}+</option>)}
-              </select>
-              <button className={`chip ${fStreamOnly ? 'on-g' : ''}`} onClick={() => setFStreamOnly(!fStreamOnly)}>{tr('avond.onlyStreaming')}</button>
-            </div>
-            {filtersActief && basePool.length < 4 && (
-              <p style={{ color: 'var(--dot-o)', fontSize: 12.5, marginTop: 10 }}>{tr('avond.tooFew', { count: basePool.length })}</p>
-            )}
-          </div>
-        )}
-      </div>
+      <AvondFilters filters={filters} onChange={zetFilters} aantal={basePool.length} genres={genresAvail} decennia={decadesAvail} />
 
       {remoteAvailable() && (
         <div style={{ marginBottom: 16 }}>

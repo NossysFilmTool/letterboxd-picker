@@ -755,12 +755,18 @@ a.prov-link:hover { border-color: var(--paper); }
   .kaartje-ontdekt-body { padding: 14px 14px 64px; }
   .kaartje-ontdekt-stempel { font-size: 17px; right: 10px; bottom: 10px; }
 }
-@media (prefers-reduced-motion: reduce) { .kaartje-ontdekt, .kaartje-ontdekt * { animation: none !important; } }/* De trailers voor een veto-ronde (Pitch.jsx): elke film krijgt een korte
-   pitch. Het doek zoomt langzaam in, de titel komt op uit een sleuf, de
-   woorden van het verhaal verschijnen een voor een, de cijfers tellen op.
-   De balk bovenin loopt mee en zet de volgende film in beeld. */
-.pitch { position: fixed; inset: 0; z-index: 170; display: flex; flex-direction: column; background: #0b0a09; color: var(--paper); overflow-y: auto; outline: none; animation: ko-in 0.3s ease-out both; }
-.pitch-top { display: flex; align-items: center; gap: 14px; padding: 14px 16px 10px; width: min(100%, 1000px); margin: 0 auto; }
+@media (prefers-reduced-motion: reduce) { .kaartje-ontdekt, .kaartje-ontdekt * { animation: none !important; } }
+/* De trailers voor een veto-ronde (Pitch.jsx): de zaal gaat donker. Eerst
+   dimt het zaallicht, dan slaat de projector aan: een lichtbundel met stof,
+   een doek dat zijn licht op de zaal werpt (de gloed), stoelruggen onderin.
+   Per film een draaiboek zoals een echte trailer (lib/pitch.js): een shot
+   met de slogan, een zwarte kaart "Een film van", een shot met de namen,
+   dan slaat de titel in beeld met een flits en schuift de rest eronder.
+   Een akte is een venster in de tijd (.venster): zichtbaar van --start tot
+   --start + --len. Alle vertragingen zijn al verrekend met wat er werd
+   overgeslagen, dus een tik op het doek springt meteen naar het eindbeeld. */
+.pitch { position: fixed; inset: 0; z-index: 170; display: flex; flex-direction: column; background: #070606; color: var(--paper); overflow-y: auto; overflow-x: hidden; outline: none; animation: ko-in 0.3s ease-out both; }
+.pitch-top { position: relative; z-index: 2; display: flex; align-items: center; gap: 14px; padding: 14px 16px 10px; width: min(100%, 1000px); margin: 0 auto; }
 .pitch-balken { flex: 1; display: flex; gap: 4px; }
 .pitch-balk { flex: 1; height: 2px; border-radius: 1px; background: rgba(236, 230, 220, 0.2); overflow: hidden; }
 .pitch-balk.af { background: var(--paper); }
@@ -768,55 +774,142 @@ a.prov-link:hover { border-color: var(--paper); }
 .pitch-loop { display: block; height: 100%; background: var(--paper); transform-origin: left center; animation: pitch-loop var(--duur, 8s) linear both; }
 @keyframes pitch-loop { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .pitch-teller { font-size: 13px; color: var(--fog); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pitch-geluid { display: inline-flex; padding: 4px; color: var(--fog); }
 .pitch-sla { font-size: 13px; color: var(--fog); white-space: nowrap; }
-.pitch-podium { flex: 1; display: flex; flex-direction: column; justify-content: center; width: clamp(min(100%, 520px), calc((100dvh - 480px) * 2.39), min(100%, 1000px)); margin: 0 auto; padding: 0 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.pitch-scene { display: flex; flex-direction: column; animation: pitch-snit 0.5s ease-out both; }
-@keyframes pitch-snit { 0% { opacity: 0; } 14% { opacity: 1; filter: brightness(1.7); } 100% { filter: none; } }
-.pitch-doek { position: relative; aspect-ratio: 2.39 / 1; overflow: hidden; background: #000; }
-.pitch-doek > img { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 62% 40%; animation: pitch-push calc(var(--duur, 8s) + 1s) linear both; }
+.pitch-podium { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; justify-content: center; width: clamp(min(100%, 520px), calc((100dvh - 480px) * 2.39), min(100%, 1000px)); margin: 0 auto; padding: 0 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.venster { visibility: hidden; animation: venster var(--len) var(--start) linear; }
+@keyframes venster { from, to { visibility: visible; } }
+
+/* De zaal: licht dat dimt en weer aangaat, de gloed van het doek */
+.pitch-zaallicht { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0; background: radial-gradient(ellipse 42% 58% at 0% 10%, rgba(255, 188, 116, 0.36), rgba(255, 188, 116, 0) 70%), radial-gradient(ellipse 42% 58% at 100% 10%, rgba(255, 188, 116, 0.36), rgba(255, 188, 116, 0) 70%), rgba(112, 80, 48, 0.34); }
+.pitch.fase-intro .pitch-zaallicht { animation: zaal-dimt 2s 0.1s ease-in both; }
+.pitch.fase-uit .pitch-zaallicht { animation: zaal-licht 0.9s ease-in-out both; }
+.pitch.fase-uit .pitch-podium { animation: doek-uit 0.9s ease-in both; }
+@keyframes zaal-dimt { 0% { opacity: 1; } 35% { opacity: 0.6; } 45% { opacity: 0.64; } 100% { opacity: 0; } }
+@keyframes zaal-licht { from { opacity: 0; } to { opacity: 1; } }
+@keyframes doek-uit { to { opacity: 0.2; } }
+.pitch.fase-intro .pitch-bediening .btn { visibility: hidden; }
+.pitch-intro { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 0 8px; text-align: center; animation: intro-klok 3.4s linear both; }
+@keyframes intro-klok { from, to { opacity: 1; } }
+.pitch-intro-kop { font-family: var(--font-display); font-size: clamp(30px, 6vw, 58px); line-height: 1; font-weight: 700; letter-spacing: -0.01em; animation: intro-tekst 2.5s 0.7s ease-out both; }
+.pitch-intro-sub { font-size: 15px; color: var(--fog); animation: intro-tekst 2.1s 1.1s ease-out both; }
+@keyframes intro-tekst { 0% { opacity: 0; transform: translateY(6px); } 22% { opacity: 1; transform: none; } 78% { opacity: 1; } 100% { opacity: 0; } }
+.pitch-gloed { position: fixed; inset: -12%; z-index: -1; pointer-events: none; background-color: var(--film); background-size: cover; background-position: center; filter: blur(60px) saturate(1.3); opacity: 0.36; -webkit-mask-image: radial-gradient(ellipse 52% 48% at 50% 40%, #000 25%, rgba(0, 0, 0, 0) 78%); mask-image: radial-gradient(ellipse 52% 48% at 50% 40%, #000 25%, rgba(0, 0, 0, 0) 78%); animation: gloed-in 0.9s var(--nul, 0ms) ease-out both; }
+@keyframes gloed-in { from { opacity: 0; } to { opacity: 0.36; } }
+.pitch-donker { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: rgba(4, 3, 3, 0.72); }
+.pitch-kamerflits { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: #fff6e8; opacity: 0; animation: kamerflits 0.6s var(--titel) ease-out both; }
+@keyframes kamerflits { 0% { opacity: 0; } 8% { opacity: 0.14; } 100% { opacity: 0; } }
+
+/* Het doek en de bundel erheen */
+.pitch-scene { display: flex; flex-direction: column; }
+.pitch-scherm { position: relative; }
+.pitch-straal { position: absolute; left: -14%; right: -14%; bottom: 0; height: calc(100% + 220px); pointer-events: none; background: radial-gradient(ellipse 50% 46% at 50% 38%, rgba(255, 244, 224, 0.075), rgba(255, 244, 224, 0) 100%); -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), #000 30%, #000 70%, rgba(0, 0, 0, 0)); mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), #000 30%, #000 70%, rgba(0, 0, 0, 0)); animation: straal-flikker 2.3s steps(1) infinite; }
+.pitch-straal::after { content: ''; position: absolute; inset: 0; opacity: 0.8; background-image: radial-gradient(circle at 13% 27%, rgba(255, 248, 232, 0.5) 0 0.8px, rgba(255, 248, 232, 0) 1.4px), radial-gradient(circle at 71% 64%, rgba(255, 248, 232, 0.36) 0 0.7px, rgba(255, 248, 232, 0) 1.2px), radial-gradient(circle at 42% 81%, rgba(255, 248, 232, 0.28) 0 0.6px, rgba(255, 248, 232, 0) 1.1px), radial-gradient(circle at 88% 12%, rgba(255, 248, 232, 0.42) 0 0.9px, rgba(255, 248, 232, 0) 1.5px); background-size: 113px 127px, 167px 151px, 229px 197px, 307px 263px; background-position: 0 0, 53px 29px, 101px 77px, 17px 143px; animation: stof 30s linear infinite; }
+@keyframes stof { to { background-position: 40px -381px, 13px -424px, 151px -514px, -36px -383px; } }
+@keyframes straal-flikker { 0%, 100% { opacity: 1; } 31% { opacity: 0.84; } 33% { opacity: 1; } 67% { opacity: 0.9; } 69% { opacity: 1; } }
+.pitch-scene.eerste .pitch-straal { animation: straal-aan 1s ease-out both, straal-flikker 2.3s 1s steps(1) infinite; }
+@keyframes straal-aan { 0% { opacity: 0; } 12% { opacity: 0.9; } 20% { opacity: 0.1; } 34% { opacity: 1; } 44% { opacity: 0.35; } 58%, 100% { opacity: 1; } }
+.pitch-doek { position: relative; aspect-ratio: 2.39 / 1; overflow: hidden; background: #000; container-type: inline-size; }
+.pitch-scene.snit .pitch-doek { animation: pitch-snit 0.45s ease-out both; }
+.pitch-scene.eerste .pitch-doek { animation: doek-aan 1s ease-out both; }
+@keyframes pitch-snit { 0% { filter: brightness(0); } 12% { filter: brightness(1.8); } 100% { filter: none; } }
+@keyframes doek-aan { 0% { opacity: 0; } 12% { opacity: 0.85; } 20% { opacity: 0.08; } 34% { opacity: 1; } 44% { opacity: 0.4; } 58%, 100% { opacity: 1; } }
+.pitch-doek::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.55) 100%); }
+.pitch-weef { position: absolute; inset: 0; animation: weef 0.42s steps(1) infinite; }
+@keyframes weef { 0% { transform: translate(0, 0); } 25% { transform: translate(0.5px, -0.4px); } 50% { transform: translate(-0.4px, 0.3px); } 75% { transform: translate(0.3px, 0.5px); } }
+.pitch-beeld { position: absolute; inset: 0; }
+.pitch-beeld > img { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 62% 40%; animation: pitch-push calc(var(--duur, 8s) + 1s) var(--nul, 0ms) linear both; }
 @keyframes pitch-push { from { transform: scale(1.14); } to { transform: scale(1.02); } }
 .pitch-doek-leeg { position: absolute; inset: 0; display: grid; place-items: center; background: var(--film); color: rgba(255, 255, 255, 0.6); }
 .pitch-doek-leeg img { height: 86%; width: auto; border-radius: 2px; }
-.pitch-slogan { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 22px 16px; background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0)); font-family: var(--font-display); font-size: 21px; font-weight: 600; line-height: 1.15; color: #ffffff; animation: pitch-op 0.6s 0.35s ease-out both; }
-.pitch-kaart { background: var(--film); color: #ffffff; padding: 18px 22px 20px; display: flex; flex-direction: column; gap: 10px; }
-.pitch-kop { display: flex; gap: 18px; align-items: flex-end; }
-.pitch-poster { width: 84px; flex-shrink: 0; animation: pitch-op 0.5s 0.25s ease-out both; }
+.pitch-titelkaart { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6em; padding: 5cqw 7cqw; text-align: center; color: #ffffff; background: radial-gradient(ellipse at 50% 55%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.22) 75%); animation: pitch-schok 0.34s calc(var(--titel) + 90ms) linear both; }
+@keyframes pitch-schok { 0%, 100% { transform: none; } 20% { transform: translate(-4px, 2px); } 40% { transform: translate(3px, -2px); } 60% { transform: translate(-2px, 1px); } 80% { transform: translate(1px, -1px); } }
+.pitch-slogan { font-family: var(--font-display); font-size: clamp(13px, 2.1cqw, 22px); font-weight: 600; line-height: 1.2; color: rgba(255, 255, 255, 0.88); max-width: 34em; animation: pitch-op 0.7s calc(var(--titel) + 450ms) ease-out both; }
+.pitch-titel { font-family: var(--font-display); font-size: clamp(30px, 9cqw, 104px); line-height: 0.95; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.pitch-titel span { display: inline-block; animation: pitch-slam 0.65s var(--titel) cubic-bezier(0.16, 0.84, 0.3, 1) both; }
+@keyframes pitch-slam { 0% { opacity: 0; transform: scale(1.45); letter-spacing: 0.06em; } 25% { opacity: 1; } 100% { opacity: 1; transform: none; letter-spacing: -0.01em; } }
+.pitch-flits { position: absolute; inset: 0; pointer-events: none; background: #ffffff; opacity: 0; animation: flits 0.5s var(--titel) ease-out both; }
+@keyframes flits { 0% { opacity: 0; } 6% { opacity: 0.92; } 100% { opacity: 0; } }
+.pitch-korrel { position: absolute; inset: -50%; pointer-events: none; opacity: 0.3; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='k'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23k)'/%3E%3C/svg%3E"); background-size: 200px 200px; animation: korrel 0.5s steps(1) infinite; }
+@keyframes korrel { 0% { transform: translate(0, 0); } 20% { transform: translate(-7%, 5%); } 40% { transform: translate(6%, -8%); } 60% { transform: translate(-4%, 9%); } 80% { transform: translate(8%, 3%); } }
+.pitch-flikker { position: absolute; inset: 0; pointer-events: none; background: #ffffff; opacity: 0; animation: flikker 1.7s steps(1) infinite; }
+@keyframes flikker { 0%, 100% { opacity: 0; } 7% { opacity: 0.035; } 9% { opacity: 0; } 41% { opacity: 0.022; } 43% { opacity: 0; } 71% { opacity: 0.04; } 73% { opacity: 0; } }
+
+/* De akten */
+.pitch-akten { position: absolute; inset: 0; background: #000; }
+.akte { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5cqw 8cqw; text-align: center; color: #ffffff; background: #000; overflow: hidden; }
+.akte-beeld { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: var(--o, 30% 40%); animation: akte-drift var(--len) var(--start) linear both; }
+@keyframes akte-drift { from { transform: scale(1.4) translateX(1.6%); } to { transform: scale(1.28) translateX(-1.6%); } }
+.akte.met-beeld::before { content: ''; position: absolute; inset: 0; z-index: 1; background: rgba(0, 0, 0, 0.4); }
+.akte-slogan, .akte-kaart { position: relative; z-index: 2; animation: akte-tekst var(--len) var(--start) ease-out both; }
+@keyframes akte-tekst { 0% { opacity: 0; transform: scale(1.03); } 16% { opacity: 1; } 84% { opacity: 1; } 100% { opacity: 0; transform: none; } }
+.akte-slogan { font-family: var(--font-display); font-size: clamp(18px, 4.4cqw, 48px); font-weight: 700; line-height: 1.08; max-width: 18em; text-wrap: balance; }
+.akte-kaart { display: flex; flex-direction: column; align-items: center; gap: 0.35em; }
+.akte-kaart span { font-size: clamp(12px, 1.9cqw, 20px); color: rgba(255, 255, 255, 0.72); }
+.akte-kaart strong { font-family: var(--font-display); font-size: clamp(22px, 5.2cqw, 58px); font-weight: 700; line-height: 1; animation: akte-naam var(--len) var(--start) cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.akte-namen strong { font-size: clamp(17px, 3.6cqw, 40px); }
+@keyframes akte-naam { from { letter-spacing: 0.14em; } to { letter-spacing: 0.01em; } }
+
+/* Het paneel onder het doek, in de kleur van de film */
+.pitch-kaart { background: var(--film); color: #ffffff; padding: 18px 22px 20px; display: flex; flex-direction: column; gap: 10px; animation: pitch-paneel 0.7s var(--paneel) cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes pitch-paneel { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+.pitch-kop { display: flex; gap: 16px; align-items: center; }
+.pitch-poster { width: 64px; flex-shrink: 0; }
 .pitch-poster img { width: 100%; display: block; border-radius: 2px; }
-.pitch-info { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.pitch-van { font-size: 14px; color: rgba(255, 255, 255, 0.86); animation: pitch-op 0.5s 0.3s ease-out both; }
-.pitch-titel { font-family: var(--font-display); font-size: 50px; line-height: 0.95; font-weight: 700; letter-spacing: -0.01em; overflow: hidden; padding-bottom: 0.05em; }
-.pitch-titel span { display: inline-block; animation: pitch-rijs 0.75s 0.55s cubic-bezier(0.2, 0.75, 0.2, 1) both; }
-@keyframes pitch-rijs { from { transform: translateY(108%); } to { transform: none; } }
-.pitch-meta { font-size: 14px; color: rgba(255, 255, 255, 0.86); animation: pitch-op 0.5s 1s ease-out both; }
+.pitch-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pitch-van { font-family: var(--font-display); font-size: 20px; font-weight: 600; line-height: 1.15; animation: pitch-op 0.5s calc(var(--paneel) + 150ms) ease-out both; }
+.pitch-meta { font-size: 14px; color: rgba(255, 255, 255, 0.86); animation: pitch-op 0.5s calc(var(--paneel) + 250ms) ease-out both; }
+.pitch-met { font-size: 14px; color: rgba(255, 255, 255, 0.86); animation: pitch-op 0.5s calc(var(--paneel) + 350ms) ease-out both; }
 .pitch-verhaal { font-size: 17px; line-height: 1.5; max-width: 760px; min-height: 3em; }
-.pitch-verhaal .w { display: inline-block; animation: pitch-woord 0.45s calc(1.25s + var(--w) * 38ms) ease-out both; }
+.pitch-verhaal .w { display: inline-block; animation: pitch-woord 0.45s calc(var(--paneel) + 450ms + var(--w) * 38ms) ease-out both; }
 @keyframes pitch-woord { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .pitch-geen { color: rgba(255, 255, 255, 0.75); }
-.pitch-met { font-size: 14px; color: rgba(255, 255, 255, 0.86); animation: pitch-op 0.5s 1.8s ease-out both; }
 .pitch-cijfers { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: flex-end; margin-top: 4px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.2); }
-.pitch-cijfer { display: flex; flex-direction: column; gap: 3px; animation: pitch-op 0.4s calc(2.05s + var(--c) * 140ms) ease-out both; }
+.pitch-cijfer { display: flex; flex-direction: column; gap: 3px; animation: pitch-op 0.4s calc(var(--paneel) + 1000ms + var(--c) * 140ms) ease-out both; }
 .pitch-cijfer .n { font-family: var(--font-display); font-size: 30px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; }
 .pitch-cijfer.groot .n { font-size: 42px; }
 .pitch-cijfer .lbl { font-size: 12.5px; color: rgba(255, 255, 255, 0.85); }
 .pitch-cijfer.twijfel .n { color: rgba(255, 255, 255, 0.55); }
-.pitch-waar { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: #ffffff; margin-left: auto; align-self: center; animation: pitch-op 0.4s 2.6s ease-out both; }
+.pitch-waar { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: #ffffff; margin-left: auto; align-self: center; animation: pitch-op 0.4s calc(var(--paneel) + 1600ms) ease-out both; }
 .pitch-waar .livedot { background: currentColor; }
-.pitch-bediening { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px 18px; }
-.pitch-bediening .btn { min-height: 44px; }
 @keyframes pitch-op { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-.pitch.gepauzeerd .pitch-loop, .pitch.gepauzeerd .pitch-doek > img { animation-play-state: paused; }
+
+/* Onderin: de bediening voor de stoelruggen langs, met wat licht van het doek op de randen */
+.pitch-bediening { position: relative; z-index: 2; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 34px 16px 22px; }
+.pitch-bediening .btn { position: relative; min-height: 44px; }
+.pitch-bediening::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; z-index: -2; height: 150px; pointer-events: none; background: #0f0d0c; background: radial-gradient(ellipse 75% 100% at 50% 100%, color-mix(in srgb, var(--film) 30%, #14110f), rgba(7, 6, 6, 0) 80%); }
+.pitch-stoelen { position: absolute; left: 0; right: 0; bottom: 0; z-index: -1; height: 88px; pointer-events: none; background: #020101; background: linear-gradient(to bottom, #020101 0, color-mix(in srgb, var(--film) 60%, #2a2420) 8%, #020101 20%, #020101 46%, color-mix(in srgb, var(--film) 35%, #1a1613) 50%, #020101 58%); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='88' viewBox='0 0 360 88'%3E%3Cpath d='M4 88V54q0-12 12-12h28q12 0 12 12v34zM64 88V54q0-12 12-12h28q12 0 12 12v34zM124 88V54q0-12 12-12h28q12 0 12 12v34zM184 88V54q0-12 12-12h28q12 0 12 12v34zM244 88V54q0-12 12-12h28q12 0 12 12v34zM304 88V54q0-12 12-12h28q12 0 12 12v34z'/%3E%3Cellipse cx='90' cy='24' rx='10.5' ry='12.5'/%3E%3Cpath d='M70 48q2-13 20-13t20 13z'/%3E%3Cellipse cx='272' cy='21' rx='11.5' ry='13.5'/%3E%3Cpath d='M250 46q2-14 22-14t22 14z'/%3E%3C/svg%3E") repeat-x center bottom / auto 100%; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='88' viewBox='0 0 360 88'%3E%3Cpath d='M4 88V54q0-12 12-12h28q12 0 12 12v34zM64 88V54q0-12 12-12h28q12 0 12 12v34zM124 88V54q0-12 12-12h28q12 0 12 12v34zM184 88V54q0-12 12-12h28q12 0 12 12v34zM244 88V54q0-12 12-12h28q12 0 12 12v34zM304 88V54q0-12 12-12h28q12 0 12 12v34z'/%3E%3Cellipse cx='90' cy='24' rx='10.5' ry='12.5'/%3E%3Cpath d='M70 48q2-13 20-13t20 13z'/%3E%3Cellipse cx='272' cy='21' rx='11.5' ry='13.5'/%3E%3Cpath d='M250 46q2-14 22-14t22 14z'/%3E%3C/svg%3E") repeat-x center bottom / auto 100%; }
 @media (max-width: 560px) {
   .pitch-top { flex-wrap: wrap; row-gap: 10px; }
   .pitch-balken { flex: 1 1 100%; }
   .pitch-teller { margin-right: auto; }
+  .pitch-doek { aspect-ratio: 16 / 9; }
   .pitch-kaart { padding: 14px 14px 16px; }
   .pitch-poster { display: none; }
-  .pitch-titel { font-size: 34px; }
-  .pitch-slogan { font-size: 16px; padding: 28px 14px 10px; }
+  .pitch-van { font-size: 17px; }
   .pitch-verhaal { font-size: 15.5px; }
   .pitch-cijfer .n { font-size: 24px; }
   .pitch-cijfer.groot .n { font-size: 32px; }
   .pitch-waar { margin-left: 0; }
+  .pitch-bediening { padding-top: 26px; }
+  .pitch-stoelen { height: 66px; }
 }
+.pitch.gepauzeerd, .pitch.gepauzeerd * { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) { .pitch, .pitch * { animation: none !important; } }
 .pitch.stil, .pitch.stil * { animation: none !important; }
+/* Wat er op tafel komt bij een filmavond (AvondFilters.jsx): een rij per
+   soort filter, label links, keuzes rechts. "Liever niet" streept door. */
+.af-kop { display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; margin-bottom: 6px; }
+.af-telling { font-size: 13.5px; color: var(--paper); font-variant-numeric: tabular-nums; }
+.af-standaard { margin-left: auto; font-size: 13px; color: var(--fog); }
+.af-rij { display: grid; grid-template-columns: 104px 1fr; gap: 6px 12px; align-items: start; padding: 9px 0; border-top: 1px solid var(--line); }
+.af-rij:first-of-type { border-top: none; }
+.af-label { font-size: 13px; color: var(--fog); padding-top: 6px; }
+.af-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.af-chips .chip { font-size: 12.5px; padding: 5px 10px; }
+.af-chips .field { padding-top: 5px; padding-bottom: 5px; }
+.chip.on.niet { border-color: rgba(217, 154, 91, 0.6); background: rgba(217, 154, 91, 0.08); text-decoration: line-through; text-decoration-color: var(--dot-o); }
+@media (max-width: 560px) {
+  .af-rij { grid-template-columns: 1fr; }
+  .af-label { padding-top: 0; }
+}

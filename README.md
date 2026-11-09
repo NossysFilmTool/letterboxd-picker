@@ -17,9 +17,12 @@ Everything runs locally in your browser. Nothing is uploaded.
 - **Explore**: recommendations from outside your list, based on a taste
   profile built from your own ratings. Plus a full search engine over the
   TMDB catalogue.
-- **Movie night**: pick together. Pass-the-phone veto rounds, where every
-  film first gets a short trailer (story, cast, scores), or a bracket
-  tournament. Load a friend's watchlist to play on your overlap.
+- **Movie night**: pick together. Pass-the-phone veto rounds, where the
+  lights go down and every film first gets a trailer (shots, title card,
+  story, cast, scores, projector sound), or a bracket tournament. Decide
+  what goes on the table first: no short films, a maximum length, genres
+  you're in the mood for or rather skip, language, period, score. Load a
+  friend's watchlist to play on your overlap.
 - **Insights**: your taste, read from your list. Genres, decades, directors,
   your watching rhythm, and how obscure you really are.
 - The tool follows up on picks ("Did you watch it? Give it stars") and feeds

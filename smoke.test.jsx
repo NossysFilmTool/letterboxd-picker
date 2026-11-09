@@ -1633,16 +1633,99 @@ describe('V2 smoke', () => {
     delete global.fetch;
   });
 
-  it('avond: filters beperken de pot vooraf', () => {
+  it('avond: filters beperken de pot vooraf, en blijven bewaard', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Avond')[0]);
-    fireEvent.click(screen.getByText('Toon filters'));
+    const telling = () => document.querySelector('.af-telling').textContent;
+    expect(telling()).toBe('6 films');
+    // standaard: alleen "geen korte films" staat aan, dus niets om terug te zetten
+    expect(screen.queryByText('Terug naar standaard')).toBeNull();
     // periode vanaf 2010 (Whiplash 2014, Aftersun 2022 blijven; Stalker 1979 valt weg)
     fireEvent.change(screen.getByLabelText('Jaar van'), { target: { value: '2010' } });
-    expect(document.body.textContent).toMatch(/films over/);
-    // start een veto-ronde en check dat een out-of-range film niet op tafel ligt
+    expect(telling()).toBe('4 films');
+    // liever geen western: First Cow valt weg, en dat is te weinig voor een goede ronde
+    fireEvent.click(screen.getByLabelText('Liever geen Western'));
+    expect(telling()).toBe('3 films');
+    expect(document.body.textContent).toContain('Nog maar 3 films over');
+    expect(screen.getByText('Start veto').closest('button').disabled).toBe(true);
+    // onthouden in de instellingen (en dus op al je apparaten)
+    const bewaard = JSON.parse(localStorage.getItem('nossyV2.settings')).avondFilters;
+    expect(bewaard.jaarVan).toBe(2010);
+    expect(bewaard.nietGenres).toEqual(['Western']);
+    // western mag weer; start een veto-ronde en check dat een out-of-range film niet op tafel ligt
+    fireEvent.click(screen.getByLabelText('Liever geen Western'));
+    expect(telling()).toBe('4 films');
     fireEvent.click(screen.getByText('Start veto'));
     expect(document.body.textContent).not.toContain('Stalker');
+  });
+
+  it('avond: korte films blijven standaard buiten de pot, en terug naar standaard wist de rest', () => {
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    meta['close|2022'].runtime = 14; // een korte film
+    localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    const telling = () => document.querySelector('.af-telling').textContent;
+    expect(telling()).toBe('5 films');
+    const geenKort = screen.getByText('Geen korte films').closest('button');
+    expect(geenKort.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(geenKort);
+    expect(telling()).toBe('6 films');
+    // tot 1,5 uur: alleen films die aantoonbaar kort genoeg zijn
+    fireEvent.click(screen.getByText('Tot 1,5 uur'));
+    expect(telling()).toBe('1 film');
+    fireEvent.click(screen.getByText('Terug naar standaard'));
+    expect(telling()).toBe('5 films');
+    expect(screen.getByText('Geen korte films').closest('button').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByText('Terug naar standaard')).toBeNull();
+  });
+
+  it('avond: taal, en een genre staat nooit bij "zin in" en "liever niet" tegelijk', () => {
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    const talen = { 'aftersun|2022': 'en', 'la haine|1995': 'fr', 'stalker|1979': 'ru', 'whiplash|2014': 'en', 'first cow|2019': 'en', 'close|2022': 'fr' };
+    Object.entries(talen).forEach(([k, l]) => { meta[k].lang = l; });
+    localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    const telling = () => document.querySelector('.af-telling').textContent;
+    fireEvent.click(screen.getByText('Engelstalig'));
+    expect(telling()).toBe('3 films');
+    fireEvent.click(screen.getByText('Anderstalig'));
+    expect(telling()).toBe('3 films');
+    fireEvent.click(within(screen.getByText('Engelstalig').closest('.af-chips')).getByText('Alles'));
+    expect(telling()).toBe('6 films');
+    // zin in misdaad: alleen La haine; daarna liever geen misdaad haalt hem uit "zin in"
+    const zinIn = screen.getAllByText('Crime').find((b) => !b.getAttribute('aria-label'));
+    fireEvent.click(zinIn);
+    expect(telling()).toBe('1 film');
+    fireEvent.click(screen.getByLabelText('Liever geen Crime'));
+    expect(telling()).toBe('5 films');
+    expect(zinIn.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('avondfilters: de pot-logica', async () => {
+    const { filterPot, afwijkend, wisselGenre, STANDAARD_FILTERS } = await import('./src/lib/avondFilters.js');
+    const pot = [{ key: 'a', year: 2001 }, { key: 'b', year: 2015 }, { key: 'c', year: 2020 }, { key: 'd', year: 1990 }];
+    const meta = {
+      a: { runtime: 12, genres: ['Animatie'], lang: 'en', flat: [] },
+      b: { runtime: 95, genres: ['Drama'], lang: 'ko', flat: ['MUBI'] },
+      c: { runtime: 140, genres: ['Horror'], lang: 'en', flat: [] },
+      d: {}, // niets bekend: voordeel van de twijfel, behalve bij een maximale duur
+    };
+    const keys = (f) => filterPot(pot, meta, f, () => null).map((x) => x.key).join('');
+    expect(keys(STANDAARD_FILTERS)).toBe('bcd');
+    expect(keys({ geenKort: false })).toBe('abcd');
+    expect(keys({ maxDuur: 120 })).toBe('b');
+    expect(keys({ nietGenres: ['Horror'] })).toBe('bd');
+    expect(keys({ taal: 'en' })).toBe('cd');
+    expect(keys({ taal: 'anders' })).toBe('bd');
+    expect(keys({ alleenStreaming: true })).toBe('b');
+    expect(keys({ jaarVan: 2010, jaarTot: 2019 })).toBe('b');
+    expect(afwijkend({})).toBe(false);
+    expect(afwijkend({ geenKort: false })).toBe(true);
+    const f = wisselGenre(wisselGenre({}, 'genres', 'Drama'), 'nietGenres', 'Drama');
+    expect(f.genres).toEqual([]);
+    expect(f.nietGenres).toEqual(['Drama']);
   });
 
   it('avond: eerst de trailers, film voor film, dan de ronde', () => {
@@ -1698,7 +1781,7 @@ describe('V2 smoke', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('avond: met beweging lopen de trailers vanzelf door, en pauze houdt ze vast', () => {
+  it('avond: met beweging gaat eerst het licht uit, dan lopen de trailers vanzelf door', () => {
     const mm = window.matchMedia;
     window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
     try {
@@ -1706,9 +1789,20 @@ describe('V2 smoke', () => {
       fireEvent.click(screen.getAllByLabelText('Avond')[0]);
       fireEvent.click(screen.getByText('Start veto'));
       const dialoog = screen.getByRole('dialog');
-      expect(within(dialoog).getByText('Trailer 1 van 6')).toBeTruthy();
       // jsdom kent geen AnimationEvent; React luistert dan naar de webkit-naam
       const einde = (el) => { fireEvent.animationEnd(el); fireEvent(el, new Event('webkitAnimationEnd', { bubbles: true })); };
+      // het voorprogramma: zaallicht uit, wat er komt, nog geen trailer
+      expect(dialoog.classList.contains('fase-intro')).toBe(true);
+      expect(within(dialoog).getByText('6 trailers, dan de veto.')).toBeTruthy();
+      expect(dialoog.querySelector('.pitch-loop')).toBeNull();
+      einde(dialoog.querySelector('.pitch-intro'));
+      expect(dialoog.classList.contains('fase-trailers')).toBe(true);
+      expect(within(dialoog).getByText('Trailer 1 van 6')).toBeTruthy();
+      // het draaiboek: een shot, dan de zwarte kaart met de regisseur (geen slogan of rolverdeling hier)
+      expect([...dialoog.querySelectorAll('.akte')].map((a) => a.className.match(/soort-(\w+)/)[1])).toEqual(['shot', 'van']);
+      expect(dialoog.querySelector('.soort-van span').textContent).toBe('Een film van');
+      expect(dialoog.querySelector('.soort-van strong').textContent).toBeTruthy();
+      expect(dialoog.querySelector('.soort-van').closest('[aria-hidden="true"]')).toBeTruthy();
       // de balk bovenin loopt af en zet de volgende film in beeld
       einde(dialoog.querySelector('.pitch-loop'));
       expect(within(dialoog).getByText('Trailer 2 van 6')).toBeTruthy();
@@ -1719,12 +1813,101 @@ describe('V2 smoke', () => {
       expect(dialoog.classList.contains('gepauzeerd')).toBe(true);
       fireEvent.click(within(dialoog).getByText('Verder'));
       expect(dialoog.classList.contains('gepauzeerd')).toBe(false);
-      // tikken op het beeld: rechts vooruit
+      // tikken op het doek: eerst de akten over, dan pas de volgende film
+      fireEvent.click(dialoog.querySelector('.pitch-podium'));
+      expect(within(dialoog).getByText('Trailer 2 van 6')).toBeTruthy();
+      expect(dialoog.querySelector('.pitch-akten')).toBeNull();
+      expect(dialoog.querySelector('.pitch-loop').style.animationDelay).toMatch(/^-\d+ms$/);
       fireEvent.click(dialoog.querySelector('.pitch-podium'));
       expect(within(dialoog).getByText('Trailer 3 van 6')).toBeTruthy();
+      expect(dialoog.querySelector('.pitch-akten')).not.toBeNull();
+      // na de laatste gaat het zaallicht aan, en dan begint de ronde
+      for (let i = 0; i < 3; i++) fireEvent.click(within(dialoog).getByText('Volgende'));
+      fireEvent.click(within(dialoog).getByText('Naar de veto'));
+      expect(dialoog.classList.contains('fase-uit')).toBe(true);
+      expect(screen.getByRole('dialog')).toBeTruthy();
+      einde(dialoog.querySelector('.pitch-zaallicht'));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(document.body.textContent).toContain('Speler 1 is aan de beurt');
     } finally {
       window.matchMedia = mm;
     }
+  });
+
+  it('avond: het zaalgeluid is uit te zetten, en dat blijft zo', () => {
+    const mm = window.matchMedia;
+    window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+      fireEvent.click(screen.getByText('Start veto'));
+      const dialoog = screen.getByRole('dialog');
+      const knop = within(dialoog).getByLabelText('Geluid uit');
+      expect(knop.getAttribute('aria-pressed')).toBe('true');
+      fireEvent.click(knop);
+      expect(within(dialoog).getByLabelText('Geluid aan').getAttribute('aria-pressed')).toBe('false');
+      expect(JSON.parse(localStorage.getItem('nossyV2.settings')).pitchGeluid).toBe(false);
+      // "Meteen naar de veto" wacht niet op het zaallicht
+      fireEvent.click(within(dialoog).getByText('Meteen naar de veto'));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } finally {
+      window.matchMedia = mm;
+    }
+  });
+
+  it('trailers: het draaiboek van een trailer', async () => {
+    const { trailerPlan, sloganDuur, pitchDuur, AKTE, TITEL_HOUD } = await import('./src/lib/pitch.js');
+    const tekst = 'Een jonge drummer wil de beste worden. Zijn leraar duwt hem over elke grens.';
+    const vol = trailerPlan({ slogan: 'De weg naar grootheid kan je breken.', regie: 'Damien Chazelle', cast: ['Miles Teller'], tekst });
+    expect(vol.akten.map((a) => a.soort)).toEqual(['slogan', 'van', 'met']);
+    // de akten sluiten op elkaar aan, de titel komt direct na de laatste
+    vol.akten.slice(1).forEach((a, j) => expect(a.start).toBe(vol.akten[j].start + vol.akten[j].duur));
+    expect(vol.akten[0].duur).toBe(sloganDuur('De weg naar grootheid kan je breken.'));
+    expect(vol.titel).toBe(sloganDuur('De weg naar grootheid kan je breken.') + AKTE.kaart + AKTE.met);
+    expect(vol.paneel).toBe(vol.titel + TITEL_HOUD);
+    expect(vol.totaal).toBe(vol.paneel + pitchDuur(tekst) - 1200);
+    // zonder slogan, regie of namen: alleen een shot, en dan de titel
+    const kaal = trailerPlan({});
+    expect(kaal.akten).toEqual([{ soort: 'shot', start: 0, duur: AKTE.shot }]);
+    expect(kaal.titel).toBe(AKTE.shot);
+    // een lange slogan krijgt meer tijd, maar nooit eindeloos
+    expect(sloganDuur('kort')).toBe(1900);
+    expect(sloganDuur('woord '.repeat(40))).toBe(3200);
+  });
+
+  it('trailers: extra beelden uit de film, zonder de hoofdafbeelding', async () => {
+    const { fetchStills } = await import('./src/lib/tmdb.js');
+    const oud = global.fetch;
+    let gevraagd = '';
+    global.fetch = async (url) => {
+      gevraagd = String(url);
+      return {
+        ok: true, status: 200,
+        json: async () => ({ backdrops: [
+          { file_path: '/hoofd.jpg', aspect_ratio: 1.78 },
+          { file_path: '/a.jpg', aspect_ratio: 1.78 },
+          { file_path: '/staand.jpg', aspect_ratio: 0.67 },
+          { file_path: '/b.jpg', aspect_ratio: 1.78 },
+          { file_path: '/c.jpg', aspect_ratio: 1.78 },
+          { file_path: '/d.jpg', aspect_ratio: 1.78 },
+        ] }),
+      };
+    };
+    try {
+      expect(await fetchStills(42, 'sleutel', '/hoofd.jpg')).toEqual(['/a.jpg', '/b.jpg', '/c.jpg']);
+      expect(gevraagd).toContain('/movie/42/images');
+      expect(gevraagd).toContain('include_image_language=null');
+    } finally {
+      if (oud) global.fetch = oud; else delete global.fetch;
+    }
+  });
+
+  it('zaalgeluid: zonder Web Audio doet niets iets', async () => {
+    const g = await import('./src/lib/zaalgeluid.js');
+    expect(() => {
+      g.ontgrendel(); g.zetGeluid(true); g.startRatel(); g.pauzeerRatel(true);
+      g.klak(); g.zoef(); g.dreun(); g.braam(); g.stopRatel(); g.zetGeluid(false);
+    }).not.toThrow();
   });
 
   it('avond: trailers zijn uit te zetten, en dat blijft zo', () => {

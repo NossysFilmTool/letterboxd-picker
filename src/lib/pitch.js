@@ -29,3 +29,30 @@ export function pitchDuur(tekst) {
   const woorden = String(tekst || '').split(/\s+/).filter(Boolean).length;
   return Math.max(PITCH_MIN, Math.min(PITCH_MAX, 3200 + woorden * 230));
 }
+
+// Het draaiboek van een trailer, in milliseconden vanaf de eerste snit.
+// Eerst de akten, zoals in een echte trailer: een shot met de slogan, een
+// zwarte kaart "Een film van", een shot met de namen. Dan slaat de titel in
+// beeld, en even later schuift de rest eronder: waar hij over gaat, de
+// cijfers. Wat een film niet heeft, valt weg; een shot zonder tekst blijft,
+// zodat elke trailer met beeld begint.
+export const AKTE = { kaart: 1300, met: 1700, shot: 1400 };
+export const TITEL_HOUD = 800;
+export function sloganDuur(slogan) {
+  const woorden = String(slogan || '').split(/\s+/).filter(Boolean).length;
+  return Math.max(1900, Math.min(3200, 1100 + woorden * 200));
+}
+export function trailerPlan({ slogan, regie, cast, tekst } = {}) {
+  const akten = [];
+  let t = 0;
+  const zet = (soort, duur) => { akten.push({ soort, start: t, duur }); t += duur; };
+  if (slogan) zet('slogan', sloganDuur(slogan)); else zet('shot', AKTE.shot);
+  if (regie) zet('van', AKTE.kaart);
+  if (cast?.length) zet('met', AKTE.met);
+  const titel = t;
+  const paneel = titel + TITEL_HOUD;
+  // Leestijd na het paneel: de oude speelduur min de tijd die het paneel nodig
+  // heeft om op te komen
+  const totaal = paneel + pitchDuur(tekst) - 1200;
+  return { akten, titel, paneel, totaal };
+}
