@@ -94,13 +94,13 @@ export function useForYou(app, actief) {
   const omdbKeys = app.omdbKeys || [];
   // Vers, en voor een verdacht cijfer ook al door IMDb getoetst (als dat kan)
   const isVers = (d) => detailVers(d, regio) && !(omdbKeys.length && d.imdb === undefined && opgeblazenReden(d));
-  // Tweede mening voor een verdacht TMDB-cijfer: het IMDb-cijfer via OMDb.
-  // undefined = (nog) niet gelukt, null = IMDb kent hem niet.
+  // Tweede mening voor een verdacht TMDB-cijfer: IMDb en Metacritic via OMDb.
+  // undefined = (nog) niet gelukt; imdb null = IMDb kent hem niet.
   const tweedeMening = async (d) => {
     for (const k of omdbKeys) {
       try {
         const ext = await fetchExtRatings(d, { name: d.title, year: d.year }, k);
-        return ext?.imdb ?? null;
+        return { imdb: ext?.imdb ?? null, mc: ext?.mc ?? null };
       } catch (e) {
         if (e.message !== 'LIMIT' && e.message !== 'KEY_INVALID') return undefined;
       }
@@ -123,8 +123,11 @@ export function useForYou(app, actief) {
           const d = await fetchDetailById(id, tmdbKey);
           const s = slank(d);
           if (omdbKeys.length && d.imdbId && opgeblazenReden(s)) {
-            const imdb = await tweedeMening(d);
-            if (imdb !== undefined) s.imdb = imdb;
+            const mening = await tweedeMening(d);
+            if (mening !== undefined) {
+              s.imdb = mening.imdb;
+              if (mening.mc != null) s.mc = mening.mc;
+            }
           }
           buffer[id] = s;
           detailSessie.current.add(id);

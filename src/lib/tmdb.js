@@ -79,6 +79,8 @@ async function fetchDetail(id, key) {
     poster: d.poster_path,
     backdrop: d.backdrop_path,
     plot: (d.overview || '').length > 500 ? `${(d.overview || '').slice(0, 499).trimEnd()}\u2026` : (d.overview || ''),
+    // De slogan van de poster, voor de trailer in een veto-ronde
+    tagline: d.tagline ? d.tagline.slice(0, 140) : null,
     director,
     directorId,
     // De eerste drie namen van de rolverdeling, voor de aftiteling op het kaartje
@@ -92,7 +94,8 @@ async function fetchDetail(id, key) {
     lang: d.original_language || null,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null,
     flat: provNames(prov.flatrate),
-    rent: provNames([...(prov.rent || []), ...(prov.buy || [])]).slice(0, 4),
+    // Huren en kopen bij dezelfde dienst is één regel, niet twee
+    rent: [...new Set(provNames([...(prov.rent || []), ...(prov.buy || [])]))].slice(0, 4),
     jwLink: prov.link || null,
     recs: (d.recommendations?.results || []).slice(0, 9).map((r) => ({
       id: r.id,
@@ -216,7 +219,8 @@ export async function refreshProviders(id, key) {
   const provNames = (arr) => (arr || []).map((p) => p.provider_name);
   return {
     flat: provNames(prov.flatrate),
-    rent: provNames([...(prov.rent || []), ...(prov.buy || [])]).slice(0, 4),
+    // Huren en kopen bij dezelfde dienst is één regel, niet twee
+    rent: [...new Set(provNames([...(prov.rent || []), ...(prov.buy || [])]))].slice(0, 4),
     jwLink: prov.link || null,
     at: Date.now(),
   };

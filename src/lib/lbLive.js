@@ -40,7 +40,10 @@ export function leesDagboekFeed(xml) {
 }
 
 export async function haalDagboek(naam) {
-  const res = await fetch(`${PROXY_URL}/lb/${encodeURIComponent(naam)}`);
+  // Nooit uit de browsercache: de Worker bewaart de feed al (een minuut), en
+  // een oude Worker zei "max-age=600", waardoor de browser een nieuwe log tot
+  // tien minuten bleef missen, ook als je zelf op bijwerken drukte.
+  const res = await fetch(`${PROXY_URL}/lb/${encodeURIComponent(naam)}`, { cache: 'no-store' });
   if (!res.ok) {
     let fout = null;
     try { fout = (await res.json())?.error; } catch { /* geen json */ }

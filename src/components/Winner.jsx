@@ -126,6 +126,10 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
             const oordeel = beoordeelCijfer(meta);
             if (!oordeel.opgeblazen) return null;
             const fmt = (v) => (lang === 'nl' ? String(v).replace('.', ',') : String(v));
+            // Een mild publiek is geen fan- of botleger: eigen uitleg
+            if (oordeel.opgeblazen === 'publiek') {
+              return <p className="opgeblazen-melding">{tr('winner.opgeblazenPubliek', { cijfer: fmt(oordeel.cijfer) })}</p>;
+            }
             const waarom = oordeel.opgeblazen === 'onmogelijk'
               ? tr('winner.opgeblazenOnmogelijk', { cijfer: fmt(meta.vote), stemmen: meta.votes })
               : tr(oordeel.opgeblazen === 'lijsten' ? 'winner.opgeblazenLijsten' : 'winner.opgeblazenStreaming');
@@ -181,7 +185,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
                   ? <a key={p} className="prov prov-link" href={meta.jwLink} target="_blank" rel="noreferrer" title={tr('winner.provTitle')} onClick={() => onKijken?.()}><span className="livedot" aria-hidden="true" />{tr('winner.nowOn', { p })}</a>
                   : <span key={p} className="prov"><span className="livedot" aria-hidden="true" />{tr('winner.nowOn', { p })}</span>
               ))}
-              {!meta.flat?.length && meta.rent?.map((p) => (
+              {!meta.flat?.length && [...new Set(meta.rent || [])].map((p) => (
                 meta.jwLink
                   ? <a key={p} className="prov prov-link" href={meta.jwLink} target="_blank" rel="noreferrer" title={tr('winner.provTitle')} onClick={() => onKijken?.()}>{tr('winner.rentBuy', { p })}</a>
                   : <span key={p} className="prov">{tr('winner.rentBuy', { p })}</span>

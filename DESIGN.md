@@ -74,8 +74,27 @@ Wil je er een breken, pas dan eerst dit document aan.
   gewone tekst of een rustige knop.
 - Geen emoji als pictogram; lijnpictogrammen (lucide) of woorden.
 
+## De trailers
+
+- Voor een veto-ronde krijgt elke film eerst een korte pitch
+  (`Pitch.jsx`), zoals de trailers voor de hoofdfilm. Per film: het
+  filmbeeld als doek, de slogan erop, de titel, regie, jaar, duur en genre,
+  waar hij over gaat (een paar hele zinnen, `src/lib/pitch.js`), wie erin
+  spelen, de cijfers en waar hij te zien is. Het vlak eronder heeft de
+  kleur van de film.
+- Alles is echt: geen verzonnen stemmen of quotes. Een opgeblazen
+  TMDB-cijfer staat er grijs bij, met "verdacht hoog".
+- De balk bovenin loopt mee en zet de volgende film in beeld; hoe lang hangt
+  af van de leestijd. Tik rechts voor de volgende, links voor de vorige,
+  spatie pauzeert, "Meteen naar de veto" slaat ze over. Uit te zetten bij de
+  veto-rondes ("Eerst de trailers").
+
 ## Beweging
 
-- Eén eigen moment: het aftellen (filmleader) bij een pick, waarna het
-  kaartje uit een sleuf schuift. Met "beperk beweging" aan ligt het er gewoon.
+- Twee eigen momenten. Het aftellen (filmleader) bij een pick, waarna het
+  kaartje uit een sleuf schuift. En de trailers voor een veto-ronde: het
+  doek zoomt langzaam in, de titel komt op uit een sleuf, de woorden van
+  het verhaal verschijnen een voor een, de cijfers tellen op, en tussen
+  twee films zit een korte lichtflits zoals bij een filmlas. Met "beperk
+  beweging" aan ligt alles er gewoon en loopt niets vanzelf door.
 - Verder beweegt alleen wat je zelf aanraakt. Geen invlieg-animaties op lijsten.

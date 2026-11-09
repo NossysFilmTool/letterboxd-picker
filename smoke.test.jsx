@@ -688,6 +688,90 @@ describe('V2 smoke', () => {
     expect(opgeblazenReden({ vote: 8.4, votes: 2485 })).toBeNull();
   });
 
+  it('opgeblazen cijfers: een mild TMDB-publiek (mainstream-romance) telt alleen met een tweede mening', async () => {
+    const { opgeblazenReden, beoordeelCijfer } = await import('./src/lib/opgeblazen.js');
+    const { nossyScore } = await import('./src/lib/pick.js');
+    const signaal = ([, vote, votes, lijsten]) => opgeblazenReden({ vote, votes, lijsten, bios: true });
+    // gemeten op TMDB (november 2026): [titel, cijfer, stemmen, lijsten]
+    const romances = [
+      ['The Best of Me', 7.48, 2775, 173], ['Midnight Sun', 7.8, 3587, 193], ['Love, Rosie', 7.8, 6621, 309],
+      ['If I Stay', 7.3, 4379, 213], ['Everything, Everything', 7.24, 3783, 146], ['The Last Song', 7.23, 3430, 210],
+      ['The Choice', 7.2, 1999, 138], ['Through My Window', 7.3, 3397, 121],
+    ];
+    expect(romances.map((r) => [r[0], signaal(r)])).toEqual(romances.map((r) => [r[0], 'publiek']));
+    // veertig goede films met evenveel stemmen, ook romantische: geen enkele geraakt
+    const goed = [
+      ['Aftersun', 7.7, 2044, 302], ['First Cow', 7.03, 569, 160], ['Close', 7.8, 1096, 143], ['Past Lives', 7.69, 2545, 367],
+      ['Paterson', 7.1, 2151, 219], ['Columbus', 7.1, 517, 109], ['Certified Copy', 7.0, 470, 93], ['Shoplifters', 7.8, 2412, 275],
+      ['Drive My Car', 7.43, 1593, 243], ['Petite Maman', 7.1, 491, 97], ['The Worst Person in the World', 7.44, 2028, 275],
+      ['Cold War', 7.4, 1643, 175], ['Phantom Thread', 7.3, 3913, 479], ['Carol', 7.49, 4073, 405], ['Blue Valentine', 7.0, 3663, 368],
+      ['Before Sunrise', 8.0, 4962, 572], ['Before Midnight', 7.5, 2842, 378], ['Lost in Translation', 7.38, 8427, 776],
+      ['Her', 7.83, 15817, 1121], ['Call Me by Your Name', 8.07, 13042, 691], ['About Time', 7.9, 9642, 801],
+      ['Anatomy of a Fall', 7.5, 3569, 372], ['The Zone of Interest', 7.01, 2824, 372], ['Perfect Days', 7.8, 2155, 245],
+      ['Leave No Trace', 6.8, 1435, 237], ['Never Rarely Sometimes Always', 7.1, 612, 116], ['The Florida Project', 7.42, 3232, 395],
+      ['Moonlight', 7.35, 7758, 767], ['Lady Bird', 7.25, 9260, 671], ['Portrait of a Lady on Fire', 8.1, 3101, 436],
+      ['Atonement', 7.6, 4902, 612], ['The Fault in Our Stars', 7.59, 11771, 582], ['Pride & Prejudice', 8.05, 9060, 652],
+      ['In the Mood for Love', 8.09, 3457, 450], ['Happy Together', 7.6, 845, 156], ['Fallen Leaves', 7.11, 793, 72],
+      ['Minari', 7.35, 2058, 302], ['Nomadland', 7.16, 3523, 412], ['Still Walking', 7.79, 477, 110], ['After Yang', 6.4, 558, 144],
+    ];
+    expect(goed.filter((r) => signaal(r)).map((r) => r[0])).toEqual([]);
+
+    const bestOfMe = { vote: 7.48, votes: 2775, lijsten: 173, bios: true };
+    // zonder tweede mening verandert er niets: een vermoeden is geen bewijs
+    expect(beoordeelCijfer(bestOfMe)).toEqual({ opgeblazen: null, cijfer: 7.48, bevestigd: false });
+    // IMDb 6,7 en Metacritic 29: samen 4,8
+    expect(beoordeelCijfer({ ...bestOfMe, imdb: 6.7, mc: 29 })).toEqual({ opgeblazen: 'publiek', cijfer: 4.8, bevestigd: false });
+    expect(beoordeelCijfer({ ...bestOfMe, ext: { imdb: 6.7, mc: 29 } }).cijfer).toBe(4.8); // uit een filmkaart
+    expect(beoordeelCijfer({ ...bestOfMe, imdb: 6.7 }).cijfer).toBe(6.7); // alleen IMDb bekend
+    // IMDb en critici dicht bij TMDB: het cijfer staat
+    expect(beoordeelCijfer({ ...bestOfMe, imdb: 7.3, mc: 74 })).toEqual({ opgeblazen: null, cijfer: 7.48, bevestigd: true });
+    // in een verdachte reeks zonder tweede mening: onbetrouwbaar, zoals voorheen
+    expect(beoordeelCijfer(bestOfMe, { reeksVerdacht: true })).toMatchObject({ opgeblazen: 'reeks', cijfer: null });
+    // de Nossy-score laat het milde TMDB-cijfer weg
+    const metTmdb = nossyScore({ vote: 7.48, votes: 2775, ext: { imdb: 6.7, mc: 29 } });
+    expect(nossyScore({ ...bestOfMe, ext: { imdb: 6.7, mc: 29 } })).toBeLessThan(metTmdb);
+  });
+
+  it('opgeblazen cijfers: Voor jou rekent met IMDb en critici, en een filmkaart zegt het eerlijk', async () => {
+    const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
+    const { buildTaste } = await import('./src/lib/taste.js');
+    const { degelijk } = await import('./src/lib/foryou.js');
+    const f = (id, title) => ({ id, title, year: 2014, vote: 7.48, votes: 2775, genre_ids: [18, 10749] });
+    const meta = {
+      'a|2000': { id: 1, genres: ['Drama'], recs: [f(20, 'Met mening'), f(21, 'Zonder mening')] },
+      'b|2001': { id: 2, genres: ['Drama'], recs: [] },
+      'c|2002': { id: 3, genres: ['Drama'], recs: [] },
+    };
+    const ratedFilms = [
+      { key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 5 },
+      { key: 'c|2002', name: 'C', year: 2002, rating: 4.5 },
+    ];
+    const det = (extra) => ({ v: 3, regio: 'NL', at: Date.now(), runtime: 117, flat: [], lijsten: 173, bios: true, ...extra });
+    const details = { 20: det({ imdb: 6.7, mc: 29 }), 21: det({}) };
+    const basis = { watchlist: [], meta, ratedFilms, seeds: bepaalSeeds({ watchlist: [], ratedFilms, meta }), regisseurs: [], taste: buildTaste({ watchlist: [], ratedFilms, meta }), uitleg: (k) => k };
+    const zonder = Object.fromEntries(scoorKandidaten(basis).recs.map((r) => [r.title, r]));
+    const met = Object.fromEntries(scoorKandidaten({ ...basis, details }).recs.map((r) => [r.title, r]));
+    expect(met['Met mening']).toMatchObject({ opgeblazen: 'publiek', vote: 4.8, tmdbVote: 7.48 });
+    expect(met['Met mening'].redenen).toContain('verken.opgeblazenPubliek');
+    expect(met['Met mening'].match).toBeLessThan(zonder['Met mening'].match);
+    // onder de kwaliteitsdrempel: hij komt in geen enkele rij meer
+    expect(degelijk(met['Met mening'])).toBe(false);
+    // zonder tweede mening: precies als voorheen
+    expect(met['Zonder mening'].opgeblazen).toBeUndefined();
+    expect(met['Zonder mening'].match).toBe(zonder['Zonder mening'].match);
+
+    // de filmkaart: eigen uitleg (geen bots), en huren en kopen bij dezelfde dienst een keer
+    const { default: Winner } = await import('./src/components/Winner.jsx');
+    render(<Winner film={{ key: 'tbom|2014', name: 'The Best of Me', year: 2014 }} meta={{
+      vote: 7.48, votes: 2775, lijsten: 173, bios: true, ext: { imdb: 6.7, mc: 29, rt: 12 }, at: Date.now(),
+      flat: [], rent: ['Path\u00e9 Thuis', 'Amazon Video', 'Path\u00e9 Thuis', 'Amazon Video'], jwLink: 'https://www.justwatch.com/nl',
+    }} />);
+    expect(screen.getByText('Het TMDB-publiek is hier veel milder dan IMDb en de critici. Voor jou rekent met hun gemiddelde (4,8).')).toBeTruthy();
+    expect(screen.getAllByText('Huur/koop: Path\u00e9 Thuis').length).toBe(1);
+    expect(screen.getAllByText('Huur/koop: Amazon Video').length).toBe(1);
+    expect(document.body.textContent).not.toContain('bots');
+  });
+
   it('opgeblazen cijfers: neutraal meetellen, de reeks gaat mee, en x op één deel verbergt de rest', async () => {
     const { scoorKandidaten, bepaalSeeds } = await import('./src/lib/kandidaten.js');
     const { buildTaste } = await import('./src/lib/taste.js');
@@ -1408,6 +1492,7 @@ describe('V2 smoke', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Avond')[0]);
     fireEvent.click(screen.getByText('Start veto'));
+    fireEvent.click(screen.getByText('Meteen naar de veto'));
     for (let i = 0; i < 5; i++) {
       const tiles = document.querySelectorAll('.poster-tile:not(.struck)');
       fireEvent.click(tiles[0]);
@@ -1560,10 +1645,118 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).not.toContain('Stalker');
   });
 
+  it('avond: eerst de trailers, film voor film, dan de ronde', () => {
+    // Een film met alles erop: slogan, verhaal, regie, rolverdeling, cijfers, dienst
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    Object.values(meta).forEach((m) => {
+      m.plot = 'Een jonge drummer wil de beste worden. Zijn leraar duwt hem over elke grens. Wat kost grootheid?';
+      m.tagline = 'De weg naar grootheid kan je breken.';
+      m.cast = ['Miles Teller', 'J.K. Simmons', 'Paul Reiser'];
+      m.ext = { imdb: 8.5, rt: 94, mc: 89, at: Date.now() };
+      m.flat = ['Netflix'];
+    });
+    localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    // "beperk beweging" aan: alles staat stil, je tikt zelf door
+    const mm = window.matchMedia;
+    window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getByText('Start veto'));
+    window.matchMedia = mm;
+    const dialoog = screen.getByRole('dialog', { name: 'Trailers van de films in deze ronde' });
+    expect(within(dialoog).getByText('Trailer 1 van 6')).toBeTruthy();
+    // wie, wat, waarover en de cijfers
+    expect(within(dialoog).getByText(/^Een film van /)).toBeTruthy();
+    expect(within(dialoog).getByText('Met Miles Teller, J.K. Simmons, Paul Reiser')).toBeTruthy();
+    expect(within(dialoog).getByText('De weg naar grootheid kan je breken.')).toBeTruthy();
+    expect(dialoog.querySelector('.pitch-verhaal').textContent).toContain('Een jonge drummer wil de beste worden.');
+    expect(dialoog.textContent).toContain('IMDb');
+    expect(dialoog.textContent).toContain('Rotten Tomatoes');
+    expect(dialoog.textContent).toContain('Nu op Netflix');
+    // bladeren: volgende, vorige (niet voorbij het begin)
+    const eerste = dialoog.querySelector('.pitch-titel').textContent;
+    fireEvent.click(within(dialoog).getByText('Volgende'));
+    expect(within(dialoog).getByText('Trailer 2 van 6')).toBeTruthy();
+    expect(dialoog.querySelector('.pitch-titel').textContent).not.toBe(eerste);
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    expect(within(dialoog).getByText('Trailer 1 van 6')).toBeTruthy();
+    expect(dialoog.querySelector('.pitch-titel').textContent).toBe(eerste);
+    // met "beperk beweging" loopt niets vanzelf
+    expect(dialoog.querySelector('.pitch-loop')).toBeNull();
+    expect(within(dialoog).queryByText('Pauze')).toBeNull();
+    // na de laatste trailer begint de ronde
+    for (let i = 0; i < 5; i++) fireEvent.click(within(dialoog).getByText('Volgende'));
+    expect(within(dialoog).getByText('Trailer 6 van 6')).toBeTruthy();
+    fireEvent.click(within(dialoog).getByText('Naar de veto'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.body.textContent).toContain('Speler 1 is aan de beurt');
+    // terugkijken kan, met alleen de films die nog over zijn; Escape sluit
+    fireEvent.click(document.querySelectorAll('.poster-tile:not(.struck)')[0]);
+    fireEvent.click(screen.getByText('Trailers terugkijken'));
+    expect(screen.getByText('Trailer 1 van 5')).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('avond: met beweging lopen de trailers vanzelf door, en pauze houdt ze vast', () => {
+    const mm = window.matchMedia;
+    window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+      fireEvent.click(screen.getByText('Start veto'));
+      const dialoog = screen.getByRole('dialog');
+      expect(within(dialoog).getByText('Trailer 1 van 6')).toBeTruthy();
+      // jsdom kent geen AnimationEvent; React luistert dan naar de webkit-naam
+      const einde = (el) => { fireEvent.animationEnd(el); fireEvent(el, new Event('webkitAnimationEnd', { bubbles: true })); };
+      // de balk bovenin loopt af en zet de volgende film in beeld
+      einde(dialoog.querySelector('.pitch-loop'));
+      expect(within(dialoog).getByText('Trailer 2 van 6')).toBeTruthy();
+      // een animatie van iets anders in beeld telt niet als einde
+      einde(dialoog.querySelector('.pitch-titel span'));
+      expect(within(dialoog).getByText('Trailer 2 van 6')).toBeTruthy();
+      fireEvent.click(within(dialoog).getByText('Pauze'));
+      expect(dialoog.classList.contains('gepauzeerd')).toBe(true);
+      fireEvent.click(within(dialoog).getByText('Verder'));
+      expect(dialoog.classList.contains('gepauzeerd')).toBe(false);
+      // tikken op het beeld: rechts vooruit
+      fireEvent.click(dialoog.querySelector('.pitch-podium'));
+      expect(within(dialoog).getByText('Trailer 3 van 6')).toBeTruthy();
+    } finally {
+      window.matchMedia = mm;
+    }
+  });
+
+  it('avond: trailers zijn uit te zetten, en dat blijft zo', () => {
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    const schakelaar = screen.getByText('Eerst de trailers').closest('button');
+    expect(schakelaar.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(schakelaar);
+    expect(schakelaar.getAttribute('aria-pressed')).toBe('false');
+    expect(JSON.parse(localStorage.getItem('nossyV2.settings')).vetoPitch).toBe(false);
+    fireEvent.click(screen.getByText('Start veto'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.body.textContent).toContain('Speler 1 is aan de beurt');
+  });
+
+  it('avond: een trailer zonder verhaal of cijfers zegt dat eerlijk', () => {
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    Object.values(meta).forEach((m) => { m.plot = ''; m.vote = null; m.ext = undefined; m.flat = []; });
+    localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getByText('Start veto'));
+    const dialoog = screen.getByRole('dialog');
+    expect(within(dialoog).getByText('TMDB heeft geen beschrijving van deze film.')).toBeTruthy();
+    expect(dialoog.querySelector('.pitch-cijfers')).toBeNull();
+  });
+
   it('avond: info-knop spiekt zonder de ronde te verstoren', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Avond')[0]);
     fireEvent.click(screen.getByText('Start veto'));
+    fireEvent.click(screen.getByText('Meteen naar de veto'));
     const infoBtn = document.querySelector('[aria-label^="Info over"]');
     fireEvent.click(infoBtn);
     expect(document.body.textContent).toContain('Even spieken');
@@ -2849,6 +3042,37 @@ describe('V2 smoke', () => {
     const nu = Date.now();
     const st = [{ id: 'o', datum: new Date(nu - 40 * 864e5).toISOString(), status: 'verlopen' }, { id: 'n', datum: new Date(nu - 2 * 864e5).toISOString(), status: 'niet' }, { id: 'g', datum: new Date(nu).toISOString(), status: 'gekeken' }];
     expect(buitenDeDoos(st, { nu }).map((x) => x.id)).toEqual(['n']);
+  });
+
+  it('letterboxd live: de feed komt nooit uit de browsercache', async () => {
+    const { haalDagboek } = await import('./src/lib/lbLive.js');
+    let opties = null;
+    global.fetch = async (url, o) => { opties = o; return { ok: true, status: 200, text: async () => '<?xml version="1.0"?><rss><channel></channel></rss>' }; };
+    await haalDagboek('sonny');
+    expect(opties).toMatchObject({ cache: 'no-store' });
+    delete global.fetch;
+  });
+
+  it('trailers: logline en speelduur', async () => {
+    const { logline, pitchDuur, PITCH_MIN, PITCH_MAX } = await import('./src/lib/pitch.js');
+    expect(logline('')).toBe('');
+    expect(logline('  Kort   verhaal. ')).toBe('Kort verhaal.');
+    // lang: hele zinnen tot er genoeg staat, nooit langer dan 190 tekens
+    const lang = 'Een jonge drummer schrijft zich in op een muziekschool in New York en wil de allerbeste worden. '
+      + 'Zijn leraar, een meedogenloze dirigent, duwt hem over elke grens heen. Wat kost grootheid uiteindelijk, en wie betaalt? '
+      + 'Een derde zin die er nooit meer bij past.';
+    const l = logline(lang);
+    expect(l).toBe('Een jonge drummer schrijft zich in op een muziekschool in New York en wil de allerbeste worden. Zijn leraar, een meedogenloze dirigent, duwt hem over elke grens heen.');
+    expect(l.length).toBeLessThanOrEqual(190);
+    // een eerste zin die al te lang is: afgebroken op een woord
+    const eenZin = `${'woord '.repeat(60)}einde.`;
+    const kort = logline(eenZin);
+    expect(kort.length).toBeLessThanOrEqual(190);
+    expect(kort.endsWith('woord…')).toBe(true);
+    // speelduur: leestijd binnen de grenzen
+    expect(pitchDuur('')).toBe(PITCH_MIN);
+    expect(pitchDuur('woord '.repeat(20))).toBe(3200 + 20 * 230);
+    expect(pitchDuur('woord '.repeat(200))).toBe(PITCH_MAX);
   });
 
   it('letterboxd live: de feed wordt dagboek, gezien en sterren; kaartjes scheuren vanzelf', async () => {

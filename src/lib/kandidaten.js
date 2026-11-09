@@ -166,7 +166,7 @@ export function scoorKandidaten({
       genres: d.genres?.length ? d.genres : kaal.genres,
       lijsten: d.lijsten, bios: d.bios, collectie: d.collectie,
       // het actuele cijfer uit de details, en IMDb als tweede mening
-      vote: d.vote || kaal.vote, votes: d.votes || kaal.votes, imdb: d.imdb,
+      vote: d.vote || kaal.vote, votes: d.votes || kaal.votes, imdb: d.imdb, mc: d.mc,
     } : kaal;
     return { r, seedSet };
   });
@@ -194,7 +194,7 @@ export function scoorKandidaten({
     const m = matchScore(r.onbetrouwbaar ? { ...r, vote: NEUTRAAL_CIJFER } : r, taste);
     let redenen = m.redenen;
     if (r.onbetrouwbaar) redenen = [...redenen, uitleg('verken.opgeblazenUitleg')];
-    else if (opgeblazen) redenen = [...redenen, uitleg('verken.opgeblazenImdb', { cijfer: getLang() === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote) })];
+    else if (opgeblazen) redenen = [...redenen, uitleg(opgeblazen === 'publiek' ? 'verken.opgeblazenPubliek' : 'verken.opgeblazenImdb', { cijfer: getLang() === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote) })];
     // Via de thema-jacht gevonden en de score gaf zelf geen thema-reden
     // (light-object zonder keywords): leg het alsnog uit.
     if (r.viaTheme?.length && !redenen.some((x) => /thema/i.test(x))) {

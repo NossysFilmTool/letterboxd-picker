@@ -8,6 +8,7 @@ import { IMG } from '../lib/tmdb.js';
 import { sample, nossyScore } from '../lib/pick.js';
 import { parseLetterboxdFiles } from '../lib/csv.js';
 import Winner from '../components/Winner.jsx';
+import Pitch from '../components/Pitch.jsx';
 
 function Tile({ film, meta, onClick, struck, label, index = 0, onInfo }) {
   const { t: tr } = useT();
@@ -49,6 +50,9 @@ export default function Avond({ app }) {
   const [vetoFilms, setVetoFilms] = useState([]);
   const [struckKeys, setStruckKeys] = useState([]);
   const [info, setInfo] = useState(null); // even spieken: filmkaart zonder de ronde te verstoren
+  // Eerst de trailers: elke film krijgt een korte pitch voordat er gestreept wordt
+  const [pitchOpen, setPitchOpen] = useState(false);
+  const pitchAan = app.settings?.vetoPitch !== false;
   const peek = (film) => { setInfo(film); app.ensureDetail(film); app.freshenProviders(film.key); };
   // bracket state
   const [rounds, setRounds] = useState([]); // [[films...]] per ronde
@@ -150,7 +154,11 @@ export default function Avond({ app }) {
   const startVeto = () => {
     setChampionNamen(null);
     const n = Math.min(8, basePool.length);
-    setVetoFilms(sample(basePool, n));
+    const films = sample(basePool, n);
+    setVetoFilms(films);
+    // Verhaal, regie, rolverdeling en cijfers voor de trailers (en het spieken)
+    films.forEach((f) => app.ensureDetail(f));
+    setPitchOpen(pitchAan);
     setStruckKeys([]);
     setChampion(null);
     setMode('veto');
@@ -187,7 +195,7 @@ export default function Avond({ app }) {
     }
   };
 
-  const reset = () => { setMode(null); setChampion(null); setChampionNamen(null); };
+  const reset = () => { setMode(null); setChampion(null); setChampionNamen(null); setPitchOpen(false); };
 
   if (!watchlist.length) {
     return (
@@ -251,6 +259,10 @@ export default function Avond({ app }) {
           ))}
         </div>
         <p style={{ color: 'var(--fog-dim)', fontSize: 13, marginTop: 16 }}>{tr('avond.vetoHint')}</p>
+        <button type="button" className="linkbtn" style={{ fontSize: 13, color: 'var(--fog)', marginTop: 10 }} onClick={() => setPitchOpen(true)}>
+          {tr('avond.pitchTerugkijken')}
+        </button>
+        {pitchOpen && <Pitch films={left} meta={meta} onKlaar={() => setPitchOpen(false)} />}
       </div>
     );
   }
@@ -454,6 +466,10 @@ export default function Avond({ app }) {
             </select>
             <button className="btn primary" onClick={startVeto} disabled={basePool.length < 4}><Users size={15} /> {tr('avond.startVeto')}</button>
           </div>
+          <button type="button" className={`chip ${pitchAan ? 'on' : ''}`} style={{ marginTop: 12, fontSize: 12.5 }} aria-pressed={pitchAan}
+            title={tr('avond.pitchAanTitel')} onClick={() => app.setSettings((s) => ({ ...s, vetoPitch: !(s.vetoPitch !== false) }))}>
+            <Clapperboard size={13} style={{ verticalAlign: -2 }} /> {tr('avond.pitchAan')}
+          </button>
         </div>
         <div className="card">
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Swords size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.bracketTitel')}</h2>
