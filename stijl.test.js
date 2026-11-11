@@ -78,6 +78,11 @@ describe('ontwerp: geen AI-clichés', () => {
     expect(ticketRegels.filter((r) => !r.trim().startsWith('.kaartje'))).toEqual([]);
   });
 
+  it('geen pop-ups van de browser: meldingen en vragen gaan via lib/melding.js', () => {
+    const popup = /\b(alert|confirm|prompt)\(/;
+    expect(bron.filter(([, tekst]) => popup.test(tekst)).map(([p]) => p)).toEqual([]);
+  });
+
   it('geen paarse verlopen (de bekendste AI-kleur)', () => {
     expect(css).not.toMatch(/linear-gradient\([^)]*(#8b5cf6|#7c3aed|#6366f1|#a855f7|indigo|purple)/i);
   });

@@ -13,6 +13,7 @@ import AvondFilters from '../components/AvondFilters.jsx';
 import { filterPot, metStandaard } from '../lib/avondFilters.js';
 import { ontgrendel } from '../lib/zaalgeluid.js';
 import { leesOpslag } from '../lib/storage.js';
+import { meld } from '../lib/melding.js';
 
 function Tile({ film, meta, onClick, struck, label, index = 0, onInfo }) {
   const { t: tr } = useT();
@@ -137,11 +138,11 @@ export default function Avond({ app }) {
     if (!files?.length) return;
     try {
       const res = await parseLetterboxdFiles(Array.from(files));
-      if (!res.watchlist?.length) { alert(tr('avond.noWatchlistInFile')); return; }
+      if (!res.watchlist?.length) { meld(tr('avond.noWatchlistInFile'), { soort: 'fout' }); return; }
       const naam = files[0].name.replace(/\.(zip|csv)$/i, '');
       setFriends((prev) => [...prev.filter((fr) => fr.name !== naam), { name: naam, keys: new Set(res.watchlist.map((f) => f.key)) }]);
       setUseOverlap(true);
-    } catch (e) { alert(tr('avond.ladenMislukt', { msg: e.message })); }
+    } catch (e) { meld(tr('avond.ladenMislukt', { msg: e.message }), { soort: 'fout' }); }
   };
 
   const kiesSamen = (film, namen) => {

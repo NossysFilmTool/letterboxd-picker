@@ -10,6 +10,7 @@ import { fetchExtRatings } from '../lib/omdb.js';
 import { shortlistToCsv, downloadText } from '../lib/csv.js';
 import { useT } from '../lib/i18n.js';
 import { useLS, filmKey } from '../lib/storage.js';
+import { meld, toonTekst } from '../lib/melding.js';
 import Zoekmachine from './Zoekmachine.jsx';
 import Winner from '../components/Winner.jsx';
 import RecRow from '../components/RecRow.jsx';
@@ -320,8 +321,8 @@ export default function Verken({ app }) {
 
   const copyList = async () => {
     const text = shortlist.map((s) => `${s.title} (${s.year || '?'})`).join('\n');
-    try { await navigator.clipboard.writeText(text); alert(tr('verken.shortlistCopied')); }
-    catch { alert(text); }
+    try { await navigator.clipboard.writeText(text); meld(tr('verken.shortlistCopied')); }
+    catch { toonTekst(tr('verken.kopieerZelf'), text); }
   };
 
   const rijTitel = (rij) => {

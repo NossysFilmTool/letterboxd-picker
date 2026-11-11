@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { RefreshCw, Copy, Check, Link2, KeyRound } from 'lucide-react';
 import { useT } from '../lib/i18n.js';
 import { normaliseerCode } from '../lib/sync.js';
+import { bevestig } from '../lib/melding.js';
 
 // Setup: sync tussen je apparaten (lib/sync.js). Aanzetten maakt een geheime
 // code; op een ander apparaat vul je die in (of open je de koppellink).
@@ -39,7 +40,7 @@ export default function SyncApparaten({ app }) {
     GEEN_TOEGANG: tr('sync.geenToegang'),
   }[stand.fout] || tr('sync.fout', { msg: stand.fout }));
   const wissel = async () => {
-    if (!confirm(tr('sync.wisselVraag'))) return;
+    if (!await bevestig(tr('sync.wisselVraag'), { ja: tr('sync.wisselJa'), gevaar: true })) return;
     if (await sync.wissel()) { setGewisseld(true); setToon(true); }
   };
 
@@ -75,7 +76,7 @@ export default function SyncApparaten({ app }) {
             <button type="button" className="btn" onClick={kopieer}>{gekopieerd ? <Check size={14} /> : <Copy size={14} />} {gekopieerd ? tr('samen.gekopieerd') : tr('sync.kopieerLink')}</button>
             <button type="button" className="btn" onClick={sync.nu} disabled={bezig}><RefreshCw size={14} /> {bezig ? tr('lbLive.bezig') : tr('sync.nu')}</button>
             <button type="button" className="btn ghost" onClick={wissel} disabled={bezig}><KeyRound size={14} /> {tr('sync.wissel')}</button>
-            <button type="button" className="linkbtn" onClick={() => { if (confirm(tr('sync.ontkoppelVraag'))) sync.ontkoppel(); }}>{tr('sync.ontkoppel')}</button>
+            <button type="button" className="linkbtn" onClick={async () => { if (await bevestig(tr('sync.ontkoppelVraag'), { ja: tr('sync.ontkoppel') })) sync.ontkoppel(); }}>{tr('sync.ontkoppel')}</button>
           </div>
           {gewisseld && !fout && <p style={{ color: 'var(--dot-g)', fontSize: 13, marginTop: 10 }}>{tr('sync.gewisseld')}</p>}
           {!bezig && fout && <p style={{ color: 'var(--dot-o)', fontSize: 13, marginTop: 10 }}>{fout}</p>}

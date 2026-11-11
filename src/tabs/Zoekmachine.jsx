@@ -9,6 +9,7 @@ import { nossyScore, fmtScore } from '../lib/pick.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { fetchDetailById } from '../lib/tmdb.js';
 import { filmKey } from '../lib/storage.js';
+import { meld } from '../lib/melding.js';
 
 // Snelknoppen voor de periode; vullen de vrije van/tot-velden
 const DECADE_PRESETS = [[2020, 2029, "'20"], [2010, 2019, "'10"], [2000, 2009, "'00"], [1990, 1999, "'90"], [1980, 1989, "'80"], [1970, 1979, "'70"], [1960, 1969, "'60"], ['', 1959, '<1960']];
@@ -119,7 +120,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
   };
 
   const zoek = async (targetPage = 1) => {
-    if (!tmdbKey) { alert(tr('zoek.needKey')); return; }
+    if (!tmdbKey) { meld(tr('zoek.needKey')); return; }
     setLoading(true);
     setMaker(null);
     try {
@@ -138,7 +139,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
         setPersonen([]);
         setPage(targetPage);
       }
-    } catch (e) { alert(`Zoeken liep vast: ${e.message}`); }
+    } catch (e) { meld(tr('zoek.zoekenMislukt', { msg: e.message }), { soort: 'fout' }); }
     setLoading(false);
   };
 
@@ -148,7 +149,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
       const films = await personFilms(tmdbKey, p.id);
       setMaker({ id: p.id, naam: p.name, dept: p.dept, films });
       setRes(null); setPersonen([]);
-    } catch (e) { alert(`Filmografie laden liep vast: ${e.message}`); }
+    } catch (e) { meld(tr('zoek.filmografieMislukt', { msg: e.message }), { soort: 'fout' }); }
     setLoading(false);
   };
 

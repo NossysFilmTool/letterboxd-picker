@@ -9,6 +9,7 @@ import Sterren from './Sterren.jsx';
 import { beoordeelCijfer } from '../lib/opgeblazen.js';
 import { useFilmkleur } from '../lib/filmkleur.js';
 import Kaartje from './Kaartje.jsx';
+import { meld } from '../lib/melding.js';
 
 const fmtVotes = (n) => (n >= 1000 ? `${decimaal((n / 1000).toFixed(1))}k` : n);
 
@@ -33,7 +34,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
       if (blob) { await shareOrDownload(blob, `pick-${film.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`); onKijken?.(); }
     } catch (e) {
       console.warn('Deelkaart mislukt', e);
-      alert(tr('winner.shareFail'));
+      meld(tr('winner.shareFail'), { soort: 'fout' });
     }
     setSharing(false);
   };

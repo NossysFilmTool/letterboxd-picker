@@ -96,6 +96,19 @@ Wil je er een breken, pas dan eerst dit document aan.
   gewone tekst of een rustige knop.
 - Geen emoji als pictogram; lijnpictogrammen (lucide) of woorden.
 
+## Meldingen
+
+- Nooit een pop-up van de browser (alert, confirm): die is grijs, houdt
+  alles tegen en hoort niet in de zaal. Bewaakt door `stijl.test.js`; alles
+  loopt via `src/lib/melding.js`.
+- Een melding staat bovenin als rustig vlak en gaat na zes seconden vanzelf
+  weg. Een fout blijft twaalf seconden staan en krijgt een warme rand. Je
+  kunt ze altijd wegtikken.
+- Een vraag (iets wissen, een code vervangen) is een eigen venster met twee
+  knoppen die zeggen wat ze doen: "Wis de bibliotheek", niet "OK". Kan het
+  niet terug, dan krijgt die knop de waarschuwingskleur en staat annuleren
+  klaar. Escape of naast het venster tikken is annuleren.
+
 ## De trailers
 
 - Voor een veto-ronde krijgt elke film eerst een trailer (`Pitch.jsx`), zoals

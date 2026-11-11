@@ -5,6 +5,7 @@ import { demoWatchlist } from '../lib/extra.js';
 import { useT } from '../lib/i18n.js';
 import { PROXY_URL } from '../lib/tmdb.js';
 import { importDiff } from '../lib/csv.js';
+import { meld } from '../lib/melding.js';
 
 export default function ImportPanel({ app, hero }) {
   const { t: tr } = useT();
@@ -36,7 +37,7 @@ export default function ImportPanel({ app, hero }) {
         found.push(`${Object.keys(res.ratings.map).length} ratings`);
       }
       if (!found.length) {
-        alert(tr('imp.noFiles'));
+        meld(tr('imp.noFiles'), { soort: 'fout' });
       } else {
         if (res.watchlist?.length) app.setDemoMode(false); // echte import vervangt de demo
         if (res.diary?.length) app.setDiary(res.diary);
@@ -45,7 +46,7 @@ export default function ImportPanel({ app, hero }) {
         setReport({ ...diff, lijsten: res.lists?.length || 0 });
       }
     } catch (e) {
-      alert(tr('imp.mislukt', { msg: e.message }));
+      meld(tr('imp.mislukt', { msg: e.message }), { soort: 'fout' });
     }
     setBusy(false);
   };

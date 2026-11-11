@@ -2115,6 +2115,78 @@ describe('V2 smoke', () => {
     expect(document.querySelector('.scores-preview')).toBeTruthy();
   });
 
+  it('meldingen: bovenin, weg met het kruisje of vanzelf, fouten blijven langer', async () => {
+    const { meld } = await import('./src/lib/melding.js');
+    render(<App />);
+    act(() => { meld('Shortlist gekopieerd.'); });
+    const m = document.querySelector('.melding');
+    expect(m.textContent).toContain('Shortlist gekopieerd.');
+    expect(m.closest('[role="status"]')).toBeTruthy();
+    fireEvent.click(within(m).getByRole('button', { name: 'Sluiten' }));
+    expect(document.querySelector('.melding')).toBeNull();
+    // dezelfde melding twee keer staat er maar één keer
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => { meld('Nog eens.'); meld('Nog eens.'); meld('Mis.', { soort: 'fout' }); });
+      expect(document.querySelectorAll('.melding').length).toBe(2);
+      expect(document.querySelector('.melding.fout').textContent).toContain('Mis.');
+      act(() => { vi.advanceTimersByTime(6500); });
+      expect(document.body.textContent).not.toContain('Nog eens.');
+      expect(document.body.textContent).toContain('Mis.');
+      act(() => { vi.advanceTimersByTime(6000); });
+      expect(document.querySelector('.melding')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('vraagvenster: ja, annuleren met Escape, en bij gevaar staat annuleren klaar', async () => {
+    const { bevestig, toonTekst } = await import('./src/lib/melding.js');
+    render(<App />);
+    let antwoord;
+    act(() => { bevestig('Echt wissen?', { ja: 'Wis het', gevaar: true }).then((a) => { antwoord = a; }); });
+    let venster = screen.getByRole('alertdialog', { name: 'Echt wissen?' });
+    expect(document.activeElement.textContent).toBe('Annuleren');
+    expect(within(venster).getByRole('button', { name: 'Wis het' }).className).toContain('gevaar');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(antwoord).toBe(false));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    act(() => { bevestig('Doorgaan?', { ja: 'Ga door' }).then((a) => { antwoord = a; }); });
+    fireEvent.click(screen.getByRole('button', { name: 'Ga door' }));
+    await waitFor(() => expect(antwoord).toBe(true));
+    // tekst om zelf te kopiëren, als het klembord niet mag
+    act(() => { toonTekst('Kopieer dit zelf.', 'Aftersun (2022)\nClose (2022)'); });
+    venster = screen.getByRole('alertdialog');
+    expect(within(venster).getByRole('textbox').value).toBe('Aftersun (2022)\nClose (2022)');
+    fireEvent.click(within(venster).getByRole('button', { name: 'Sluiten' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('setup: wissen vraagt het in een eigen venster; annuleren laat alles staan', async () => {
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+    fireEvent.click(screen.getByText('Terug naar start (wis bibliotheek)'));
+    const venster = screen.getByRole('alertdialog');
+    expect(venster.textContent).toContain('Watchlist, filmdata, ratings en geschiedenis wissen?');
+    fireEvent.click(within(venster).getByRole('button', { name: 'Annuleren' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(JSON.parse(localStorage.getItem('nossyV2.watchlist')).length).toBe(6);
+    // en ja wist de bibliotheek
+    fireEvent.click(screen.getByText('Terug naar start (wis bibliotheek)'));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Wis de bibliotheek' }));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('nossyV2.watchlist')).length).toBe(0));
+  });
+
+  it('import zonder bruikbare bestanden: een melding in de zaal, geen pop-up', async () => {
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+    render(<App />);
+    const invoer = document.querySelector('input[type="file"]');
+    fireEvent.change(invoer, { target: { files: [new File(['hallo'], 'notities.txt')] } });
+    await waitFor(() => expect(document.querySelector('.melding.fout')).toBeTruthy());
+    expect(document.querySelector('.melding.fout').textContent).toContain('Geen bruikbare bestanden');
+  });
+
   it('bieb: gezien-scope toont kijkgeschiedenis met jouw rating', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
@@ -3776,8 +3848,6 @@ describe('V2 smoke', () => {
       }
       return { ok: true, status: 200, json: async () => ({}) };
     };
-    const echtConfirm = window.confirm;
-    window.confirm = () => true;
     try {
       localStorage.clear();
       localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
@@ -3787,6 +3857,10 @@ describe('V2 smoke', () => {
       fireEvent.click(screen.getAllByLabelText('Setup')[0]);
       await waitFor(() => expect(screen.getByText(/Gesynchroniseerd/)).toBeTruthy(), { timeout: 6000 });
       fireEvent.click(screen.getByText('Wissel code'));
+      // de vraag staat in een eigen venster, niet in een pop-up van de browser
+      const venster = await screen.findByRole('alertdialog');
+      expect(venster.textContent).toContain('Een nieuwe code maken?');
+      fireEvent.click(within(venster).getByRole('button', { name: 'Maak een nieuwe code' }));
       expect(await screen.findByText(/Nieuwe code gemaakt/, {}, { timeout: 6000 })).toBeTruthy();
       const nieuw = JSON.parse(localStorage.getItem('nossyV2.sync')).code;
       expect(nieuw).not.toBe(oud);
@@ -3797,7 +3871,6 @@ describe('V2 smoke', () => {
       expect(posts.every((p) => /^[a-f0-9]{64}$/.test(p.token))).toBe(true);
     } finally {
       delete global.fetch;
-      window.confirm = echtConfirm;
     }
   });
 

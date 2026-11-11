@@ -973,3 +973,25 @@ a.prov-link:hover { border-color: var(--paper); }
   .kassa-doos-raster > :nth-child(n+3) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .kassa-la, .kassa-la-achter { animation: none; } }
+
+/* Meldingen en vragen (Meldingen.jsx), in plaats van de pop-ups van de
+   browser. Een melding staat bovenin, een rustig vlak zonder gekleurde
+   streep; een fout krijgt alleen een warme rand. Een vraag is een venster
+   met twee knoppen, nooit grijs en nooit van de browser. */
+.meldingen { position: fixed; z-index: 190; top: calc(14px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.melding { pointer-events: auto; display: flex; align-items: flex-start; gap: 10px; padding: 12px 10px 12px 16px; background: var(--char-2); border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--paper); font-size: 14px; line-height: 1.45; animation: melding-in 0.25s ease-out both; }
+.melding p { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.melding.fout { border-color: rgba(217, 154, 91, 0.6); }
+.melding-sluit { flex-shrink: 0; width: 28px; height: 28px; margin-top: -4px; display: grid; place-items: center; background: none; border: none; color: var(--fog); cursor: pointer; }
+.melding-sluit:hover { color: var(--paper); }
+@keyframes melding-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.zaal-venster-achter { position: fixed; inset: 0; z-index: 195; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.62); animation: ko-in 0.2s ease-out both; }
+.zaal-venster { width: min(440px, 100%); display: flex; flex-direction: column; gap: 16px; padding: 22px 20px 18px; background: var(--char); border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--paper); }
+.zaal-venster-tekst { font-size: 15.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.zaal-venster-kopie { resize: vertical; font-size: 13.5px; line-height: 1.5; }
+.zaal-venster-knoppen { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.zaal-venster-knoppen .btn { min-height: 44px; }
+/* Iets dat niet terug kan: de waarschuwingskleur, geen tweede hoofdknop */
+.btn.gevaar { border-color: rgba(217, 154, 91, 0.7); color: var(--dot-o); }
+.btn.gevaar:hover { background: rgba(217, 154, 91, 0.1); }
+@media (prefers-reduced-motion: reduce) { .melding, .zaal-venster-achter { animation: none; } }

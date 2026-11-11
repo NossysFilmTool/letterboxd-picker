@@ -6,6 +6,8 @@ import AvondVraag from './components/AvondVraag.jsx';
 import Afgescheurd from './components/Afgescheurd.jsx';
 import Ontdekt from './components/Ontdekt.jsx';
 import SimilarOverlay from './components/SimilarOverlay.jsx';
+import Meldingen from './components/Meldingen.jsx';
+import { meld } from './lib/melding.js';
 import { buildTaste } from './lib/taste.js';
 import Pick from './tabs/Pick.jsx';
 import Bieb from './tabs/Bieb.jsx';
@@ -458,8 +460,8 @@ export default function App() {
         () => stopRef.current,
       );
     } catch (e) {
-      if (e.message === 'KEY_INVALID') alert(tr('app.tmdbKeyRejected'));
-      else alert(tr('app.enrichFailed', { msg: e.message }));
+      if (e.message === 'KEY_INVALID') meld(tr('app.tmdbKeyRejected'), { soort: 'fout' });
+      else meld(tr('app.enrichFailed', { msg: e.message }), { soort: 'fout' });
     }
     setEnrich((e) => ({ ...e, running: false }));
     if (omdbKeys.length) startExtEnrich(films);
@@ -502,7 +504,9 @@ export default function App() {
               continue;
             }
             stopRef.current = true;
-            alert(tr(e.message === 'LIMIT' ? 'app.omdbStopLimit' : 'app.omdbStopInvalid', { count: queue.length + 1 }));
+            // De daglimiet is gewoon nieuws; een afgekeurde sleutel is een fout
+            meld(tr(e.message === 'LIMIT' ? 'app.omdbStopLimit' : 'app.omdbStopInvalid', { count: queue.length + 1 }),
+              { soort: e.message === 'LIMIT' ? 'info' : 'fout' });
             return;
           }
           lastError = e.message || String(e); // zichtbaar maken i.p.v. wegslikken
@@ -515,7 +519,7 @@ export default function App() {
     await Promise.all(Array.from({ length: 3 }, worker));
     setExtEnrich((s) => ({ ...s, running: false, ok: gelukt, lastError }));
     if (gelukt === 0 && done > 0) {
-      alert(tr('app.omdbNoScores', { done, err: lastError ? tr('app.omdbLastError', { msg: lastError }) : '' }));
+      meld(tr('app.omdbNoScores', { done, err: lastError ? tr('app.omdbLastError', { msg: lastError }) : '' }), { soort: 'fout' });
     }
   };
 
@@ -742,6 +746,7 @@ export default function App() {
 
   return (
     <>
+    <Meldingen />
     {similarSeed && (
       <SimilarOverlay seed={similarSeed.film} seedMeta={similarSeed.meta || meta[similarSeed.film.key] || {}}
         app={app} onClose={() => setSimilarSeed(null)} />

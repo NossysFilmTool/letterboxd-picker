@@ -14,6 +14,7 @@ import ScoresPreview from '../components/ScoresPreview.jsx';
 import MatchPicker from '../components/MatchPicker.jsx';
 import LetterboxdLive from '../components/LetterboxdLive.jsx';
 import SyncApparaten from '../components/SyncApparaten.jsx';
+import { meld, bevestig } from '../lib/melding.js';
 
 export default function Instellingen({ app }) {
   const { t: tr, lang } = useT();
@@ -44,7 +45,7 @@ export default function Instellingen({ app }) {
   };
 
   const wipe = async () => {
-    if (!confirm(tr('setup.confirmClearAll'))) return;
+    if (!await bevestig(tr('setup.confirmClearAll'), { ja: tr('setup.wipeAll'), gevaar: true })) return;
     await clearAll();
     location.reload();
   };
@@ -55,8 +56,16 @@ export default function Instellingen({ app }) {
       importAll(await files[0].text());
       location.reload();
     } catch (e) {
-      alert(e.message === 'INVALID_BACKUP' ? tr('setup.invalidBackup') : e.message);
+      meld(e.message === 'INVALID_BACKUP' ? tr('setup.invalidBackup') : e.message, { soort: 'fout' });
     }
+  };
+  const verwijderProfiel = async (naam) => {
+    if (!await bevestig(tr('setup.deleteProfileConfirm', { name: naam }), { ja: tr('setup.deleteProfileJa'), gevaar: true })) return;
+    deleteProfile(naam);
+    if (currentProfile() !== naam) location.reload();
+  };
+  const terugNaarStart = async () => {
+    if (await bevestig(tr('setup.confirmClearData'), { ja: tr('setup.wisBieb'), gevaar: true })) app.resetLibrary();
   };
 
   return (
@@ -368,13 +377,13 @@ export default function Instellingen({ app }) {
             <span key={naam} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               <button className={`chip ${currentProfile() === naam ? 'on-g' : ''}`} onClick={() => currentProfile() !== naam && switchProfile(naam)}>{naam}</button>
               <button className="btn ghost" style={{ padding: '2px 7px', fontSize: 12 }} aria-label={tr('setup.deleteProfileAria', { name: naam })}
-                onClick={() => { if (confirm(tr('setup.deleteProfileConfirm', { name: naam }))) { deleteProfile(naam); if (currentProfile() !== naam) location.reload(); } }}>✕</button>
+                onClick={() => verwijderProfiel(naam)}>✕</button>
             </span>
           ))}
           <input className="field" style={{ maxWidth: 140 }} placeholder={tr('setup.profileNamePlaceholder')} value={profielNaam}
             onChange={(e) => setProfielNaam(e.target.value)} aria-label={tr('setup.profiles')} />
           <button className="btn" onClick={() => {
-            if (!addProfile(profielNaam)) { alert(tr('setup.profileNameInvalid')); return; }
+            if (!addProfile(profielNaam)) { meld(tr('setup.profileNameInvalid'), { soort: 'fout' }); return; }
             switchProfile(profielNaam.trim());
           }}>{tr('setup.addProfile')}</button>
         </div>
@@ -393,8 +402,8 @@ export default function Instellingen({ app }) {
           </button>
           <button className="btn" onClick={() => fileRef.current?.click()}><Upload size={15} /> {tr('setup.restoreBackup')}</button>
           <input ref={fileRef} type="file" accept=".json" hidden onChange={(e) => { restore(e.target.files); e.target.value = ''; }} />
-          <button className="btn" onClick={() => { if (confirm(tr('setup.confirmClearData'))) app.resetLibrary(); }}>
-            <Trash2 size={15} /> Terug naar start (wis bibliotheek)
+          <button className="btn" onClick={terugNaarStart}>
+            <Trash2 size={15} /> {tr('setup.terugNaarStart')}
           </button>
           <button className="btn" style={{ borderColor: 'var(--line-strong)', color: 'var(--dot-o)' }} onClick={wipe}>
             <Trash2 size={15} /> {tr('setup.wipeAll')}
