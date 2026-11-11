@@ -44,6 +44,25 @@ optional features use a small server; see Privacy for exactly what they send.
 - Fully bilingual (Dutch/English), streaming region selectable, installable
   as an app, JSON backup and restore.
 
+## New in version 5
+
+Version 5 turns the tool into a cinema around your watchlist.
+
+- **The cinema**: a dark design where the posters and the film on screen
+  carry the page.
+- **The box office and your tickets**: every pick prints a real cinema
+  ticket, and what you really watched goes into your ticket box, with your
+  film year to share.
+- **For you**: recommendations from beyond your list, in rows with a
+  reason, tuned on your own ratings.
+- **Movie night**: trailers with sound before the veto, and one card for
+  what goes on the table.
+- **For us, Letterboxd live and sync**: choose together on everyone's
+  taste, see your diary come in by itself, keep your devices in step.
+- **Calm messages**: no more browser pop-ups.
+- **A premiere**: the first time you open version 5, your ticket is torn at
+  the door and a trailer of your own time with the tool plays.
+
 ## Getting started
 
 1. Export your Letterboxd data: Letterboxd → Settings → Data → Export.
@@ -113,6 +132,11 @@ of gewogen op score en je eigen smaakprofiel. Alles draait in je browser en
 je gegevens blijven op je apparaat. Een paar functies gaan via een kleine
 server (Letterboxd live, Voor ons, sync); onder Privacy staat precies wat ze
 versturen. Sync versleutelt alles eerst op je eigen apparaat.
+
+Versie 5 maakt er een bioscoop van: een kassa met echte kaartjes, een
+kaartjesdoos voor wat je echt keek, Voor jou, trailers bij de filmavond,
+Voor ons, Letterboxd live en sync. Wie versie 5 voor het eerst opent,
+krijgt een première.
 
 Snel starten: exporteer je data op Letterboxd (Settings → Data → Export) en
 sleep de ZIP de tool in. Posters, scores en streaminginfo werken meteen.

@@ -10,12 +10,12 @@ import { IMG } from './tmdb.js';
 export const PREMIERE_VERSIE = '5.0';
 export const PREMIERE_KLEUR = '#6b2a26';
 
-// Vanzelf tonen? Alleen in een uitgebrachte versie (geen beta, en niet in
-// ontwikkeling), één keer per persoon (gezien staat in de instellingen en
-// reist mee met sync), niet in de demo, en niet op een apparaat dat leeg
-// begon: wie op 5 instapt, heeft geen première te vieren.
+// Vanzelf tonen? Alleen in een uitgebrachte versie (zoals 5.0.0: geen beta,
+// niet in ontwikkeling of in de tests), één keer per persoon (gezien staat in
+// de instellingen en reist mee met sync), niet in de demo, en niet op een
+// apparaat dat leeg begon: wie op 5 instapt, heeft geen première te vieren.
 export function premiereAutomatisch({ versie, gezien, nieuwHier, watchlist, demoMode }) {
-  if (!versie || versie.includes('-')) return false;
+  if (!/^\d+\.\d+\.\d+$/.test(versie || '')) return false;
   return !gezien && !nieuwHier && watchlist > 0 && !demoMode;
 }
 

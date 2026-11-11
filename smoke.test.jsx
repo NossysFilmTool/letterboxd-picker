@@ -184,6 +184,9 @@ describe('V2 smoke', () => {
     expect(premiereAutomatisch({ ...basis, versie: '5.0.1' })).toBe(true);
     expect(premiereAutomatisch({ ...basis, versie: '5.0.0-beta.38' })).toBe(false);
     expect(premiereAutomatisch({ ...basis, versie: null })).toBe(false);
+    expect(premiereAutomatisch({ ...basis, versie: 'dev' })).toBe(false);
+    // de tests zelf draaien als 'dev', zodat de première niet over elk scherm opent
+    expect(typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev').toBe('dev');
     expect(premiereAutomatisch({ ...basis, gezien: '5.0' })).toBe(false);
     expect(premiereAutomatisch({ ...basis, nieuwHier: true })).toBe(false);
     expect(premiereAutomatisch({ ...basis, watchlist: 0 })).toBe(false);

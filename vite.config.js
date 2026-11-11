@@ -7,7 +7,9 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 
 export default defineConfig({
   base: './',
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  // In de tests heet de versie 'dev': dan opent de première niet vanzelf
+  // over elk scherm heen (lib/premiere.js)
+  define: { __APP_VERSION__: JSON.stringify(process.env.VITEST ? 'dev' : pkg.version) },
   plugins: [react(), viteSingleFile()],
   build: { target: 'es2018', cssCodeSplit: false, assetsInlineLimit: 100000000 },
 });
