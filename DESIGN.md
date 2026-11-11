@@ -139,6 +139,25 @@ Wil je er een breken, pas dan eerst dit document aan.
   te zetten op de kassa ("Eerst de trailer"). Het kaartje bestaat al zodra
   het aftellen klaar is, ook als je de trailer wegtikt.
 
+## De première
+
+- Wie versie 5 voor het eerst opent en de tool al gebruikte, krijgt één
+  keer een première (`Premiere.jsx`, `src/lib/premiere.js`). Niet in een
+  beta, niet in de demo, en niet op een apparaat dat leeg begon: wie op 5
+  instapt, heeft niets te vieren. Gezien staat in de instellingen en reist
+  mee met sync, dus je ziet hem niet op elk apparaat opnieuw.
+- Eerst je kaartje bij de deur. Het is echt: de aanvang van nu, de datum,
+  hoeveel kaartjes er in je doos zitten en hoeveel films er op je lijst
+  staan. Tik erop en de strook scheurt af. Die tik zet ook het geluid aan,
+  want een browser wil eerst een tik.
+- Dan gaat het licht uit en volgt een trailer met de bestaande
+  trailermachine, met jouw tijd met Nossy als film: hoe vaak je koos en
+  echt keek, "Met in de hoofdrol" je watchlist, je filmjaar, de titel die
+  inslaat, en eronder wat er nieuw is met je eigen getallen. De beelden
+  komen uit je eigen kaartjes. Een zin zonder gegevens valt weg.
+- Overslaan kan altijd. Met "beperk beweging" ga je van het kaartje meteen
+  naar het eindbeeld, zonder geluid. Bij Setup kun je hem nog eens zien.
+
 ## Geluid
 
 - Alleen bij de trailers, en alleen gemaakt in de browser (Web Audio, geen

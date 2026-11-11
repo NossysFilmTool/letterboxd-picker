@@ -177,6 +177,93 @@ describe('V2 smoke', () => {
     }
   });
 
+  it('première: vanzelf alleen in een echte versie, één keer, en niet voor wie op 5 instapt', async () => {
+    const { premiereAutomatisch } = await import('./src/lib/premiere.js');
+    const basis = { versie: '5.0.0', gezien: undefined, nieuwHier: false, watchlist: 12, demoMode: false };
+    expect(premiereAutomatisch(basis)).toBe(true);
+    expect(premiereAutomatisch({ ...basis, versie: '5.0.1' })).toBe(true);
+    expect(premiereAutomatisch({ ...basis, versie: '5.0.0-beta.38' })).toBe(false);
+    expect(premiereAutomatisch({ ...basis, versie: null })).toBe(false);
+    expect(premiereAutomatisch({ ...basis, gezien: '5.0' })).toBe(false);
+    expect(premiereAutomatisch({ ...basis, nieuwHier: true })).toBe(false);
+    expect(premiereAutomatisch({ ...basis, watchlist: 0 })).toBe(false);
+    expect(premiereAutomatisch({ ...basis, demoMode: true })).toBe(false);
+    // een apparaat dat leeg begint, begint op 5
+    localStorage.clear();
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+    render(<App />);
+    expect(JSON.parse(localStorage.getItem('nossyV2.nieuwOp5'))).toBe(true);
+  });
+
+  it('première: de trailer komt uit je eigen gegevens, en wat er niet is valt weg', async () => {
+    const { premiereInhoud } = await import('./src/lib/premiere.js');
+    const { t, setLang } = await import('./src/lib/i18n.js');
+    setLang('nl');
+    const nu = new Date(2026, 10, 11, 20, 0);
+    const watchlist = [{ key: 'a|1' }, { key: 'b|2' }, { key: 'c|3' }];
+    const meta = { 'a|1': { flat: ['MUBI'], backdrop: '/a.jpg' }, 'b|2': { flat: [], backdrop: '/b.jpg' }, 'c|3': { flat: ['Netflix'] }, 'x|9': { backdrop: '/x.jpg' } };
+    const kaartjesStand = [
+      { id: '1', key: 'x|9', name: 'Aftersun', bron: 'pick', status: 'gekeken', gekekenOp: '2026-11-02', sterren: 5, namen: ['Ik', 'Sanne'] },
+      { id: '2', key: 'y|8', name: 'Close', bron: 'avond', status: 'gekeken', gekekenOp: '2026-10-02', sterren: 4, namen: ['Ik', 'Sanne'] },
+      { id: '3', key: 'z|7', name: 'Stalker', bron: 'pick', status: 'open' },
+    ];
+    const inh = premiereInhoud({ watchlist, kaartjesStand, meta, tr: t, nu });
+    expect(inh.slogan).toBe('3 keer koos je een film. 2 keer keek je hem echt.');
+    expect(inh.van).toBe('3 films van je watchlist');
+    expect(inh.metKop).toBe('Je filmjaar 2026');
+    expect(inh.met).toEqual(['2 kaartjes', 'Hoogst: Aftersun', 'Het vaakst met Sanne']);
+    // het hoofdbeeld is je hoogst gewaardeerde kaartje, de shots komen daarna
+    expect(inh.beeld).toContain('/x.jpg');
+    expect(inh.shots.join(' ')).not.toContain('/x.jpg');
+    expect(inh.cijfers.map((c) => [c.waarde, c.label])).toEqual([[2, 'in de doos'], [3, 'op je lijst'], [2, 'nu te streamen']]);
+    expect(premiereInhoud({ watchlist, kaartjesStand, meta, diensten: ['MUBI'], tr: t, nu }).cijfers[2]).toMatchObject({ waarde: 1, label: 'nu op je diensten' });
+    // zonder kaartjes: geen shot met tekst en geen filmjaar, wel je watchlist
+    const kaal = premiereInhoud({ watchlist, kaartjesStand: [], meta: {}, tr: t, nu });
+    expect(kaal.slogan).toBeNull();
+    expect(kaal.met).toEqual([]);
+    expect(kaal.beeld).toBeNull();
+    expect(kaal.cijfers.map((c) => c.label)).toEqual(['op je lijst']);
+  });
+
+  it('première: het kaartje bij de deur, dan de trailer, en daarna onthouden', async () => {
+    const mm = window.matchMedia;
+    window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
+    window.history.replaceState(null, '', '/?premiere');
+    try {
+      render(<App />);
+      const deur = await screen.findByRole('dialog', { name: 'De première van Nossy 5' }, { timeout: 3000 });
+      expect(location.search).toBe('');
+      expect(deur.textContent).toContain('PREMIÈRE');
+      expect(deur.textContent).toContain('TOEGANG 1 PERSOON');
+      expect(deur.textContent).toContain('Op je lijst');
+      fireEvent.click(within(deur).getByRole('button', { name: 'Scheur je kaartje af en ga naar binnen' }));
+      // met beperk beweging meteen het eindbeeld, zonder voorprogramma
+      const trailer = await screen.findByRole('dialog', { name: 'De première van Nossy 5' });
+      expect(trailer.classList.contains('pitch')).toBe(true);
+      expect(trailer.textContent).toContain('Een tool van Nossy');
+      expect(trailer.textContent).toContain('Nossy 5');
+      expect(trailer.textContent).toContain('op je lijst');
+      expect(trailer.textContent).not.toContain('veto');
+      fireEvent.click(within(trailer).getByRole('button', { name: /Naar de kassa/ }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(JSON.parse(localStorage.getItem('nossyV2.settings')).premiere).toBe('5.0');
+      expect(document.querySelector('.kassa')).toBeTruthy();
+    } finally {
+      window.matchMedia = mm;
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
+  it('première: bij Setup nog eens te zien, en overslaan kan altijd', () => {
+    render(<App />);
+    fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+    fireEvent.click(screen.getByText('Bekijk de première van 5.0 nog eens'));
+    const deur = screen.getByRole('dialog', { name: 'De première van Nossy 5' });
+    fireEvent.click(within(deur).getByText('Overslaan'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('nossyV2.settings')).premiere).toBe('5.0');
+  });
+
   it('kassa: laatst in de doos staat onder de kassa en opent de doos', () => {
     const gisteren = new Date(Date.now() - 24 * 3600e3).toISOString();
     localStorage.setItem('nossyV2.kaartjes', JSON.stringify([

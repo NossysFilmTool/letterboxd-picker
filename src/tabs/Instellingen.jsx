@@ -413,6 +413,11 @@ export default function Instellingen({ app }) {
 
       <p style={{ color: 'var(--fog-dim)', fontSize: 12.5 }}>
         {tr('setup.versionLine', { v: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev' })}
+        {app.watchlist.length > 0 && !app.demoMode && (
+          <>
+            {' '}<button type="button" className="linkbtn" style={{ fontSize: 12.5, color: 'var(--fog)' }} onClick={app.openPremiere}>{tr('premiere.nogEens')}</button>
+          </>
+        )}
         <br />
         {tr('setup.footer')}
       </p>

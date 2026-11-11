@@ -83,39 +83,61 @@ function useStills(films, meta, sleutel) {
   return { stillsVan: (id) => (id && stillsGeheugen.get(id)) || null, versie };
 }
 
+// Wat er in een trailer staat. Standaard uit de filmdata; een ander
+// voorprogramma (de première, lib/premiere.js) geeft zijn eigen inhoud mee
+// als film.inhoud, in dezelfde vorm.
+function inhoudVan(film, meta, tr) {
+  if (film.inhoud) return film.inhoud;
+  return {
+    slogan: meta?.tagline || null,
+    titelSlogan: meta?.tagline || null,
+    vanKop: tr('avond.pitchVanKop'),
+    van: meta?.director || null,
+    metKop: tr('avond.pitchMetKop'),
+    met: (meta?.cast || []).slice(0, 3),
+    paneelVan: meta?.director ? tr('avond.pitchVan', { naam: meta.director }) : null,
+    paneelMeta: [film.year || null, meta?.runtime ? `${meta.runtime} min` : null, meta?.genres?.length ? meta.genres.slice(0, 3).join(', ') : null].filter(Boolean),
+    paneelMet: meta?.cast?.length ? tr('avond.pitchMet', { namen: meta.cast.slice(0, 3).join(', ') }) : null,
+    verhaal: logline(meta?.plot),
+    geenVerhaal: meta ? tr('avond.pitchGeenVerhaal') : tr('avond.pitchLaden'),
+    cijfers: cijfersVan(meta, tr),
+    waar: meta?.flat?.[0] || null,
+    beeld: meta?.backdrop ? IMG(meta.backdrop, 'w1280') : null,
+    gloed: meta?.backdrop ? IMG(meta.backdrop, 'w300') : null,
+    poster: meta?.poster ? IMG(meta.poster, 'w342') : null,
+    shots: null,
+  };
+}
+
 // Een akte van de trailer: alleen in beeld tussen --start en --start + --len
-function Akte({ akte, meta, beeld, stijl, onStart }) {
-  const { t: tr } = useT();
+function Akte({ akte, inh, beeld, stijl, onStart }) {
   const { soort } = akte;
   const metBeeld = soort !== 'van' && !!beeld;
   return (
     <div className={`akte venster soort-${soort}${metBeeld ? ' met-beeld' : ''}`} style={stijl} onAnimationStart={onStart}>
       {metBeeld && <img className="akte-beeld" src={beeld} alt="" style={{ '--o': soort === 'met' ? '76% 52%' : '24% 38%' }} />}
-      {soort === 'slogan' && <p className="akte-slogan">{meta.tagline}</p>}
+      {soort === 'slogan' && <p className="akte-slogan">{inh.slogan}</p>}
       {soort === 'van' && (
-        <p className="akte-kaart"><span>{tr('avond.pitchVanKop')}</span><strong>{meta.director}</strong></p>
+        <p className="akte-kaart"><span>{inh.vanKop}</span><strong>{inh.van}</strong></p>
       )}
       {soort === 'met' && (
         <p className="akte-kaart akte-namen">
-          <span>{tr('avond.pitchMetKop')}</span>
-          {meta.cast.slice(0, 3).map((n) => <strong key={n}>{n}</strong>)}
+          <span>{inh.metKop}</span>
+          {inh.met.slice(0, 3).map((n) => <strong key={n}>{n}</strong>)}
         </p>
       )}
     </div>
   );
 }
 
-function Trailer({ film, meta, plan, sprong, stil, stills: stillsNu, eerste, onPaneel }) {
+function Trailer({ film, inh, plan, sprong, stil, stills: stillsNu, eerste, onPaneel }) {
   const { t: tr } = useT();
   // De shots liggen vast bij de eerste snit: geen ander beeld midden in een akte
   const [stills] = useState(stillsNu);
-  const verhaal = logline(meta?.plot);
-  const woorden = verhaal ? verhaal.split(' ') : [];
-  const cijfers = cijfersVan(meta, tr);
-  const waar = meta?.flat?.[0] || null;
+  const woorden = inh.verhaal ? inh.verhaal.split(' ') : [];
+  const { cijfers, waar, beeld } = inh;
   const ms = (x) => `${x - sprong}ms`;
-  const beeld = meta?.backdrop ? IMG(meta.backdrop, 'w1280') : null;
-  const shot = (j) => (stills?.[j] ? IMG(stills[j], 'w780') : beeld);
+  const shot = (j) => inh.shots?.[j] || (stills?.[j] ? IMG(stills[j], 'w780') : beeld);
   // Overgeslagen of stil: meteen het eindbeeld
   const akten = stil || sprong > 0 ? [] : plan.akten;
   const geluidBij = (soort) => (e) => {
@@ -127,7 +149,7 @@ function Trailer({ film, meta, plan, sprong, stil, stills: stillsNu, eerste, onP
     <div className={`pitch-scene${sprong ? '' : ' snit'}${eerste && !sprong ? ' eerste' : ''}`}
       style={{ '--nul': ms(0), '--titel': ms(plan.titel), '--paneel': ms(plan.paneel) }}>
       <div className="pitch-gloed" aria-hidden="true"
-        style={meta?.backdrop ? { backgroundImage: `url(${IMG(meta.backdrop, 'w300')})` } : undefined} />
+        style={inh.gloed ? { backgroundImage: `url(${inh.gloed})` } : undefined} />
       {akten.filter((a) => a.soort === 'van').map((a) => (
         <div key={a.start} className="pitch-donker venster" aria-hidden="true" style={{ '--start': ms(a.start), '--len': `${a.duur}ms` }} />
       ))}
@@ -141,18 +163,18 @@ function Trailer({ film, meta, plan, sprong, stil, stills: stillsNu, eerste, onP
                 ? <img src={beeld} alt="" />
                 : (
                   <div className="pitch-doek-leeg">
-                    {meta?.poster ? <img src={IMG(meta.poster, 'w342')} alt="" /> : <Clapperboard size={34} strokeWidth={1.3} aria-hidden="true" />}
+                    {inh.poster ? <img src={inh.poster} alt="" /> : <Clapperboard size={34} strokeWidth={1.3} aria-hidden="true" />}
                   </div>
                 )}
             </div>
             <div className="pitch-titelkaart">
-              {meta?.tagline && <p className="pitch-slogan">{meta.tagline}</p>}
+              {inh.titelSlogan && <p className="pitch-slogan">{inh.titelSlogan}</p>}
               <h2 className="pitch-titel"><span>{film.name}</span></h2>
             </div>
             {akten.length > 0 && (
               <div className="pitch-akten venster" aria-hidden="true" style={{ '--start': ms(0), '--len': `${plan.titel}ms` }}>
                 {akten.map((a, j) => (
-                  <Akte key={a.start} akte={a} meta={meta} beeld={shot(a.soort === 'met' ? 1 : 0)} onStart={geluidBij(a.soort)}
+                  <Akte key={a.start} akte={a} inh={inh} beeld={shot(a.soort === 'met' ? 1 : 0)} onStart={geluidBij(a.soort)}
                     stijl={{ '--start': ms(a.start), '--len': `${a.duur}ms`, zIndex: j + 1 }} />
                 ))}
               </div>
@@ -168,17 +190,15 @@ function Trailer({ film, meta, plan, sprong, stil, stills: stillsNu, eerste, onP
       </div>
       <div className="pitch-kaart" onAnimationStart={(e) => { if (e.target === e.currentTarget) onPaneel(); }}>
         <div className="pitch-kop">
-          {meta?.poster && meta?.backdrop && (
-            <div className="pitch-poster" aria-hidden="true"><img src={IMG(meta.poster, 'w342')} alt="" /></div>
+          {inh.poster && inh.beeld && (
+            <div className="pitch-poster" aria-hidden="true"><img src={inh.poster} alt="" /></div>
           )}
           <div className="pitch-info">
-            {meta?.director && <p className="pitch-van">{tr('avond.pitchVan', { naam: meta.director })}</p>}
+            {inh.paneelVan && <p className="pitch-van">{inh.paneelVan}</p>}
             <p className="pitch-meta meta">
-              {film.year ? <span>{film.year}</span> : null}
-              {meta?.runtime ? <span>{meta.runtime} min</span> : null}
-              {meta?.genres?.length ? <span>{meta.genres.slice(0, 3).join(', ')}</span> : null}
+              {inh.paneelMeta.map((d) => <span key={d}>{d}</span>)}
             </p>
-            {meta?.cast?.length ? <p className="pitch-met">{tr('avond.pitchMet', { namen: meta.cast.slice(0, 3).join(', ') })}</p> : null}
+            {inh.paneelMet ? <p className="pitch-met">{inh.paneelMet}</p> : null}
           </div>
         </div>
         <p className="pitch-verhaal">
@@ -186,7 +206,7 @@ function Trailer({ film, meta, plan, sprong, stil, stills: stillsNu, eerste, onP
             ? woorden.map((w, j) => (
               <Fragment key={j}><span className="w" style={{ '--w': j }}>{w}</span>{j < woorden.length - 1 ? ' ' : ''}</Fragment>
             ))
-            : <span className="pitch-geen">{meta ? tr('avond.pitchGeenVerhaal') : tr('avond.pitchLaden')}</span>}
+            : <span className="pitch-geen">{inh.geenVerhaal}</span>}
         </p>
         {(cijfers.length > 0 || waar) && (
           <div className="pitch-cijfers">
@@ -244,8 +264,10 @@ export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, o
   const { i, sprong } = stand;
   const film = films[i];
   const m = film ? meta[film.key] : null;
-  const kleur = useFilmkleur(m?.poster);
-  const plan = trailerPlan({ slogan: m?.tagline, regie: m?.director, cast: m?.cast, tekst: logline(m?.plot) });
+  const posterKleur = useFilmkleur(m?.poster);
+  const inh = film ? inhoudVan(film, m, tr) : null;
+  const kleur = inh?.kleur || posterKleur;
+  const plan = trailerPlan({ slogan: inh?.slogan, regie: inh?.van, cast: inh?.met, tekst: inh?.verhaal });
 
   const laatste = i >= films.length - 1;
   const sluit = (direct) => {
@@ -349,7 +371,7 @@ export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, o
         {fase === 'intro'
           ? <Intro kop={tekst.introKop} sub={tekst.introSub} onKlaar={begin} />
           : (
-            <Trailer key={`${film.key}:${sprong}`} film={film} meta={m} plan={plan} sprong={sprong} stil={stil}
+            <Trailer key={`${film.key}:${sprong}`} film={film} inh={inh} plan={plan} sprong={sprong} stil={stil}
               stills={stillsVan(m?.id)} eerste={i === 0} onPaneel={() => { paneelRef.current = true; }} />
           )}
       </div>

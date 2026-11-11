@@ -995,3 +995,35 @@ a.prov-link:hover { border-color: var(--paper); }
 .btn.gevaar { border-color: rgba(217, 154, 91, 0.7); color: var(--dot-o); }
 .btn.gevaar:hover { background: rgba(217, 154, 91, 0.1); }
 @media (prefers-reduced-motion: reduce) { .melding, .zaal-venster-achter { animation: none; } }
+
+/* De première (Premiere.jsx): je kaartje bij de deur, in het licht van de
+   ingang. Tik erop en de strook scheurt af; dan gaan de trailers verder. */
+.premiere { position: fixed; inset: 0; z-index: 172; display: flex; flex-direction: column; align-items: center; padding: 14px 20px 28px; overflow-y: auto; background: radial-gradient(ellipse 70% 45% at 50% 42%, #1a1513 0%, #070606 70%); color: var(--paper); animation: ko-in 0.4s ease-out both; }
+.premiere-top { align-self: stretch; display: flex; justify-content: flex-end; }
+.premiere-top .linkbtn { min-height: 44px; font-size: 13px; color: var(--fog); text-decoration: none; }
+.premiere-kop { margin: 10px 0 16px; font-size: 15px; color: var(--fog); }
+.premiere-hint { margin-top: 24px; font-size: 16px; font-weight: 600; text-align: center; }
+.premiere-sub { margin-top: 6px; max-width: 300px; font-size: 13px; color: var(--fog); text-align: center; }
+.kaartje-premiere { flex-shrink: 0; width: min(300px, 100%); display: flex; flex-direction: column; padding: 0; border: none; border-radius: 3px; background: var(--paper); color: #1b1a18; text-align: left; cursor: pointer; animation: ko-op 0.6s 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.kaartje-premiere:focus-visible { outline: 2px solid var(--paper); outline-offset: 4px; }
+.kaartje-premiere-strook { position: relative; height: 176px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 3px 3px 0 0; background: #6b2a26; color: #f1d9cf; transform-origin: 0 100%; }
+.kaartje-premiere-strook::before, .kaartje-premiere-strook::after { content: ''; position: absolute; bottom: -11px; width: 22px; height: 22px; border-radius: 50%; background: #0b0908; }
+.kaartje-premiere-strook::before { left: -11px; }
+.kaartje-premiere-strook::after { right: -11px; }
+.kaartje-premiere-merk { font-family: var(--font-display); font-weight: 700; font-size: 26px; line-height: 1; }
+.kaartje-premiere-vijf { font-family: var(--font-display); font-weight: 800; font-size: 132px; line-height: 0.85; }
+.kaartje-premiere-body { display: block; padding: 14px; border-top: 2px dashed rgba(27, 26, 24, 0.45); }
+.kaartje-premiere-kop { display: flex; justify-content: space-between; gap: 10px; padding-bottom: 8px; border-bottom: 2px solid #1b1a18; font-family: var(--font-ticket); font-size: 11.5px; }
+.kaartje-premiere-titel { display: block; margin: 12px 0 4px; font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: 0.92; }
+.kaartje-premiere-aftiteling { display: block; font-family: var(--font-display); font-weight: 500; font-size: 14px; color: #4a4640; }
+.kaartje-premiere-velden { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.kaartje-premiere-dt { display: block; margin-bottom: 3px; font-size: 11.5px; color: #6f6a62; }
+.kaartje-premiere-dd { display: block; font-family: var(--font-ticket); font-size: 15px; font-variant-numeric: tabular-nums; }
+.kaartje-premiere-voet { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-top: 14px; }
+.kaartje-premiere-voet svg { display: block; fill: #1b1a18; }
+.kaartje-premiere-toegang { padding: 4px 8px; border: 2px solid #1b1a18; font-family: var(--font-ticket); font-size: 12px; }
+/* De tik: de strook scheurt los en valt weg, het kaartje zakt even mee */
+.kaartje-premiere.scheurt { animation: ko-dreun 0.3s ease-out; }
+.kaartje-premiere.scheurt .kaartje-premiere-strook { animation: kaartje-premiere-scheur 0.8s cubic-bezier(0.3, 0.7, 0.2, 1) forwards; }
+@keyframes kaartje-premiere-scheur { 0% { transform: none; } 30% { transform: rotate(-4deg) translateY(-4px); } 100% { transform: rotate(-14deg) translate(-40px, -60px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .premiere, .kaartje-premiere, .kaartje-premiere * { animation: none !important; } }

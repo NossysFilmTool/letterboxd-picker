@@ -7,7 +7,9 @@ import Afgescheurd from './components/Afgescheurd.jsx';
 import Ontdekt from './components/Ontdekt.jsx';
 import SimilarOverlay from './components/SimilarOverlay.jsx';
 import Meldingen from './components/Meldingen.jsx';
+import Premiere from './components/Premiere.jsx';
 import { meld } from './lib/melding.js';
+import { premiereAutomatisch, PREMIERE_VERSIE } from './lib/premiere.js';
 import { buildTaste } from './lib/taste.js';
 import Pick from './tabs/Pick.jsx';
 import Bieb from './tabs/Bieb.jsx';
@@ -688,6 +690,37 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // De première van Nossy 5 (lib/premiere.js): één keer, voor wie de tool al
+  // gebruikte. Een apparaat dat leeg begint, begint gewoon op 5 (dat blijft
+  // op dit apparaat, het reist niet mee). ?premiere in de adresbalk laat hem
+  // altijd zien, ook in een beta.
+  const [premiereOpen, setPremiereOpen] = useState(false);
+  const [nieuwHier, setNieuwHier] = useLS('nieuwOp5', false);
+  useEffect(() => {
+    if (!watchlist.length && !nieuwHier) setNieuwHier(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const premiereGekeken = useRef(false);
+  useEffect(() => {
+    if (!metaReady || premiereGekeken.current) return;
+    premiereGekeken.current = true;
+    const p = new URLSearchParams(location.search);
+    if (p.has('premiere')) {
+      p.delete('premiere');
+      window.history.replaceState(null, '', `${location.pathname}${p.toString() ? `?${p}` : ''}${location.hash}`);
+      if (watchlist.length) setPremiereOpen(true);
+      return;
+    }
+    const versie = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+    if (premiereAutomatisch({ versie, gezien: settings.premiere, nieuwHier, watchlist: watchlist.length, demoMode })) setPremiereOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metaReady]);
+  const sluitPremiere = () => {
+    setPremiereOpen(false);
+    setSettings((s) => ({ ...s, premiere: PREMIERE_VERSIE }));
+    setTab('pick');
+  };
+
   // De vraag na een avond: welk kaartje heb je gebruikt? Op Pick staat hij
   // onder de kassa, op de andere schermen bovenaan.
   const vraagNu = (() => {
@@ -707,6 +740,7 @@ export default function App() {
     sync,
     vraag,
     naarDeDoos,
+    openPremiere: () => setPremiereOpen(true),
     settings, setSettings,
     watchlist: watchlist.filter((f) => !ignoredSet.has(f.key)),
     watchlistAll: watchlist,
@@ -747,6 +781,7 @@ export default function App() {
   return (
     <>
     <Meldingen />
+    {premiereOpen && <Premiere app={app} onKlaar={sluitPremiere} />}
     {similarSeed && (
       <SimilarOverlay seed={similarSeed.film} seedMeta={similarSeed.meta || meta[similarSeed.film.key] || {}}
         app={app} onClose={() => setSimilarSeed(null)} />
@@ -792,7 +827,7 @@ export default function App() {
         <AvondVraag key={vraag.avond[0].id} avond={vraag.avond} meta={meta} onAntwoord={vraag.onAntwoord} onLater={vraag.onLater} />
       )}
       {afgescheurd && <Afgescheurd melding={afgescheurd} onSluit={() => setAfgescheurd(null)} onBekijk={naarDeDoos} />}
-      {ontdekt[0] && (
+      {ontdekt[0] && !premiereOpen && (
         <Ontdekt key={ontdekt[0].k.id} item={ontdekt[0]} meer={ontdekt.length - 1}
           poster={meta[ontdekt[0].k.key]?.poster || ontdekt[0].k.poster || null}
           onKlaar={() => setOntdekt((q) => q.slice(1))}
