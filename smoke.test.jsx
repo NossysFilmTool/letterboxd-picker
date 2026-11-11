@@ -63,17 +63,131 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).not.toContain('u00e9');
   });
 
-  it('pick-tab toont pool, moods en pick-knop', () => {
+  it('pick-tab: de kassa toont de pot, moods, de knop en de schakelaars', () => {
     render(<App />);
-    expect(document.body.textContent).toContain('6 films in je pool');
+    expect(document.querySelector('.kassa-aantal').textContent).toBe('6 films in de pot');
     expect(document.body.textContent).toContain('Korte avond');
     expect(document.body.textContent).toContain('Verborgen parel');
-    const sw = document.querySelector('[role="switch"]');
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-    expect(sw.textContent).toContain('uit');
-    fireEvent.click(sw);
-    expect(sw.getAttribute('aria-checked')).toBe('true');
-    expect(sw.textContent).toContain('aan');
+    expect(document.querySelector('.kassa').textContent).toContain('Aanvang');
+    expect(document.querySelector('.kassa-sleuf')).toBeTruthy();
+    expect(screen.getByText('Pick een film')).toBeTruthy();
+    const slim = screen.getByRole('switch', { name: 'Slim kiezen' });
+    expect(slim.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(slim);
+    expect(slim.getAttribute('aria-checked')).toBe('true');
+    const trailer = screen.getByRole('switch', { name: 'Eerst de trailer' });
+    expect(trailer.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(trailer);
+    expect(trailer.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('kassa: een stemming vult de pot in plaats van meteen te kiezen', () => {
+    render(<App />);
+    const kort = screen.getByRole('button', { name: /Korte avond/ });
+    fireEvent.click(kort);
+    expect(kort.getAttribute('aria-pressed')).toBe('true');
+    // 105 minuten of korter: Aftersun (96), La haine (98) en Close (104)
+    expect(document.querySelector('.kassa-aantal').textContent).toBe('3 films in de pot');
+    expect(document.querySelector('.leader')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Alles' }));
+    expect(document.querySelector('.kassa-aantal').textContent).toBe('6 films in de pot');
+  });
+
+  it('kassa: de la met wat er op tafel komt, onthouden los van Filmavond', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Aanpassen/ }));
+    const la = screen.getByRole('dialog', { name: 'Wat er op tafel komt' });
+    // tot twee uur: Stalker (162) en First Cow (122) vallen af
+    fireEvent.click(within(la).getByRole('button', { name: 'Tot 2 uur' }));
+    expect(document.querySelector('.kassa-aantal').textContent).toBe('4 films in de pot');
+    expect(within(la).getByText('4 films')).toBeTruthy();
+    expect(document.querySelector('.kassa-samenvatting').textContent).toContain('Tot 2 uur');
+    const s = JSON.parse(localStorage.getItem('nossyV2.settings'));
+    expect(s.pickFilters.maxDuur).toBe(120);
+    expect(s.avondFilters).toBeUndefined();
+    // gezien kan meedoen (voor een lijst met favorieten)
+    fireEvent.click(within(la).getByRole('button', { name: 'Gezien eruit' }));
+    expect(document.querySelector('.kassa-samenvatting').textContent).toContain('Gezien doet mee');
+    fireEvent.click(within(la).getByText('Terug naar standaard'));
+    expect(document.querySelector('.kassa-aantal').textContent).toBe('6 films in de pot');
+    expect(document.querySelector('.kassa-samenvatting').textContent).toContain('Gezien eruit');
+    fireEvent.click(within(la).getByRole('button', { name: 'Klaar' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // Escape sluit hem ook
+    fireEvent.click(screen.getByRole('button', { name: /Aanpassen/ }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('wat er op tafel komt: alleen op streaming telt je eigen diensten als je die koos', async () => {
+    const { filterPot } = await import('./src/lib/avondFilters.js');
+    const pot = [{ key: 'a' }, { key: 'b' }, { key: 'c' }];
+    const meta = { a: { flat: ['Netflix'] }, b: { flat: ['MUBI'] }, c: {} };
+    const f = { alleenStreaming: true, geenKort: false };
+    const score = () => null;
+    expect(filterPot(pot, meta, f, score).map((x) => x.key)).toEqual(['a', 'b']);
+    expect(filterPot(pot, meta, f, score, { diensten: ['MUBI'] }).map((x) => x.key)).toEqual(['b']);
+    // en de kaart zegt dan ook wat hij doet
+    localStorage.setItem('nossyV2.mijnDiensten', JSON.stringify(['MUBI']));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Aanpassen/ }));
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Op mijn diensten' })).toBeTruthy();
+  });
+
+  it('kassa: met beweging krijgt je pick eerst een trailer, daarna het kaartje', async () => {
+    const mm = window.matchMedia;
+    window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
+    try {
+      render(<App />);
+      fireEvent.click(screen.getByText('Pick een film'));
+      await act(async () => { vi.advanceTimersByTime(4500); });
+      const trailer = screen.getByRole('dialog', { name: 'Trailer van je pick' });
+      expect(trailer.textContent).toContain('Jouw film van vanavond.');
+      expect(trailer.textContent).not.toContain('veto');
+      expect(document.querySelector('.kaartje')).toBeNull();
+      fireEvent.click(within(trailer).getByText('Meteen naar je kaartje'));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(document.querySelector('.kassa.uitgifte')).toBeTruthy();
+      expect(document.querySelector('.kaartje').textContent).toContain("NOSSY'S BIOSCOOP");
+      // het kaartje is er al bij het einde van het aftellen, ook als je de trailer wegklikt
+      expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes'))[0]).toMatchObject({ bron: 'pick' });
+      fireEvent.click(screen.getByText('Terug naar de kassa'));
+      expect(document.querySelector('.kassa-aantal')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+      window.matchMedia = mm;
+    }
+  });
+
+  it('kassa: zonder trailer schuift het kaartje na het aftellen meteen uit de sleuf', async () => {
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', pickTrailer: false }));
+    const mm = window.matchMedia;
+    window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
+    try {
+      render(<App />);
+      fireEvent.click(screen.getByText('Pick een film'));
+      await act(async () => { vi.advanceTimersByTime(4500); });
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(document.querySelector('.kaartje')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+      window.matchMedia = mm;
+    }
+  });
+
+  it('kassa: laatst in de doos staat onder de kassa en opent de doos', () => {
+    const gisteren = new Date(Date.now() - 24 * 3600e3).toISOString();
+    localStorage.setItem('nossyV2.kaartjes', JSON.stringify([
+      { id: `${gisteren}|aftersun|2022`, key: 'aftersun|2022', name: 'Aftersun', year: 2022, datum: gisteren, bron: 'pick', personen: 1, antwoord: 'gekeken', sterren: 4.5, beantwoord: gisteren },
+    ]));
+    render(<App />);
+    const doos = screen.getByRole('region', { name: 'Laatst in de doos' });
+    expect(doos.textContent).toContain('AFTERSUN');
+    expect(doos.textContent).toContain('★★★★½');
+    fireEvent.click(within(doos).getByText('Naar de doos'));
+    expect(document.body.textContent).toContain('1 kaartje in de doos');
   });
 
   it('pick draait leader en levert winnaar met acties', async () => {
@@ -1991,11 +2105,14 @@ describe('V2 smoke', () => {
     delete global.fetch;
   });
 
-  it('zonder omdb-sleutels: hint met wegklik', () => {
+  it('zonder omdb-sleutels: geen melding boven elk scherm, de uitleg staat in Setup', () => {
     render(<App />);
-    expect(document.body.textContent).toContain('Je ziet nu alleen TMDB-scores');
-    fireEvent.click(screen.getByText('Nee, TMDB is prima'));
     expect(document.body.textContent).not.toContain('Je ziet nu alleen TMDB-scores');
+    expect(document.querySelector('.scores-preview')).toBeNull();
+    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    expect(document.querySelector('.scores-preview')).toBeNull();
+    fireEvent.click(screen.getAllByLabelText('Setup')[0]);
+    expect(document.querySelector('.scores-preview')).toBeTruthy();
   });
 
   it('bieb: gezien-scope toont kijkgeschiedenis met jouw rating', () => {
@@ -2626,25 +2743,29 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2019', name: 'B', year: 2019 }]));
     render(<App />);
     const txt = document.body.textContent;
-    expect(txt).toContain('In the mood for');
+    expect(txt).toContain('What are you in the mood for?');
     expect(txt).toContain('Pick a film');
-    expect(txt).toContain('films in your pool');
+    expect(txt).toContain('films in the pot');
+    expect(txt).toContain('Trailer first');
+    expect(txt).toContain('Seen left out');
     // geen kenmerkende Nederlandse UI-woorden meer
-    expect(txt).not.toContain('In de stemming');
-    expect(txt).not.toContain('Slimme pick');
+    expect(txt).not.toContain('Waar heb je zin in');
+    expect(txt).not.toContain('Slim kiezen');
+    expect(txt).not.toContain('Gezien');
+    expect(txt).not.toContain('Aanvang');
   });
 
   it('i18n fase 3: meervouden kiezen de juiste vorm in beide talen', async () => {
     const { t, setLang } = await import('./src/lib/i18n.js');
     setLang('nl');
-    expect(t('pick.poolCount', { count: 1 })).toBe('1 film in je pool');
-    expect(t('pick.poolCount', { count: 6 })).toBe('6 films in je pool');
+    expect(t('pick.potLabel', { count: 1 })).toBe('film in de pot');
+    expect(t('pick.potLabel', { count: 6 })).toBe('films in de pot');
     expect(t('zoek.resCount', { count: 1 })).toBe('1 resultaat');
     expect(t('avond.overlapCount', { count: 1 })).toBe('1 film staat op al jullie lijsten');
     expect(t('match.votesShort', { count: 1, n: 1 })).toBe('1 stem');
     expect(t('setup.wrongFilms', { count: 2 })).toContain('afwijkend jaar');
     setLang('en');
-    expect(t('pick.poolCount', { count: 1 })).toBe('1 film in your pool');
+    expect(t('pick.potLabel', { count: 1 })).toBe('film in the pot');
     expect(t('zoek.emptyTextFiltered', { count: 1, filters: 'x' })).toContain('There was 1 title match');
     expect(t('app.omdbStopLimit', { count: 1 })).toContain('1 film has no scores');
     setLang('nl'); // reset
@@ -2655,7 +2776,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
     render(<App />);
-    expect(document.body.textContent).toContain('1 film in je pool');
+    expect(document.querySelector('.kassa-aantal').textContent).toBe('1 film in de pot');
     expect(document.body.textContent).not.toContain('1 films');
   });
 
@@ -3107,9 +3228,11 @@ describe('V2 smoke', () => {
       { naam: 'Spooky Season', films: [{ key: 'w|2016', name: 'The Wailing', year: 2016 }, { key: 'l|2008', name: 'Lake Mungo', year: 2008 }] },
     ]));
     render(<App />);
-    expect(document.body.textContent).toContain('3 films in je pool');
-    fireEvent.change(screen.getByLabelText('Pick uit'), { target: { value: 'Spooky Season' } });
-    expect(document.body.textContent).toContain('2 films in je pool');
+    expect(document.querySelector('.kassa-aantal').textContent).toBe('3 films in de pot');
+    fireEvent.click(screen.getByRole('button', { name: /Aanpassen/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Spooky Season/ }));
+    expect(document.querySelector('.kassa-aantal').textContent).toBe('2 films in de pot');
+    expect(document.querySelector('.kassa-samenvatting').textContent).toContain('Spooky Season');
   });
 
   it('kijkritme: het dagboek levert een ritme-kaart met piekmaand', () => {

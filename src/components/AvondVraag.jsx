@@ -9,8 +9,11 @@ import { useT } from '../lib/i18n.js';
 //   avond:      de kaartjes van die avond, met doorgeklikte vooraan
 //   onAntwoord: (key | null, sterren | null)
 //   onLater:    de vraag tot later wegleggen (optioneel)
-export default function AvondVraag({ avond, meta, onAntwoord, onLater }) {
+//   kort:       de rustige vorm onder de kassa, zonder eigen vlak
+export default function AvondVraag({ avond, meta, onAntwoord, onLater, kort = false }) {
   const { t: tr, lang } = useT();
+  const vlak = kort ? 'followup-card kassa-vraag' : 'card followup-card';
+  const ruimte = kort ? undefined : { marginBottom: 18 };
   const [gekozen, setGekozen] = useState(avond.length === 1 ? avond[0] : null);
   const wanneer = (() => {
     try {
@@ -41,19 +44,19 @@ export default function AvondVraag({ avond, meta, onAntwoord, onLater }) {
 
   if (gekozen) {
     return (
-      <div className="card followup-card" style={{ marginBottom: 18 }}>
+      <section className={vlak} style={ruimte} aria-label={avond.length === 1 ? tr('pick.followupTitle') : tr('pick.followupAvondTitel')}>
         {poster(gekozen) ? <img className="fu-poster" src={poster(gekozen)} alt="" /> : <div className="fu-poster" aria-hidden="true" />}
         <div style={{ flex: 1, minWidth: 200 }}>
           <p className="label" style={{ marginBottom: 2 }}>{avond.length === 1 ? tr('pick.followupTitle') : tr('pick.followupAvondTitel')}, {wanneer}</p>
           <p style={{ color: 'var(--paper)', fontSize: 15.5, fontWeight: 600 }}>{gekozen.name}{gekozen.year ? ` (${gekozen.year})` : ''}: {tr('pick.followupQ')}</p>
         </div>
         {sterren(gekozen)}
-      </div>
+      </section>
     );
   }
 
   return (
-    <div className="card followup-card" style={{ marginBottom: 18 }}>
+    <section className={vlak} style={ruimte} aria-label={tr('pick.followupAvondTitel')}>
       <div style={{ flex: '1 1 100%' }}>
         <p className="label" style={{ marginBottom: 2 }}>{tr('pick.followupAvondTitel')}, {wanneer}</p>
         <p style={{ color: 'var(--paper)', fontSize: 15.5, fontWeight: 600 }}>{tr('pick.followupAvondQ', { n: avond.length })}</p>
@@ -68,6 +71,6 @@ export default function AvondVraag({ avond, meta, onAntwoord, onLater }) {
       </div>
       <button type="button" className="btn ghost" onClick={() => onAntwoord(null, null)}>{tr('pick.followupGeen')}</button>
       {onLater && <button type="button" className="linkbtn fu-later" onClick={onLater}>{tr('pick.followupLater')}</button>}
-    </div>
+    </section>
   );
 }

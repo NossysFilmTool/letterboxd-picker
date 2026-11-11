@@ -206,20 +206,29 @@ function Trailer({ film, meta, plan, sprong, stil, stills: stillsNu, eerste, onP
 }
 
 // Voor de eerste trailer: het zaallicht dimt, en even staat er wat er komt
-function Intro({ aantal, onKlaar }) {
-  const { t: tr } = useT();
+function Intro({ kop, sub, onKlaar }) {
   return (
     <div className="pitch-intro" onAnimationEnd={(e) => { if (e.target === e.currentTarget) onKlaar(); }}>
-      <p className="pitch-intro-kop">{tr('avond.pitchIntroKop', { count: aantal })}</p>
-      <p className="pitch-intro-sub">{tr('avond.pitchIntroSub')}</p>
+      <p className="pitch-intro-kop">{kop}</p>
+      <p className="pitch-intro-sub">{sub}</p>
     </div>
   );
 }
 
 //   films, meta, onKlaar: klaar met kijken (de ronde begint)
 //   tmdbKey: voor extra beelden per film; geluid + onGeluid(aan): het zaalgeluid
-export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, onGeluid }) {
+//   teksten: eigen woorden voor een ander voorprogramma (de trailer voor je
+//   pick): { introKop, overslaan, naarEinde, aria }
+export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, onGeluid, teksten = {} }) {
   const { t: tr } = useT();
+  const tekst = {
+    introKop: tr('avond.pitchIntroKop', { count: films.length }),
+    introSub: tr('avond.pitchIntroSub'),
+    overslaan: tr('avond.pitchOverslaan'),
+    naarEinde: tr('avond.pitchNaarVeto'),
+    aria: tr('avond.pitchAria'),
+    ...teksten,
+  };
   const [stil] = useState(stilGewenst);
   // 'intro' (licht gaat uit) | 'trailers' | 'uit' (licht gaat aan)
   const [fase, setFase] = useState(stil ? 'trailers' : 'intro');
@@ -311,7 +320,7 @@ export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, o
 
   return createPortal(
     <div ref={ref} tabIndex={-1} className={`pitch fase-${fase}${pauze ? ' gepauzeerd' : ''}${stil ? ' stil' : ''}`}
-      role="dialog" aria-modal="true" aria-label={tr('avond.pitchAria')} style={{ '--film': kleur, '--duur': `${plan.totaal}ms` }}>
+      role="dialog" aria-modal="true" aria-label={tekst.aria} style={{ '--film': kleur, '--duur': `${plan.totaal}ms` }}>
       <div className="pitch-zaallicht" aria-hidden="true"
         onAnimationEnd={(e) => { if (fase === 'uit' && e.target === e.currentTarget) klaarRef.current(); }} />
       <div className="pitch-top">
@@ -325,7 +334,7 @@ export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, o
             </span>
           ))}
         </div>
-        <span className="pitch-teller" aria-live="polite">{tr('avond.pitchTeller', { i: i + 1, n: films.length })}</span>
+        {films.length > 1 && <span className="pitch-teller" aria-live="polite">{tr('avond.pitchTeller', { i: i + 1, n: films.length })}</span>}
         {!stil && onGeluid && (
           <button type="button" className="linkbtn pitch-geluid" aria-pressed={geluid}
             aria-label={geluid ? tr('avond.pitchGeluidUit') : tr('avond.pitchGeluidAan')}
@@ -334,11 +343,11 @@ export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, o
             {geluid ? <Volume2 size={17} /> : <VolumeX size={17} />}
           </button>
         )}
-        <button type="button" className="linkbtn pitch-sla" onClick={() => sluit(true)}>{tr('avond.pitchOverslaan')}</button>
+        <button type="button" className="linkbtn pitch-sla" onClick={() => sluit(true)}>{tekst.overslaan}</button>
       </div>
       <div className="pitch-podium" onClick={tik}>
         {fase === 'intro'
-          ? <Intro aantal={films.length} onKlaar={begin} />
+          ? <Intro kop={tekst.introKop} sub={tekst.introSub} onKlaar={begin} />
           : (
             <Trailer key={`${film.key}:${sprong}`} film={film} meta={m} plan={plan} sprong={sprong} stil={stil}
               stills={stillsVan(m?.id)} eerste={i === 0} onPaneel={() => { paneelRef.current = true; }} />
@@ -346,16 +355,18 @@ export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, o
       </div>
       <div className="pitch-bediening">
         <span className="pitch-stoelen" aria-hidden="true" />
-        <button type="button" className="btn ghost" onClick={vorige} disabled={i === 0 || fase !== 'trailers'}>
-          <ChevronLeft size={16} /> {tr('avond.pitchVorige')}
-        </button>
+        {films.length > 1 && (
+          <button type="button" className="btn ghost" onClick={vorige} disabled={i === 0 || fase !== 'trailers'}>
+            <ChevronLeft size={16} /> {tr('avond.pitchVorige')}
+          </button>
+        )}
         {!stil && (
           <button type="button" className="btn ghost" onClick={() => setPauze((p) => !p)} aria-pressed={pauze}>
             {pauze ? <><Play size={15} /> {tr('avond.pitchVerder')}</> : <><Pause size={15} /> {tr('avond.pitchPauze')}</>}
           </button>
         )}
         <button type="button" className="btn primary" onClick={volgende} disabled={fase !== 'trailers'}>
-          {laatste ? tr('avond.pitchNaarVeto') : tr('avond.pitchVolgende')} <ChevronRight size={16} />
+          {laatste ? tekst.naarEinde : tr('avond.pitchVolgende')} <ChevronRight size={16} />
         </button>
       </div>
     </div>,

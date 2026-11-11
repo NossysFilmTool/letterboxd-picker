@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import Shell from './components/Shell.jsx';
-import ScoresPreview from './components/ScoresPreview.jsx';
 import RemoteVote from './components/RemoteVote.jsx';
 import SamenGast from './components/SamenGast.jsx';
 import AvondVraag from './components/AvondVraag.jsx';
@@ -685,8 +684,25 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // De vraag na een avond: welk kaartje heb je gebruikt? Op Pick staat hij
+  // onder de kassa, op de andere schermen bovenaan.
+  const vraagNu = (() => {
+    if (!watchlist.length) return null;
+    const avond = vraagAvond(kaartjesStand.filter((k) => k.bron !== 'gevonden'));
+    if (!avond) return null;
+    if (vraagLater && vraagLater.id === avond[0].id && Date.now() < vraagLater.tot) return null;
+    return avond;
+  })();
+  const vraag = vraagNu && {
+    avond: vraagNu,
+    onAntwoord: (key, sterren) => beantwoordAvond(vraagNu, key, sterren),
+    onLater: () => setVraagLater({ id: vraagNu[0].id, tot: Date.now() + 12 * 3600e3 }),
+  };
+
   const app = {
     sync,
+    vraag,
+    naarDeDoos,
     settings, setSettings,
     watchlist: watchlist.filter((f) => !ignoredSet.has(f.key)),
     watchlistAll: watchlist,
@@ -751,15 +767,6 @@ export default function App() {
           <button className="btn" style={{ flexShrink: 0 }} onClick={resetLibrary}>{tr('app.demoReset')}</button>
         </div>
       )}
-      {!needsKey && watchlist.length > 0 && Object.keys(meta).length > 0 && !omdbKeys.length && !settings.omdbHintWeg && tab !== 'instellingen' && (
-        <div className="notice" style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <ScoresPreview />
-            <span>{tr('app.omdbNudge')}<a href="#setup" onClick={(e) => { e.preventDefault(); setTab('instellingen'); }}>{tr('app.omdbNudgeLink')}</a>.</span>
-          </div>
-          <button className="btn ghost" style={{ flexShrink: 0 }} onClick={() => setSettings((s) => ({ ...s, omdbHintWeg: true }))}>{tr('app.omdbNudgeDismiss')}</button>
-        </div>
-      )}
       {needsKey && tab !== 'instellingen' && (
         <div className="notice warn" style={{ marginBottom: 18 }}>
           {tr('app.needKeyNotice')}
@@ -774,18 +781,11 @@ export default function App() {
           <div className="progressbar"><div style={{ width: `${(extEnrich.done / Math.max(extEnrich.total, 1)) * 100}%` }} /></div>
         </div>
       )}
-      {/* De vraag na een avond: op het eerste scherm dat je opent, niet alleen bij Pick */}
-      {(() => {
-        if (tab === 'instellingen' || !watchlist.length) return null;
-        const avond = vraagAvond(kaartjesStand.filter((k) => k.bron !== 'gevonden'));
-        if (!avond) return null;
-        if (vraagLater && vraagLater.id === avond[0].id && Date.now() < vraagLater.tot) return null;
-        return (
-          <AvondVraag key={avond[0].id} avond={avond} meta={meta}
-            onAntwoord={(key, sterren) => beantwoordAvond(avond, key, sterren)}
-            onLater={() => setVraagLater({ id: avond[0].id, tot: Date.now() + 12 * 3600e3 })} />
-        );
-      })()}
+      {/* De vraag na een avond: op het eerste scherm dat je opent. Pick zet
+          hem zelf onder de kassa, zodat de knop in beeld blijft. */}
+      {vraag && tab !== 'instellingen' && tab !== 'pick' && (
+        <AvondVraag key={vraag.avond[0].id} avond={vraag.avond} meta={meta} onAntwoord={vraag.onAntwoord} onLater={vraag.onLater} />
+      )}
       {afgescheurd && <Afgescheurd melding={afgescheurd} onSluit={() => setAfgescheurd(null)} onBekijk={naarDeDoos} />}
       {ontdekt[0] && (
         <Ontdekt key={ontdekt[0].k.id} item={ontdekt[0]} meer={ontdekt.length - 1}

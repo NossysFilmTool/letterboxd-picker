@@ -29,7 +29,8 @@ export function bronTekst(k, tr) {
   return tr('kaartje.bronPick');
 }
 
-function Strook({ k, poster, onOpen }) {
+// Eén afgescheurde strook; ook onder de kassa bij Pick ("Laatst in de doos")
+export function Strook({ k, poster, onOpen }) {
   const { t: tr, lang } = useT();
   const kleur = useFilmkleur(poster);
   const d = alsDatum(k.gekekenOp);

@@ -16,7 +16,8 @@ const fmtVotes = (n) => (n >= 1000 ? `${decimaal((n / 1000).toFixed(1))}k` : n);
 // kaartje: aantal personen; dan is het een pick en krijg je een bioscoopkaartje
 // onKijken: je klikte door naar een dienst of deelde het kaartje (een hint
 // voor de vraag na de avond, geen bewijs dat je keek)
-export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onGezien, onWantScores, kaartje, namen, onKijken }) {
+// zonderContext: de regel boven het kaartje staat al elders (de kassa)
+export default function Winner({ film, meta, context, seen, onToggleSeen, onSimilar, onReroll, onShortlist, inShortlist, onSkip, onGezien, onWantScores, kaartje, namen, onKijken, zonderContext = false }) {
   const { t: tr, lang } = useT();
   const [sharing, setSharing] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
@@ -81,7 +82,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
       {kaartje ? (
         // Een pick: je krijgt een kaartje
         <>
-          <p className="wcontext">{context || tr('winner.eyebrow')}</p>
+          {!zonderContext && <p className="wcontext">{context || tr('winner.eyebrow')}</p>}
           <Kaartje film={film} meta={meta} personen={kaartje} namen={namen} kleur={kleur} />
           {meta?.yearMismatch && (
             <p className="wwaarschuwing">{tr('winner.yearMismatch', { want: meta.yearMismatch, got: meta.year })}</p>

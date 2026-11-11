@@ -58,6 +58,28 @@ Wil je er een breken, pas dan eerst dit document aan.
   je shortlist of klikte door) en die je daarna keek, worden een
   Gevonden-kaartje ("Gevonden met Zoeken"). Regels in `src/lib/vondsten.js`.
 
+## De kassa
+
+- Pick is de kassa van de zaal, het eerste scherm dat je ziet. Van boven
+  naar beneden: waar je zin in hebt (de stemmingen), de kassa, de knop, en
+  daaronder de vraag over gisteren en je laatste kaartjes uit de doos.
+- De kassa toont hoeveel films er in de pot zitten (groot getal), de
+  aanvang van nu en in een paar woorden wat er op tafel komt. Onderaan zit
+  de sleuf, met het randje papier van het volgende kaartje erin. Na de pick
+  schuift het kaartje uit diezelfde sleuf.
+- "Pick een film" staat altijd in beeld, ook op een telefoon. Niets boven de
+  kassa mag hem onder de rand van het scherm duwen: de vraag over gisteren
+  staat op Pick onder de knop, niet erboven.
+- Een stemming kiest niet meteen een film, maar vult de pot; het getal loopt
+  mee. Er is één knop die kiest.
+- Wat er op tafel komt, schuift als een la van onderen open. Het is dezelfde
+  kaart als bij Filmavond (één filtertaal in de hele tool), plus waar je uit
+  kiest en of gezien meedoet. Pick en Filmavond onthouden elk hun eigen
+  keuzes. "Alleen op streaming" betekent op jouw diensten als je die in
+  Verken koos.
+- Geen uitnodigingen boven elk scherm. Wie meer cijfers wil, vindt dat bij
+  Setup en als stil chipje bij de cijfers van een film.
+
 ## Doek en korrel
 
 - Waar een filmbeeld (TMDB-backdrop) is, staat het als doek in breedbeeld
@@ -99,6 +121,10 @@ Wil je er een breken, pas dan eerst dit document aan.
   nog eens voor de volgende film, links voor de vorige. Spatie pauzeert,
   "Meteen naar de veto" slaat alles over. Na de laatste trailer gaat het
   zaallicht weer aan. Uit te zetten bij de veto-rondes ("Eerst de trailers").
+- Ook een pick krijgt zijn trailer, als voorprogramma: na het aftellen,
+  voordat het kaartje uit de sleuf schuift ("Jouw film van vanavond."). Uit
+  te zetten op de kassa ("Eerst de trailer"). Het kaartje bestaat al zodra
+  het aftellen klaar is, ook als je de trailer wegtikt.
 
 ## Geluid
 
@@ -112,8 +138,8 @@ Wil je er een breken, pas dan eerst dit document aan.
 ## Beweging
 
 - Twee eigen momenten. Het aftellen (filmleader) bij een pick, waarna het
-  kaartje uit een sleuf schuift. En de trailers voor een veto-ronde (zie
-  boven): het licht dat dimt, harde snitten tussen de akten, de titel die in
+  kaartje uit de sleuf van de kassa schuift. En de trailers voor een
+  veto-ronde en voor een pick (zie boven): het licht dat dimt, harde snitten tussen de akten, de titel die in
   beeld slaat, de woorden van het verhaal die een voor een verschijnen, de
   cijfers die optellen. Met "beperk beweging" aan ligt alles er gewoon, is
   er geen voorprogramma en loopt niets vanzelf door.

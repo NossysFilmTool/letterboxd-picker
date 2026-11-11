@@ -2,36 +2,45 @@ import { RotateCcw } from 'lucide-react';
 import { useT, decimaal } from '../lib/i18n.js';
 import { metStandaard, afwijkend, wisselGenre, STANDAARD_FILTERS } from '../lib/avondFilters.js';
 
-function Chip({ aan, onClick, children, className = '', title, label }) {
+export function Chip({ aan, onClick, children, className = '', title, label, disabled }) {
   return (
-    <button type="button" className={`chip ${aan ? 'on' : ''} ${className}`} aria-pressed={!!aan} onClick={onClick} title={title} aria-label={label}>
+    <button type="button" className={`chip ${aan ? 'on' : ''} ${className}`} aria-pressed={!!aan} onClick={onClick} title={title} aria-label={label} disabled={disabled}>
       {children}
     </button>
   );
 }
 
-// Wat er bij een filmavond op tafel komt (lib/avondFilters.js): een rustige
-// kaart met een rij per soort filter. Alles staat open, zodat je ziet wat er
-// meedoet; de keuzes worden onthouden.
+// Wat er op tafel komt (lib/avondFilters.js): een rustige kaart met een rij
+// per soort filter. Alles staat open, zodat je ziet wat er meedoet; de keuzes
+// worden onthouden. Dezelfde kaart bij Filmavond en in de la van de kassa.
 //   filters, onChange(nieuweFilters), aantal: films in de pot na de filters,
 //   genres: de genres van je watchlist (meest voorkomend eerst), decennia
-export default function AvondFilters({ filters, onChange, aantal, genres, decennia }) {
+//   diensten: je eigen diensten (Verken); dan heet streaming "op mijn diensten"
+//   voor / na: eigen rijen boven en onder de filters (de kassa: bron, gezien)
+//   actie: een knop in de kop (de kassa: Klaar); afwijkt: eigen "wijkt af"
+//   kopId: id van de kop, voor een dialoog die ernaar verwijst
+//   minimum: onder dit aantal een waarschuwing (een ronde wil er vier)
+export default function AvondFilters({ filters, onChange, aantal, genres, decennia, diensten = [], voor = null, na = null, actie = null, afwijkt, kopId, className = '', minimum = 4 }) {
   const { t: tr } = useT();
   const f = metStandaard(filters);
   const zet = (patch) => onChange({ ...f, ...patch });
   const jaar = (v) => (v === '' ? '' : +v);
+  const anders = afwijkt ?? afwijkend(f);
 
   return (
-    <div className="card avond-filters" style={{ marginBottom: 18 }}>
+    <div className={`card avond-filters ${className}`}>
       <div className="af-kop">
-        <p className="label" style={{ margin: 0 }}>{tr('avond.opTafel')}</p>
+        <p className="label" id={kopId} style={{ margin: 0 }}>{tr('avond.opTafel')}</p>
         <span className="af-telling">{tr('avond.opTafelTelling', { count: aantal })}</span>
-        {afwijkend(f) && (
+        {anders && (
           <button type="button" className="linkbtn af-standaard" onClick={() => onChange({ ...STANDAARD_FILTERS })}>
             <RotateCcw size={13} style={{ verticalAlign: -2 }} /> {tr('avond.fStandaard')}
           </button>
         )}
+        {actie}
       </div>
+
+      {voor}
 
       <div className="af-rij">
         <span className="af-label">{tr('avond.fLengte')}</span>
@@ -101,11 +110,15 @@ export default function AvondFilters({ filters, onChange, aantal, genres, decenn
               {s ? `${tr('winner.nossy')} ${decimaal(s.toFixed(1))}+` : tr('avond.fCijferAlle')}
             </Chip>
           ))}
-          <Chip aan={f.alleenStreaming} onClick={() => zet({ alleenStreaming: !f.alleenStreaming })}>{tr('avond.onlyStreaming')}</Chip>
+          <Chip aan={f.alleenStreaming} onClick={() => zet({ alleenStreaming: !f.alleenStreaming })}>
+            {diensten.length ? tr('avond.fMijnDiensten') : tr('avond.onlyStreaming')}
+          </Chip>
         </div>
       </div>
 
-      {aantal < 4 && (
+      {na}
+
+      {aantal < minimum && (
         <p style={{ color: 'var(--dot-o)', fontSize: 12.5, marginTop: 10 }}>{tr('avond.tooFew', { count: aantal })}</p>
       )}
     </div>

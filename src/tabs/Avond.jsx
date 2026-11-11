@@ -12,6 +12,7 @@ import Pitch from '../components/Pitch.jsx';
 import AvondFilters from '../components/AvondFilters.jsx';
 import { filterPot, metStandaard } from '../lib/avondFilters.js';
 import { ontgrendel } from '../lib/zaalgeluid.js';
+import { leesOpslag } from '../lib/storage.js';
 
 function Tile({ film, meta, onClick, struck, label, index = 0, onInfo }) {
   const { t: tr } = useT();
@@ -81,13 +82,15 @@ export default function Avond({ app }) {
   // (lib/avondFilters.js), onthouden in de instellingen
   const filters = metStandaard(app.settings?.avondFilters);
   const zetFilters = (f) => app.setSettings((s) => ({ ...s, avondFilters: f }));
+  // Je diensten uit Verken: dan telt "alleen op streaming" alleen die
+  const [diensten] = useState(() => leesOpslag('mijnDiensten', []));
 
   const basePool = useMemo(() => {
     let p = watchlist.filter((f) => !seenSet.has(f.key));
     if (useOverlap && friends.length) p = p.filter((f) => friends.every((fr) => fr.keys.has(f.key)));
-    return filterPot(p, meta, filters, nossyScore);
+    return filterPot(p, meta, filters, nossyScore, { diensten });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchlist, seenSet, useOverlap, friends, meta, JSON.stringify(filters)]);
+  }, [watchlist, seenSet, useOverlap, friends, meta, JSON.stringify(filters), diensten]);
 
   const genresAvail = useMemo(() => {
     const count = {};
@@ -343,7 +346,7 @@ export default function Avond({ app }) {
         )}
       </div>
 
-      <AvondFilters filters={filters} onChange={zetFilters} aantal={basePool.length} genres={genresAvail} decennia={decadesAvail} />
+      <AvondFilters filters={filters} onChange={zetFilters} aantal={basePool.length} genres={genresAvail} decennia={decadesAvail} diensten={diensten} />
 
       {remoteAvailable() && (
         <div style={{ marginBottom: 16 }}>

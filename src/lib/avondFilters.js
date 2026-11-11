@@ -1,7 +1,7 @@
-// Wat er bij een filmavond op tafel komt: de filters voor alle spellen
-// (veto, bracket, op afstand en Voor ons). Ze worden onthouden in de
-// instellingen, want een groep heeft meestal vaste wensen: geen korte films,
-// geen horror.
+// Wat er op tafel komt: de filters voor alle spellen van een filmavond (veto,
+// bracket, op afstand en Voor ons) en voor de kassa bij Pick. Ze worden
+// onthouden in de instellingen, want je hebt meestal vaste wensen: geen
+// korte films, geen horror. Pick en Filmavond onthouden elk hun eigen keuzes.
 
 // Korter dan dit is een korte film (de grens die ook filmfestivals gebruiken)
 export const KORT = 40;
@@ -24,8 +24,11 @@ export const metStandaard = (f) => ({ ...STANDAARD_FILTERS, ...(f || {}) });
 // bekend) krijgt het voordeel van de twijfel, behalve bij een maximale duur:
 // daar moet de film aantoonbaar kort genoeg zijn.
 //   score: (meta) => Nossy-score of null
-export function filterPot(pot, meta, filters, score) {
+//   diensten: de diensten die je in Verken koos; dan betekent "alleen op
+//   streaming" alleen op jouw diensten
+export function filterPot(pot, meta, filters, score, { diensten = [] } = {}) {
   const f = metStandaard(filters);
+  const mijn = new Set(diensten);
   return pot.filter((film) => {
     const m = meta[film.key] || {};
     if (f.geenKort && m.runtime && m.runtime < KORT) return false;
@@ -37,7 +40,7 @@ export function filterPot(pot, meta, filters, score) {
     if (f.minScore && (score(m) ?? 0) < f.minScore) return false;
     if (f.jaarVan !== '' && !(film.year && film.year >= +f.jaarVan)) return false;
     if (f.jaarTot !== '' && !(film.year && film.year <= +f.jaarTot)) return false;
-    if (f.alleenStreaming && !m.flat?.length) return false;
+    if (f.alleenStreaming && !(mijn.size ? m.flat?.some((p) => mijn.has(p)) : m.flat?.length)) return false;
     return true;
   });
 }

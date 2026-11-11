@@ -9,10 +9,12 @@ optional features use a small server; see Privacy for exactly what they send.
 
 ## Features
 
-- **Pick**: one tap, one film. Filter by mood ("short evening", "hidden gem"),
-  genre, year, runtime or your streaming services. A smart mode favours
-  higher-rated films and avoids recent picks. You can also pick from your own
-  Letterboxd lists.
+- **Pick**: the box office. Choose a mood ("short evening", "hidden gem"),
+  see how many films are in the pot, decide what goes on the table (length,
+  genres, language, period, score, your streaming services) and pick. Your
+  film gets a trailer, then its ticket slides out of the box office. A smart
+  mode favours higher-rated films and avoids recent picks. You can also pick
+  from your own Letterboxd lists.
 - **Library**: browse your watchlist and watch history with posters, scores
   and streaming availability for your region, with clickable JustWatch links.
 - **Explore**: recommendations from outside your list, based on a taste
