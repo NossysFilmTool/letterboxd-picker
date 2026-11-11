@@ -4,7 +4,8 @@ Can't decide what to watch tonight? Load your Letterboxd watchlist and let the
 tool pick. By mood, together with friends (veto rounds and brackets), or
 weighted by score and your own taste profile.
 
-Everything runs locally in your browser. Nothing is uploaded.
+Everything runs in your browser, and your data stays on your device. A few
+optional features use a small server; see Privacy for exactly what they send.
 
 ## Features
 
@@ -23,10 +24,19 @@ Everything runs locally in your browser. Nothing is uploaded.
   what goes on the table first: no short films, a maximum length, genres
   you're in the mood for or rather skip, language, period, score. Load a
   friend's watchlist to play on your overlap.
+- **For us**: everyone opens a link on their own phone, their taste is scored
+  there, and the tool picks the film the whole group will like.
+- **Tickets**: every pick prints a cinema ticket. Once you have really
+  watched it (logged on Letterboxd, answered the tool, or rated it), the stub
+  is torn off and goes into your ticket box, with a film year to share.
+  Films the tool helped you find count too.
+- **Letterboxd live**: enter your Letterboxd username and the tool reads your
+  public diary, so a film you log shows up within minutes.
 - **Insights**: your taste, read from your list. Genres, decades, directors,
   your watching rhythm, and how obscure you really are.
-- The tool follows up on picks ("Did you watch it? Give it stars") and feeds
-  your answers straight into the taste profile.
+- **Just arrived**: films from your list that recently landed on your
+  streaming services.
+- **Sync** between your laptop, computer and phone, encrypted on your device.
 - Multiple profiles on one device: housemates each get their own
   watchlist, history and taste profile.
 - Fully bilingual (Dutch/English), streaming region selectable, installable
@@ -44,10 +54,21 @@ Everything runs locally in your browser. Nothing is uploaded.
 
 ## Privacy
 
-Your watchlist, ratings and history live in your browser and never leave
-your machine. There is no server with your data, no analytics, no tracking.
-TMDB requests run through a small proxy so you don't need an API key; the
-proxy forwards requests and stores nothing.
+Your watchlist, ratings and history live in your browser. There are no
+accounts, no analytics and no tracking. A few features go through a small
+server (a Cloudflare Worker, see `worker/`), and each one sends only what it
+needs:
+
+- **Film data**: TMDB requests run through it, so you don't need an API key.
+  It forwards them and stores nothing.
+- **Letterboxd live**: only your Letterboxd username, to read your public
+  diary feed.
+- **For us and remote voting**: the films on the table, the names you enter,
+  and for For us one score per film, worked out on each phone. Never your
+  export or your ratings. Deleted after 24 hours.
+- **Sync** (off until you turn it on): your data is encrypted on your device
+  with a secret code before it is sent. The server only holds unreadable
+  data.
 
 Moving between versions? Browser storage is tied to the web address. Use
 Setup → Export everything (JSON) on the old version and Restore backup on
@@ -67,12 +88,12 @@ The build is one self-contained HTML file (vite-plugin-singlefile). Host it
 anywhere or just double-click it. Pushes to `main` deploy to GitHub Pages
 via Actions. Tests must pass first.
 
-## TMDB proxy (optional)
+## The Worker
 
-The `worker/` folder contains a Cloudflare Worker that proxies TMDB with a
-server-side key, so visitors need zero setup. See `worker/OPZETTEN.md` for
-the deployment guide. Without it, the tool asks each user for their own free
-TMDB key.
+The `worker/` folder contains the Cloudflare Worker behind the TMDB proxy,
+Letterboxd live, For us, remote voting and sync. See `worker/README.md` for
+what it does, what it keeps and how to run your own. Without it, the tool
+asks each user for their own free TMDB key.
 
 ## Credits
 
@@ -86,8 +107,10 @@ TMDB/JustWatch data and may differ. Licensed under MIT.
 
 Geen zin om te kiezen wat je vanavond kijkt? Laad je Letterboxd-watchlist en
 laat de tool kiezen. Op mood, samen met vrienden (veto-rondes en brackets),
-of gewogen op score en je eigen smaakprofiel. Alles draait lokaal in je
-browser; er wordt niets geüpload.
+of gewogen op score en je eigen smaakprofiel. Alles draait in je browser en
+je gegevens blijven op je apparaat. Een paar functies gaan via een kleine
+server (Letterboxd live, Voor ons, sync); onder Privacy staat precies wat ze
+versturen. Sync versleutelt alles eerst op je eigen apparaat.
 
 Snel starten: exporteer je data op Letterboxd (Settings → Data → Export) en
 sleep de ZIP de tool in. Posters, scores en streaminginfo werken meteen.

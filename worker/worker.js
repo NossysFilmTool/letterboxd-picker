@@ -58,7 +58,7 @@ export default {
     }
 
     // --- Stemrondes (Filmavond op afstand) --------------------------------
-    // Vereist een KV-namespace gebonden als SESSIONS (zie OPZETTEN.md).
+    // Vereist een KV-namespace gebonden als SESSIONS (zie README.md hiernaast).
     // Sessies verlopen na 24 uur. Elke speler schrijft naar een eigen sleutel,
     // dus gelijktijdig stemmen kan elkaar nooit overschrijven.
     if (url.pathname.startsWith('/session')) {

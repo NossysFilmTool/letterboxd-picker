@@ -3177,7 +3177,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2001', name: 'Film A', year: 2001 }, { key: 'b|2002', name: 'Film B', year: 2002 }]));
     localStorage.setItem('nossyV2.kaartjes', JSON.stringify([
-      { id: 'a', key: 'a|2001', name: 'Film A', year: 2001, datum: iso(nu - 3 * dag), bron: 'samen', personen: 2, namen: ['Sonny', 'Sanne'], antwoord: 'gekeken', sterren: 4 },
+      { id: 'a', key: 'a|2001', name: 'Film A', year: 2001, datum: iso(nu - 3 * dag), bron: 'samen', personen: 2, namen: ['Robin', 'Sanne'], antwoord: 'gekeken', sterren: 4 },
       { id: 'b', key: 'b|2002', name: 'Film B', year: 2002, datum: iso(nu - 5 * dag), bron: 'pick', personen: 1, antwoord: 'niet' },
     ]));
     render(<App />);
@@ -3211,12 +3211,12 @@ describe('V2 smoke', () => {
   it('kaartjesdoos: jaaroverzicht en kaartjes met poster van buiten je lijst', async () => {
     const { jaarOverzicht, nieuwKaartje, buitenDeDoos } = await import('./src/lib/kaartjesdoos.js');
     const doos = [
-      { id: '1', name: 'A', gekekenOp: '2026-10-03', sterren: 4, namen: ['Sonny', 'Sanne'] },
-      { id: '2', name: 'B', gekekenOp: '2026-10-20', sterren: 5, namen: ['Sonny', 'Sanne', 'Tom'] },
+      { id: '1', name: 'A', gekekenOp: '2026-10-03', sterren: 4, namen: ['Robin', 'Sanne'] },
+      { id: '2', name: 'B', gekekenOp: '2026-10-20', sterren: 5, namen: ['Robin', 'Sanne', 'Tom'] },
       { id: '3', name: 'C', gekekenOp: '2026-03-01T20:00:00.000Z', sterren: null },
       { id: '4', name: 'D', gekekenOp: '2025-12-30', sterren: 3 },
     ];
-    const o = jaarOverzicht(doos, 2026, { eigenNaam: 'Sonny' });
+    const o = jaarOverzicht(doos, 2026, { eigenNaam: 'Robin' });
     expect(o).toMatchObject({ aantal: 3, gemiddeld: 4.5, besteMaand: { maand: 9, aantal: 2 } });
     expect(o.hoogste.name).toBe('B');
     expect(o.vaakstMet).toEqual({ naam: 'Sanne', aantal: 2 });
@@ -3232,7 +3232,7 @@ describe('V2 smoke', () => {
     const { haalDagboek } = await import('./src/lib/lbLive.js');
     let opties = null;
     global.fetch = async (url, o) => { opties = o; return { ok: true, status: 200, text: async () => '<?xml version="1.0"?><rss><channel></channel></rss>' }; };
-    await haalDagboek('sonny');
+    await haalDagboek('robin');
     expect(opties).toMatchObject({ cache: 'no-store' });
     delete global.fetch;
   });
@@ -3262,17 +3262,17 @@ describe('V2 smoke', () => {
   it('letterboxd live: de feed wordt dagboek, gezien en sterren; kaartjes scheuren vanzelf', async () => {
     const { normaliseerNaam, leesDagboekFeed, voegDagboekSamen } = await import('./src/lib/lbLive.js');
     const { lokaleDag } = await import('./src/lib/kaartjesdoos.js');
-    expect(normaliseerNaam('https://letterboxd.com/Sonny_N/films/')).toBe('Sonny_N');
-    expect(normaliseerNaam('@sonny')).toBe('sonny');
+    expect(normaliseerNaam('https://letterboxd.com/Robin_N/films/')).toBe('Robin_N');
+    expect(normaliseerNaam('@robin')).toBe('robin');
     expect(normaliseerNaam('niet geldig!')).toBeNull();
     const pick = Date.now() - 20 * 3600e3;
     const dag = lokaleDag(pick);
     const xml = `<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:letterboxd="https://letterboxd.com" xmlns:tmdb="https://themoviedb.org">
-<channel><title>Letterboxd - Sonny</title>
+<channel><title>Letterboxd - Robin</title>
 <item><title>Aftersun, 2022 - ★★★★½</title><letterboxd:watchedDate>${dag}</letterboxd:watchedDate><letterboxd:rewatch>No</letterboxd:rewatch><letterboxd:filmTitle>Aftersun</letterboxd:filmTitle><letterboxd:filmYear>2022</letterboxd:filmYear><letterboxd:memberRating>4.5</letterboxd:memberRating><tmdb:movieId>965150</tmdb:movieId></item>
 <item><title>Stalker, 1979</title><letterboxd:watchedDate>2026-01-02</letterboxd:watchedDate><letterboxd:rewatch>Yes</letterboxd:rewatch><letterboxd:filmTitle>Stalker</letterboxd:filmTitle><letterboxd:filmYear>1979</letterboxd:filmYear></item>
-<item><title>Een lijst</title><link>https://letterboxd.com/sonny/list/x/</link></item>
+<item><title>Een lijst</title><link>https://letterboxd.com/robin/list/x/</link></item>
 </channel></rss>`;
     const regels = leesDagboekFeed(xml);
     expect(regels).toHaveLength(2);
@@ -3289,20 +3289,20 @@ describe('V2 smoke', () => {
     const gevraagd = [];
     global.fetch = async (url) => { gevraagd.push(String(url)); return { ok: true, status: 200, text: async () => xml }; };
     try {
-      const res = await worker.fetch(new Request('https://w.dev/lb/sonny', { headers: { Origin: 'http://localhost:5173' } }), {});
+      const res = await worker.fetch(new Request('https://w.dev/lb/robin', { headers: { Origin: 'http://localhost:5173' } }), {});
       expect(res.status).toBe(200);
       expect(await res.text()).toContain('letterboxd:filmTitle');
-      expect(gevraagd[0]).toBe('https://letterboxd.com/sonny/rss/');
+      expect(gevraagd[0]).toBe('https://letterboxd.com/robin/rss/');
       const fout = await worker.fetch(new Request('https://w.dev/lb/so%20nny', { headers: { Origin: 'http://localhost:5173' } }), {});
       expect(fout.status).toBe(404);
     } finally { delete global.fetch; }
 
     // In de app: bij het openen de feed lezen; het kaartje van gisteren scheurt af
     localStorage.clear();
-    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'sonny' }));
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'robin' }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022 }]));
     localStorage.setItem('nossyV2.kaartjes', JSON.stringify([{ id: '1', key: 'aftersun|2022', name: 'Aftersun', year: 2022, datum: new Date(pick).toISOString(), bron: 'pick', personen: 1 }]));
-    global.fetch = async (url) => (String(url).includes('/lb/sonny')
+    global.fetch = async (url) => (String(url).includes('/lb/robin')
       ? { ok: true, status: 200, text: async () => xml }
       : { ok: true, status: 200, json: async () => ({}) });
     try {
@@ -3329,7 +3329,7 @@ describe('V2 smoke', () => {
 <item><title>Aftersun</title><letterboxd:watchedDate>${lokaleDag(pick)}</letterboxd:watchedDate><letterboxd:filmTitle>Aftersun</letterboxd:filmTitle><letterboxd:filmYear>2022</letterboxd:filmYear><letterboxd:memberRating>4</letterboxd:memberRating></item>
 </channel></rss>`;
     localStorage.clear();
-    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'sonny' }));
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'robin' }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022 }]));
     localStorage.setItem('nossyV2.kaartjes', JSON.stringify([{ id: 'k1', key: 'aftersun|2022', name: 'Aftersun', year: 2022, datum: new Date(pick).toISOString(), bron: 'pick', personen: 1 }]));
     localStorage.setItem('nossyV2.kaartjesGemeld', JSON.stringify([]));
@@ -3337,7 +3337,7 @@ describe('V2 smoke', () => {
     let laat;
     const binnen = new Promise((r) => { laat = r; });
     global.fetch = async (url) => {
-      if (String(url).includes('/lb/sonny')) { await binnen; return { ok: true, status: 200, text: async () => xml }; }
+      if (String(url).includes('/lb/robin')) { await binnen; return { ok: true, status: 200, text: async () => xml }; }
       return { ok: true, status: 200, json: async () => ({}) };
     };
     try {
@@ -3378,12 +3378,12 @@ describe('V2 smoke', () => {
 
     // bij het openen kijkt de app meteen, ook als de vorige keer pas vijf minuten geleden was
     localStorage.clear();
-    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'sonny' }));
+    localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl', lbNaam: 'robin' }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2001', name: 'A', year: 2001 }]));
     localStorage.setItem('nossyV2.lbLive', JSON.stringify({ at: nu - 5 * 60e3, fout: null, erbij: 0 }));
     let gevraagd = 0;
     global.fetch = async (url) => {
-      if (String(url).includes('/lb/sonny')) { gevraagd += 1; return { ok: true, status: 200, text: async () => '<?xml version="1.0"?><rss><channel></channel></rss>' }; }
+      if (String(url).includes('/lb/robin')) { gevraagd += 1; return { ok: true, status: 200, text: async () => '<?xml version="1.0"?><rss><channel></channel></rss>' }; }
       return { ok: true, status: 200, json: async () => ({}) };
     };
     try {
@@ -3543,16 +3543,16 @@ describe('V2 smoke', () => {
     };
     const opslag = (start) => { const m = new Map(Object.entries(start)); return { lees: (s) => (m.has(s) ? m.get(s) : null), schrijf: (s, v) => m.set(s, v), m }; };
     const tk = (id, extra = {}) => ({ id, key: id, name: id, datum: '2026-11-0' + id + 'T20:00:00Z', ...extra });
-    const laptop = opslag({ kaartjes: [tk('1')], watchlist: [{ key: 'x' }], settings: { lang: 'nl', lbNaam: 'sonny' } });
+    const laptop = opslag({ kaartjes: [tk('1')], watchlist: [{ key: 'x' }], settings: { lang: 'nl', lbNaam: 'robin' } });
     const pc = opslag({ kaartjes: [tk('2')] });
     let sL = (await synchroniseer(code, { opslag: laptop, server, nu: 1000 })).staat;
     // het geheim in de server is onleesbaar
-    expect(doc.data).not.toContain('sonny');
+    expect(doc.data).not.toContain('robin');
     const eersteKeerPc = await synchroniseer(code, { opslag: pc, server, nu: 2000 });
     let sP = eersteKeerPc.staat;
     expect(pc.m.get('kaartjes').map((x) => x.id).sort()).toEqual(['1', '2']);
     expect(pc.m.get('watchlist')).toEqual([{ key: 'x' }]);
-    expect(pc.m.get('settings').lbNaam).toBe('sonny');
+    expect(pc.m.get('settings').lbNaam).toBe('robin');
     expect(eersteKeerPc.toegepast).toEqual(expect.arrayContaining(['kaartjes', 'watchlist', 'settings']));
     sL = (await synchroniseer(code, { opslag: laptop, staat: sL, server, nu: 3000 })).staat;
     expect(laptop.m.get('kaartjes').map((x) => x.id).sort()).toEqual(['1', '2']);
@@ -3572,7 +3572,7 @@ describe('V2 smoke', () => {
       expect(ks.find((x) => x.id === '1').sterren).toBe(5);
     }
     // een instelling op de pc gewijzigd: die gaat naar de laptop
-    pc.schrijf('settings', { lang: 'en', lbNaam: 'sonny' });
+    pc.schrijf('settings', { lang: 'en', lbNaam: 'robin' });
     sP = (await synchroniseer(code, { opslag: pc, staat: { ...sP, gewijzigd: { instellingen: 9000 } }, server, nu: 9000 })).staat;
     sL = (await synchroniseer(code, { opslag: laptop, staat: sL, server, nu: 10000 })).staat;
     expect(laptop.m.get('settings').lang).toBe('en');
@@ -3806,7 +3806,7 @@ describe('V2 smoke', () => {
       ? { method: 'POST', body: JSON.stringify(body), headers: { Origin: 'http://localhost:5173', 'Content-Type': 'application/json' } }
       : { headers: { Origin: 'http://localhost:5173' } }), env);
     const films = Array.from({ length: 70 }, (_, i) => ({ key: `f${i}`, name: `F${i}`, year: 2000, id: i + 1, genres: ['Drama'], keywords: [1, 2], vote: 7, votes: 100, extra: 'weg' }));
-    const nieuw = await (await vraag('/session/new', { type: 'samen', films, host: 'Sonny' })).json();
+    const nieuw = await (await vraag('/session/new', { type: 'samen', films, host: 'Robin' })).json();
     expect(nieuw.versie).toBe(2);
     const opgeslagen = JSON.parse(kv.get(`s:${nieuw.code}`));
     expect(opgeslagen.type).toBe('samen');
@@ -3829,7 +3829,7 @@ describe('V2 smoke', () => {
     global.fetch = async (url, opts) => {
       calls.push({ url: String(url), body: opts?.body });
       if (String(url).endsWith('/session/SAM234')) {
-        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Sonny', winner: null, scores: {}, films: [
+        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Robin', winner: null, scores: {}, films: [
           { key: 'w|2016', name: 'The Wailing', year: 2016, poster: null },
           { key: 'l|2008', name: 'Lake Mungo', year: 2008, poster: null },
         ] }) };
@@ -3840,7 +3840,7 @@ describe('V2 smoke', () => {
       localStorage.clear();
       localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
       render(<App />);
-      expect(await screen.findByText('Sonny kiest een film voor jullie samen')).toBeTruthy();
+      expect(await screen.findByText('Robin kiest een film voor jullie samen')).toBeTruthy();
       expect(document.body.textContent).toContain('Je export blijft op deze telefoon');
       fireEvent.change(screen.getByLabelText('Je naam'), { target: { value: 'Pim' } });
       fireEvent.click(screen.getByText(/Geen export bij de hand/));
@@ -3866,7 +3866,7 @@ describe('V2 smoke', () => {
       const u = String(url);
       calls.push({ url: u, body: opts?.body });
       if (u.endsWith('/session/SAM234')) {
-        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Sonny', winner: null, scores: {}, films: [
+        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Robin', winner: null, scores: {}, films: [
           { key: 'drama nieuw|2020', name: 'Drama Nieuw', year: 2020, genres: ['Drama'], vote: 7.5, votes: 5000 },
           { key: 'horror nieuw|2020', name: 'Horror Nieuw', year: 2020, genres: ['Horror'], vote: 7.5, votes: 5000 },
           { key: 'gezien|2004', name: 'Gezien', year: 2004, id: 4, genres: ['Drama'], vote: 7.5, votes: 5000 },
@@ -3889,7 +3889,7 @@ describe('V2 smoke', () => {
       localStorage.clear();
       localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
       render(<App />);
-      expect(await screen.findByText('Sonny kiest een film voor jullie samen')).toBeTruthy();
+      expect(await screen.findByText('Robin kiest een film voor jullie samen')).toBeTruthy();
       fireEvent.change(screen.getByLabelText('Je naam'), { target: { value: 'Eef' } });
       const csv = 'Date,Name,Year,Letterboxd URI,Rating\n2026-01-01,Drama1,2001,x,5\n2026-01-02,Drama2,2002,x,4.5\n2026-01-03,Horror1,2003,x,1\n2026-01-04,Gezien,2004,x,4';
       const bestand = new File([csv], 'ratings.csv', { type: 'text/csv' });
@@ -3916,7 +3916,7 @@ describe('V2 smoke', () => {
       calls.push({ url: u, body: opts?.body });
       if (u.endsWith('/session/new')) return { ok: true, status: 200, json: async () => ({ code: 'SAM777', versie: 2 }) };
       if (u.endsWith('/session/SAM777')) {
-        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Sonny', winner: null, films: [], scores: {
+        return { ok: true, status: 200, json: async () => ({ type: 'samen', host: 'Robin', winner: null, films: [], scores: {
           Sanne: { 'a|2020': { s: 90, w: true, g: false }, 'b|2021': { s: 20, w: false, g: false }, 'c|2022': { s: 60, w: false, g: false } },
         } }) };
       }
@@ -3930,13 +3930,13 @@ describe('V2 smoke', () => {
       ]));
       render(<App />);
       fireEvent.click(screen.getAllByText('Avond')[0]);
-      fireEvent.change(screen.getAllByLabelText('Je naam')[0], { target: { value: 'Sonny' } });
+      fireEvent.change(screen.getAllByLabelText('Je naam')[0], { target: { value: 'Robin' } });
       fireEvent.click(screen.getByText('Start Voor ons'));
       expect(await screen.findByText('Code: SAM777')).toBeTruthy();
       const nieuw = JSON.parse(calls.find((c) => c.url.endsWith('/session/new')).body);
       expect(nieuw.type).toBe('samen');
-      expect(nieuw.host).toBe('Sonny');
-      expect(await screen.findByText('Doen mee: Sonny, Sanne', {}, { timeout: 8000 })).toBeTruthy();
+      expect(nieuw.host).toBe('Robin');
+      expect(await screen.findByText('Doen mee: Robin, Sanne', {}, { timeout: 8000 })).toBeTruthy();
       expect(screen.getByText('Voor jullie samen')).toBeTruthy();
       expect(screen.getByText('Op de watchlist van Sanne')).toBeTruthy();
       // bovenaan staat A (Sanne 90, op haar lijst); B zakt (Sanne 20)
@@ -3945,11 +3945,11 @@ describe('V2 smoke', () => {
       expect(titels[titels.length - 1]).toBe('B (2021)');
       fireEvent.click(screen.getAllByText('Deze kijken we')[0]);
       const kaartje = await waitFor(() => { const k = document.querySelector('.kaartje'); if (!k) throw new Error('nog niet'); return k; });
-      expect(kaartje.textContent).toContain('SONNY, SANNE');
+      expect(kaartje.textContent).toContain('ROBIN, SANNE');
       expect(kaartje.textContent).toContain('TOEGANG 2 PERSONEN');
       expect(JSON.parse(calls.find((c) => c.url.includes('/close')).body).winner).toBe('a|2020');
       const k = JSON.parse(localStorage.getItem('nossyV2.kaartjes'));
-      expect(k[0]).toMatchObject({ key: 'a|2020', bron: 'samen', personen: 2, namen: ['Sonny', 'Sanne'] });
+      expect(k[0]).toMatchObject({ key: 'a|2020', bron: 'samen', personen: 2, namen: ['Robin', 'Sanne'] });
     } finally {
       delete global.fetch;
     }
@@ -3966,7 +3966,7 @@ describe('V2 smoke', () => {
       render(<App />);
       fireEvent.click(screen.getAllByText('Avond')[0]);
       fireEvent.click(screen.getByText('Start Voor ons'));
-      expect(await screen.findByText(/De Worker kent Voor ons nog niet/)).toBeTruthy();
+      expect(await screen.findByText(/Voor ons is op dit moment niet beschikbaar/)).toBeTruthy();
     } finally {
       delete global.fetch;
     }
@@ -4045,7 +4045,7 @@ describe('V2 smoke', () => {
       render(<App />);
       fireEvent.click(screen.getAllByText('Avond')[0]);
       fireEvent.click(screen.getByText('Start stemronde op afstand'));
-      expect(await screen.findByText(/kent nog geen stemrondes/)).toBeTruthy();
+      expect(await screen.findByText(/Stemrondes op afstand zijn op dit moment niet beschikbaar/)).toBeTruthy();
     } finally {
       delete global.fetch;
     }
