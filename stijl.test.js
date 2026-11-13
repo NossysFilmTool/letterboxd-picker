@@ -83,6 +83,16 @@ describe('ontwerp: geen AI-clichés', () => {
     expect(bron.filter(([, tekst]) => popup.test(tekst)).map(([p]) => p)).toEqual([]);
   });
 
+  it('de navigatie tekent zijn eigen pictogrammen, geen standaardset', () => {
+    const shell = bron.find(([p]) => p.replace(/\\/g, '/').endsWith('components/Shell.jsx'))[1];
+    expect(shell).not.toMatch(/lucide-react/);
+  });
+
+  it('het archief filtert met een zin, niet met een muur van knopjes', () => {
+    const bieb = bron.find(([p]) => p.replace(/\\/g, '/').endsWith('tabs/Bieb.jsx'))[1];
+    expect(bieb).not.toMatch(/className=\{?[`'"]chip/);
+  });
+
   it('geen paarse verlopen (de bekendste AI-kleur)', () => {
     expect(css).not.toMatch(/linear-gradient\([^)]*(#8b5cf6|#7c3aed|#6366f1|#a855f7|indigo|purple)/i);
   });

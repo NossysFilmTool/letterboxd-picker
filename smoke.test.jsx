@@ -46,7 +46,7 @@ function seed() {
 const startOpZoeken = () => localStorage.setItem('nossyV2.verkenMode', JSON.stringify('zoeken'));
 // Open Verken, optioneel met het (standaard ingeklapte) filterpaneel open.
 function naarZoeken({ filters = false } = {}) {
-  fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+  fireEvent.click(screen.getAllByLabelText('Programma')[0]);
   if (filters) fireEvent.click(screen.getByText('Toon filters'));
 }
 
@@ -410,7 +410,7 @@ describe('V2 smoke', () => {
       'd|2017': { id: 4, poster: '/d.jpg', vote: 7, votes: 4000, genres: ['Drama'], at: Date.now() },
     }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     // naar "Alles bekijken" van de rij, waar de kaarten met het recept wonen
     fireEvent.click(screen.getByText(/Alles bekijken/));
@@ -595,7 +595,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ 'Oude Regisseur': { at: Date.now(), films: oud } }));
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       fireEvent.click(screen.getByText('Voor jou'));
       const koppen = () => [...document.querySelectorAll('.rec-row-head h3')].map((h) => h.textContent);
       // Recept: top, favoriet, regisseur, favoriet, thema. Welke twee van de
@@ -625,7 +625,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms, at: Date.now() } }));
     localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], director: 'Testregisseur', at: Date.now() } }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]); // opent op Voor jou
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]); // opent op Voor jou
     expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
     // x: weg uit de rij, met een zichtbare nudge
     fireEvent.click(screen.getByLabelText('Niet voor mij: Reg Film 1'));
@@ -671,7 +671,7 @@ describe('V2 smoke', () => {
     const calls = regFixture();
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
       // x: de film is weg, en onderin vraagt de app waarom
       fireEvent.click(screen.getByLabelText('Niet voor mij: Reg Film 1'));
@@ -702,7 +702,7 @@ describe('V2 smoke', () => {
     regFixture();
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       fireEvent.click(screen.getByLabelText('Al gezien: Reg Film 3'));
       // de knoppen maken plaats voor de sterren
       expect(screen.queryByLabelText('Al gezien: Reg Film 3')).toBeNull();
@@ -725,7 +725,7 @@ describe('V2 smoke', () => {
     regFixture();
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       fireEvent.click(screen.getByText('Snel beoordelen'));
       const titel = () => document.querySelector('.snel-info h2')?.textContent;
       const eerste = titel();
@@ -771,7 +771,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.watchedLb', JSON.stringify(['klassieker 1|1951']));
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       expect(await screen.findByText('Klassiekers die je mist')).toBeTruthy();
       expect(screen.getByText('Klassieker 2')).toBeTruthy();
       expect(screen.queryByText('Klassieker 1')).toBeNull();
@@ -830,7 +830,7 @@ describe('V2 smoke', () => {
     regFixture();
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       // zodra de details er zijn (looptijd), verschijnt de aanrader
       await waitFor(() => expect(document.querySelector('.vanavond')).toBeTruthy());
       const titel = () => document.querySelector('.vanavond .vtitle').textContent;
@@ -1134,7 +1134,7 @@ describe('V2 smoke', () => {
     }));
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       fireEvent.click(screen.getByText('Voor jou'));
       expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
       fireEvent.click(screen.getByText(/Alles bekijken/));
@@ -1169,7 +1169,7 @@ describe('V2 smoke', () => {
       'gezienefilm|2015': { id: 555, poster: '/g.jpg', vote: 7.5, votes: 3000, genres: ['Drama'], at: Date.now() },
     }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     // de verse aanrader mag verschijnen, de al geziene film niet
     expect(document.body.textContent).toContain('Verse Aanrader');
@@ -1221,7 +1221,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.oeuvres', JSON.stringify({ Testregisseur: { films: oeuvreFilms, at: Date.now() } }));
     localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], director: 'Testregisseur', at: Date.now() } }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
     // alleen komedie: de drama-regisseur valt weg, met een duidelijke melding
@@ -1270,7 +1270,7 @@ describe('V2 smoke', () => {
     }));
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
       // de details komen binnen: twee films tonen dat ze op Netflix staan (een
       // tegel en de vanavond-aanrader, die streamingaanbod voorrang geeft)
@@ -1395,7 +1395,7 @@ describe('V2 smoke', () => {
     }));
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       // samenstellen: alles uit Zuid-Korea
       fireEvent.click(screen.getByRole('button', { name: 'Eigen rij' }));
       expect(screen.getByText('Stel je eigen rij samen')).toBeTruthy();
@@ -1447,7 +1447,7 @@ describe('V2 smoke', () => {
     }));
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       expect(screen.getByText('Omdat je A hoog waardeerde')).toBeTruthy();
       // vastzetten: de rij wordt een eigen rij "lijkt op A" en wisselt niet meer mee
       fireEvent.click(screen.getByText('Vastzetten'));
@@ -1558,7 +1558,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.ratedFilms', JSON.stringify(ratedFilms));
     localStorage.setItem('nossyV2.meta', JSON.stringify({ ...JSON.parse(localStorage.getItem('nossyV2.meta')), ...meta }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Inzicht')[0]);
+    fireEvent.click(screen.getAllByLabelText('Jaarboek')[0]);
     expect(screen.getByText('Leer van je beoordelingen')).toBeTruthy();
     fireEvent.click(screen.getByText('Leer mijn smaak'));
     // de vaste weging vindt deze kring al perfect: het model is niet beter en blijft uit
@@ -1583,7 +1583,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.ratedFilms', JSON.stringify(ratedFilms));
     localStorage.setItem('nossyV2.meta', JSON.stringify({ ...JSON.parse(localStorage.getItem('nossyV2.meta')), ...meta }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Inzicht')[0]);
+    fireEvent.click(screen.getAllByLabelText('Jaarboek')[0]);
     expect(screen.getByText('Hoe goed kent Voor jou je smaak?')).toBeTruthy();
     fireEvent.click(screen.getByText('Meet het'));
     expect(document.body.textContent).toMatch(/\d+ van \d+ favorieten teruggevonden in de top 50/);
@@ -1630,7 +1630,7 @@ describe('V2 smoke', () => {
     }));
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+      fireEvent.click(screen.getAllByLabelText('Programma')[0]);
       // de kiezer verschijnt zodra de diensten van je regio binnen zijn (zonder kindervariant)
       expect(await screen.findByText('Welke streamingdiensten heb je?')).toBeTruthy();
       expect(screen.queryByText('Netflix Kids')).toBeNull();
@@ -1667,7 +1667,7 @@ describe('V2 smoke', () => {
       'a|2020': { id: 1, poster: '/a.jpg', vote: 8, votes: 5000, genres: ['Drama'], director: 'Testregisseur', at: Date.now() },
     }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     // de rij-kop verschijnt met de regisseursnaam, met posters
     expect(screen.getByText('Meer van Testregisseur')).toBeTruthy();
@@ -1682,7 +1682,7 @@ describe('V2 smoke', () => {
 
   it('verken toont aanbevelingen op ratings-basis en shortlist-export', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     expect(document.body.textContent).toContain('4+ sterren');
     expect(document.body.textContent).toContain('Aanrader');
@@ -1694,7 +1694,7 @@ describe('V2 smoke', () => {
 
   it('avond: veto-ronde tot winnaar', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     fireEvent.click(screen.getByText('Start veto'));
     fireEvent.click(screen.getByText('Meteen naar de veto'));
     for (let i = 0; i < 5; i++) {
@@ -1706,7 +1706,7 @@ describe('V2 smoke', () => {
 
   it('avond: bracket van halve finale naar kampioen', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     fireEvent.click(screen.getByText('Start bracket'));
     for (let i = 0; i < 3; i++) {
       const cards = document.querySelectorAll('.duel-card');
@@ -1718,7 +1718,7 @@ describe('V2 smoke', () => {
 
   it('inzicht toont smaakprofiel', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Inzicht')[0]);
+    fireEvent.click(screen.getAllByLabelText('Jaarboek')[0]);
     expect(document.body.textContent).toContain('Genres');
     expect(document.body.textContent).toContain('Decennia');
     expect(document.body.textContent).toContain('Jouw gem. rating');
@@ -1737,18 +1737,18 @@ describe('V2 smoke', () => {
 
   it('bieb: zoeken, sorteren en film openen met Nossy-score', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     expect(document.body.textContent).toContain('6 van 6 films');
-    fireEvent.change(screen.getByLabelText('Zoek in je bieb'), { target: { value: 'stalker' } });
+    fireEvent.change(screen.getByLabelText('Zoek in je archief'), { target: { value: 'stalker' } });
     expect(document.body.textContent).toContain('1 van 6 films');
     fireEvent.click(screen.getByLabelText(/Open Stalker/));
-    expect(document.body.textContent).toContain('Uit je bieb');
-    expect(document.body.textContent).toContain('Terug naar de bieb');
+    expect(document.body.textContent).toContain('Uit je archief');
+    expect(document.body.textContent).toContain('Terug naar het archief');
   });
 
   it('winner toont Nossy-score en losse bronnen bij ext-ratings', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     fireEvent.click(screen.getByLabelText(/Open Aftersun/));
     expect(document.body.textContent).toContain('Nossy'); // hero-label
     expect(document.body.textContent).toContain('7,8'); // IMDb-bron
@@ -1758,7 +1758,7 @@ describe('V2 smoke', () => {
 
   it('verken: afwijzen is te herstellen', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     const kaart = screen.getByText('Vergelijkbare Parel').closest('.card');
     fireEvent.click(within(kaart).getByText('Niet voor mij'));
@@ -1771,7 +1771,7 @@ describe('V2 smoke', () => {
   it('inzicht: eerdere pick heropenen', () => {
     localStorage.setItem('nossyV2.history', JSON.stringify([{ key: 'stalker|1979', name: 'Stalker', year: 1979, date: new Date().toISOString(), context: null }]));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Inzicht')[0]);
+    fireEvent.click(screen.getAllByLabelText('Jaarboek')[0]);
     fireEvent.click(screen.getByText(/^Stalker/));
     expect(document.body.textContent).toContain('Eerdere pick');
     expect(document.body.textContent).toContain('162 min');
@@ -1833,13 +1833,13 @@ describe('V2 smoke', () => {
     expect(await screen.findByText(/Test Regisseur/)).toBeTruthy();
     expect(document.body.textContent).toContain('101 min');
     expect(document.body.textContent).toContain('Van buiten je lijst');
-    fireEvent.click(screen.getByText('Terug naar Verken'));
+    fireEvent.click(screen.getByText('Terug naar het programma'));
     delete global.fetch;
   });
 
   it('avond: filters beperken de pot vooraf, en blijven bewaard', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     const telling = () => document.querySelector('.af-telling').textContent;
     expect(telling()).toBe('6 films');
     // standaard: alleen "geen korte films" staat aan, dus niets om terug te zetten
@@ -1868,7 +1868,7 @@ describe('V2 smoke', () => {
     meta['close|2022'].runtime = 14; // een korte film
     localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     const telling = () => document.querySelector('.af-telling').textContent;
     expect(telling()).toBe('5 films');
     const geenKort = screen.getByText('Geen korte films').closest('button');
@@ -1890,7 +1890,7 @@ describe('V2 smoke', () => {
     Object.entries(talen).forEach(([k, l]) => { meta[k].lang = l; });
     localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     const telling = () => document.querySelector('.af-telling').textContent;
     fireEvent.click(screen.getByText('Engelstalig'));
     expect(telling()).toBe('3 films');
@@ -1947,7 +1947,7 @@ describe('V2 smoke', () => {
     const mm = window.matchMedia;
     window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     fireEvent.click(screen.getByText('Start veto'));
     window.matchMedia = mm;
     const dialoog = screen.getByRole('dialog', { name: 'Trailers van de films in deze ronde' });
@@ -1990,7 +1990,7 @@ describe('V2 smoke', () => {
     window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+      fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
       fireEvent.click(screen.getByText('Start veto'));
       const dialoog = screen.getByRole('dialog');
       // jsdom kent geen AnimationEvent; React luistert dan naar de webkit-naam
@@ -2043,7 +2043,7 @@ describe('V2 smoke', () => {
     window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+      fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
       fireEvent.click(screen.getByText('Start veto'));
       const dialoog = screen.getByRole('dialog');
       const knop = within(dialoog).getByLabelText('Geluid uit');
@@ -2117,7 +2117,7 @@ describe('V2 smoke', () => {
 
   it('avond: trailers zijn uit te zetten, en dat blijft zo', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     const schakelaar = screen.getByText('Eerst de trailers').closest('button');
     expect(schakelaar.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(schakelaar);
@@ -2133,7 +2133,7 @@ describe('V2 smoke', () => {
     Object.values(meta).forEach((m) => { m.plot = ''; m.vote = null; m.ext = undefined; m.flat = []; });
     localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     fireEvent.click(screen.getByText('Start veto'));
     const dialoog = screen.getByRole('dialog');
     expect(within(dialoog).getByText('TMDB heeft geen beschrijving van deze film.')).toBeTruthy();
@@ -2142,7 +2142,7 @@ describe('V2 smoke', () => {
 
   it('avond: info-knop spiekt zonder de ronde te verstoren', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Avond')[0]);
+    fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
     fireEvent.click(screen.getByText('Start veto'));
     fireEvent.click(screen.getByText('Meteen naar de veto'));
     const infoBtn = document.querySelector('[aria-label^="Info over"]');
@@ -2154,7 +2154,7 @@ describe('V2 smoke', () => {
 
   it('nossy-label verschijnt pas bij 2+ bronnen', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     fireEvent.click(screen.getByLabelText(/Open First Cow/)); // geen ext → alleen TMDB
     // geen Nossy-hero (dat vereist 2+ bronnen), wel de losse TMDB-bron
     expect(document.querySelector('.nossy-big')).toBeNull();
@@ -2176,7 +2176,7 @@ describe('V2 smoke', () => {
     expect(await screen.findByText(/Opgeslagen. Scores worden opgehaald/)).toBeTruthy();
     // wachtrij (5 films zonder ext) laten leeglopen
     await new Promise((r) => setTimeout(r, 50));
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     fireEvent.click(screen.getByLabelText(/Open First Cow/));
     expect(await screen.findByText(/8,1/)).toBeTruthy();
     expect(document.body.textContent).toContain('91%');
@@ -2199,7 +2199,7 @@ describe('V2 smoke', () => {
     render(<App />);
     expect(document.body.textContent).not.toContain('Je ziet nu alleen TMDB-scores');
     expect(document.querySelector('.scores-preview')).toBeNull();
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     expect(document.querySelector('.scores-preview')).toBeNull();
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
     expect(document.querySelector('.scores-preview')).toBeTruthy();
@@ -2279,21 +2279,52 @@ describe('V2 smoke', () => {
 
   it('bieb: gezien-scope toont kijkgeschiedenis met jouw rating', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
-    fireEvent.click(screen.getByText(/Gezien \(2\)/));
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Gezien 2' }));
     expect(document.body.textContent).toContain('Columbus');
     expect(document.body.textContent).toContain('Petite maman');
     expect(document.body.textContent).toContain('4,5');
-    expect(document.body.textContent).toContain('Jouw rating'); // sorteeroptie
+    expect(document.body.textContent).toContain('mijn sterren'); // sorteeroptie
+  });
+
+  it('archief: de kop van het huis, een filterzin, films per decennium en een uitgelichte film', async () => {
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    meta['whiplash|2014'].backdrop = '/w.jpg';
+    localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    render(<App />);
+    expect(document.querySelector('.kop-naam').textContent).toBe('Nossy’s bioscoop');
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
+    expect(screen.getAllByRole('button', { name: 'Archief' }).every((b) => b.getAttribute('aria-current') === 'page')).toBe(true);
+    // het hoogste cijfer dat je nog niet zag, met zijn filmbeeld
+    expect(await screen.findByText('hoogste cijfer op je lijst')).toBeTruthy();
+    expect(document.querySelector('.uitgelicht-titel').textContent).toBe('Whiplash');
+    // op jaar: per decennium, nieuwste eerst
+    expect([...document.querySelectorAll('.decennium-kop h2')].map((h) => h.textContent)).toEqual(['2020', '2010', '1990', '1970']);
+    // de filterzin: tik op het onderstreepte woord (de zin zoals je hem ziet,
+    // zonder de keuzelijsten die eroverheen liggen)
+    const zin = () => {
+      const kopie = document.querySelector('.filterzin').cloneNode(true);
+      kopie.querySelectorAll('select').forEach((s) => s.remove());
+      return kopie.textContent.replace(/\s+/g, ' ');
+    };
+    expect(zin()).toContain('Toon alle genres uit alle jaren, elke lengte, waar dan ook, gezien telt mee. Op jaar, nieuwste eerst.');
+    fireEvent.change(screen.getByLabelText('Genre'), { target: { value: 'Western' } });
+    expect(zin()).toContain('Toon western uit');
+    expect(document.body.textContent).toContain('1 van 6 films');
+    expect(document.querySelector('.uitgelicht')).toBeNull();
+    // op titel: geen decennia meer
+    fireEvent.change(screen.getByLabelText('Sorteer op'), { target: { value: 'titel' } });
+    expect(zin()).toContain('Op titel.');
+    expect(document.querySelector('.decennium')).toBeNull();
   });
 
   it('bieb: periode-filter werkt', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     fireEvent.change(screen.getByLabelText('Periode'), { target: { value: '1970' } });
     expect(document.body.textContent).toContain('Stalker');
     expect(document.body.textContent).not.toContain('Whiplash');
-    expect(document.body.textContent).toContain('1 van 6 films (gefilterd)');
+    expect(document.body.textContent).toContain('1 van 6 films');
   });
 
   it('nossy-score: gewogen (IMDb dubbel) en één decimaal', async () => {
@@ -2337,7 +2368,7 @@ describe('V2 smoke', () => {
     for (let i = 0; i < 10; i++) rf.push({ key: `film${i}|2000`, name: `Film${i}`, year: 2000, rating: 5 });
     localStorage.setItem('nossyV2.ratedFilms', JSON.stringify(rf));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     expect(document.body.textContent).toContain('% match');
     const lijstToggle = screen.queryByText('Toon als één lijst');
@@ -2371,7 +2402,7 @@ describe('V2 smoke', () => {
 
   it('mengmotor: similar- en oeuvre-instroom met bronlabels', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     expect(document.body.textContent).toContain('Vergelijkbare Parel');
     expect(document.body.textContent).toContain('Lijkt op Aftersun');
@@ -2406,7 +2437,7 @@ describe('V2 smoke', () => {
     metaNow['aftersun|2022'].sims.push({ id: 7999, title: 'Junk Short', year: 2021, poster: null, vote: 10, votes: 5, lang: 'en', genre_ids: [18] });
     localStorage.setItem('nossyV2.meta', JSON.stringify(metaNow));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     expect(document.body.textContent).toContain('Vergelijkbare Parel'); // 800 stemmen: blijft
     expect(document.body.textContent).not.toContain('Junk Short'); // 5 stemmen: eruit
@@ -2423,7 +2454,7 @@ describe('V2 smoke', () => {
         : { total_pages: 1, results: [] }),
     });
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     await new Promise((r) => setTimeout(r, 30)); // automatische instroom laten settelen
     expect(document.body.textContent).not.toContain('Verse Vondst');
@@ -2614,7 +2645,7 @@ describe('V2 smoke', () => {
     expect(await screen.findByText('Blijverfilm')).toBeTruthy();
     fireEvent.click(screen.getByText('Bekijk kaart'));
     expect(await screen.findByText(/Regisseur X/)).toBeTruthy();
-    fireEvent.click(screen.getByText('Terug naar Verken'));
+    fireEvent.click(screen.getByText('Terug naar het programma'));
     // de zoekresultaten moeten er nog zijn — niet weggevaagd
     expect(screen.getByText('Blijverfilm')).toBeTruthy();
     expect(screen.getByLabelText('Zoek op titel of maker').value).toBe('blijver');
@@ -2631,14 +2662,14 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.ratedFilms', JSON.stringify(rf));
     localStorage.setItem('nossyV2.meta', JSON.stringify(m));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Inzicht')[0]);
+    fireEvent.click(screen.getAllByLabelText('Jaarboek')[0]);
     expect(document.body.textContent).toContain('Jouw smaakprofiel');
     expect(document.body.textContent).toContain('Drama');
   });
 
   it('verken: skip toont een zichtbare feedback-nudge', () => {
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     const kaart = screen.getByText('Vergelijkbare Parel').closest('.card');
     fireEvent.click(within(kaart).getByText('Niet voor mij'));
@@ -2662,7 +2693,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.meta', JSON.stringify({ 'lilya|2002': { id: 1, poster: null, plot: lang, vote: 7.9, votes: 3000, genres: ['Drama'], at: Date.now(), trailer: null } }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'lilya|2002', name: 'Lilya 4-ever', year: 2002, uri: '' }]));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     fireEvent.click(screen.getByLabelText(/Open Lilya/));
     const meer = screen.getByText('meer');
     expect(meer).toBeTruthy();
@@ -2833,7 +2864,7 @@ describe('V2 smoke', () => {
       return { ok: true, status: 200, json: async () => ({ results: [], total_pages: 1 }) };
     };
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Verken')[0]);
+    fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByText('Voor jou'));
     // de thema-jacht draait nu automatisch; geen chip meer
     // de gejaagde film verschijnt mét uitleg over het thema
@@ -2877,14 +2908,14 @@ describe('V2 smoke', () => {
 
   it('i18n: taal wisselen naar Engels vertaalt de tabnamen', () => {
     render(<App />);
-    // standaard NL: 'Verken' en 'Bieb' zichtbaar
-    expect(screen.getAllByText('Verken').length).toBeGreaterThan(0);
+    // standaard NL: 'Programma' en 'Archief' zichtbaar
+    expect(screen.getAllByText('Programma').length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
     fireEvent.click(screen.getByText('English'));
-    // nu Engels: 'Explore' en 'Library' verschijnen, 'Verken' verdwijnt
-    expect(screen.getAllByText('Explore').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Library').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Verken')).toBeNull();
+    // nu Engels: 'Programme' en 'Archive' verschijnen, 'Programma' verdwijnt
+    expect(screen.getAllByText('Programme').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Archive').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Programma')).toBeNull();
   });
 
   it('i18n: t() interpoleert variabelen en kiest meervoud', async () => {
@@ -2895,7 +2926,7 @@ describe('V2 smoke', () => {
     setLang('en');
     expect(t('common.films_over', { count: 1 })).toBe('1 film left');
     expect(t('common.films_over', { count: 3 })).toBe('3 films left');
-    expect(t('nav.bieb')).toBe('Library');
+    expect(t('nav.bieb')).toBe('Archive');
     setLang('nl'); // reset
   });
 
@@ -2964,7 +2995,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.meta', JSON.stringify({ 'aftersun|2022': { id: 9, poster: null, vote: 7.8, votes: 5000, genres: ['Drama'], flat: ['MUBI'], jwLink: 'https://www.justwatch.com/nl/film/aftersun', at: Date.now(), trailer: null } }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'aftersun|2022', name: 'Aftersun', year: 2022, uri: '' }]));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     fireEvent.click(screen.getByLabelText(/Open Aftersun/));
     const badge = screen.getByText(/Nu op MUBI/);
     const link = badge.closest('a');
@@ -3017,7 +3048,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'en' }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
     render(<App />);
-    fireEvent.click(screen.getAllByText('Explore')[0]);
+    fireEvent.click(screen.getAllByText('Programme')[0]);
     fireEvent.click(screen.getByText('Show filters'));
     const sel = screen.getByLabelText('Language');
     const opties = [...sel.querySelectorAll('option')].map((o) => o.textContent);
@@ -3056,7 +3087,7 @@ describe('V2 smoke', () => {
       'b|2019': { id: 2, genres: ['Drama'], votes: 3000, country: 'US', keywords: kw, at: Date.now() },
     }));
     render(<App />);
-    fireEvent.click(screen.getAllByText('Inzicht')[0]);
+    fireEvent.click(screen.getAllByText('Jaarboek')[0]);
     expect(document.querySelector('img[src="x"]')).toBeNull();
     expect(window.__pwned).toBeUndefined();
     expect(document.body.textContent).toContain('<img src=x');
@@ -3108,14 +3139,14 @@ describe('V2 smoke', () => {
       Array.from({ length: 70 }, (_, i) => ({ key: `film${i}|2000`, name: `Film ${i}`, year: 2000 })),
     ));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     expect(screen.getAllByLabelText(/^Open /).length).toBe(60);
     const btn = screen.getByText('Toon meer (10 over)');
     fireEvent.click(btn);
     expect(screen.getAllByLabelText(/^Open /).length).toBe(70);
     expect(screen.queryByText(/Toon meer/)).toBeNull();
     // filter-wijziging reset de teller
-    fireEvent.change(screen.getByLabelText('Zoek in je bieb'), { target: { value: 'Film' } });
+    fireEvent.change(screen.getByLabelText('Zoek in je archief'), { target: { value: 'Film' } });
     expect(screen.getAllByLabelText(/^Open /).length).toBe(60);
   });
 
@@ -3146,7 +3177,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
     localStorage.setItem('nossyV2.meta', JSON.stringify({ 'a|2020': { id: 1, poster: null, vote: 7.2, votes: 900, genres: ['Drama'], at: Date.now() } }));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     fireEvent.click(screen.getByLabelText(/^Open A/));
     const chip = screen.getByTitle(/Meer scores/);
     expect(chip.textContent).toContain('IMDb');
@@ -3172,7 +3203,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }]));
     render(<App />);
-    fireEvent.click(screen.getAllByText('Verken')[0]);
+    fireEvent.click(screen.getAllByText('Programma')[0]);
     expect(document.body.textContent).not.toContain('TMDB-sleutel nodig');
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
     expect(document.body.textContent).toContain('de tool regelt TMDB voor je');
@@ -3196,11 +3227,11 @@ describe('V2 smoke', () => {
     expect(kaartjes).toHaveLength(1);
     expect(kaartjes[0]).toMatchObject({ key: 'aftersun|2022', antwoord: 'gekeken', sterren: 4 });
     // en de film staat nu bij gezien, met jouw ster zichtbaar in de Bieb
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
-    fireEvent.click(screen.getByText(/^Gezien \(/));
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^Gezien \d/ }));
     expect(document.body.textContent).toContain('Aftersun');
     // en in de kaartjesdoos, met de sterren als stempel
-    fireEvent.click(screen.getByText('Kaartjes (1)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Kaartjes 1' }));
     expect(document.querySelector('.kaartje-stub-titel').textContent).toBe('AFTERSUN');
     expect(document.querySelector('.kaartje-stub-stempel').textContent).toBe('★★★★');
   });
@@ -3411,7 +3442,7 @@ describe('V2 smoke', () => {
       { key: 'z|3', name: 'Z', year: 2019, watchedDate: vorigeMaand, rewatch: false },
     ]));
     render(<App />);
-    fireEvent.click(screen.getAllByText('Inzicht')[0]);
+    fireEvent.click(screen.getAllByText('Jaarboek')[0]);
     expect(document.body.textContent).toContain('Jouw kijkritme');
     expect(document.body.textContent).toContain('3 films gekeken');
     expect(document.body.textContent).toContain('waarvan 1 herkijk');
@@ -3435,7 +3466,7 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.kaartjes', JSON.stringify([{ id: '1', key: 'a|2001', name: 'Film A', year: 2001, datum: gisteren, bron: 'pick', personen: 1 }]));
     render(<App />);
     // ook op de Bieb staat de vraag
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
     expect(screen.getByText(/Film A \(2001\): Gekeken\?/)).toBeTruthy();
     // later: weg tot morgen
     fireEvent.click(screen.getByText('Later'));
@@ -3450,7 +3481,7 @@ describe('V2 smoke', () => {
     expect(document.querySelector('.afgescheurd .kaartje-stub-titel').textContent).toBe('FILM A');
     fireEvent.click(screen.getByText('Bekijk de doos'));
     // meteen op de tab Kaartjes
-    expect(document.querySelector('.modus-tab.actief').textContent).toBe('Kaartjes (1)');
+    expect(document.querySelector('.archief-tab.actief').textContent).toBe('Kaartjes 1');
     expect(document.querySelector('.kaartje-stub-stempel').textContent).toBe('★★★★★');
   });
 
@@ -3466,8 +3497,8 @@ describe('V2 smoke', () => {
       { id: 'b', key: 'b|2002', name: 'Film B', year: 2002, datum: iso(nu - 5 * dag), bron: 'pick', personen: 1, antwoord: 'niet' },
     ]));
     render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
-    fireEvent.click(screen.getByText('Kaartjes (1)'));
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Kaartjes 1' }));
     // je filmjaar
     expect(screen.getByText(`Jouw filmjaar ${new Date(nu - 3 * dag).getFullYear()}`)).toBeTruthy();
     expect(document.querySelector('.kd-jaar').textContent).toContain('Sanne');
@@ -3476,7 +3507,7 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('je zei: niet gekeken');
     fireEvent.click(screen.getByText('Toch gekeken'));
     expect(screen.getByText('Kaartje 2 in de doos')).toBeTruthy();
-    expect(screen.getByText('Kaartjes (2)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Kaartjes 2' })).toBeTruthy();
     // een kaartje openen: notitie en sterren aanpassen
     fireEvent.click(screen.getByLabelText(/^Film A, gekeken op/));
     const notitie = screen.getByPlaceholderText(/Met wie, waar/);
@@ -3488,7 +3519,7 @@ describe('V2 smoke', () => {
     expect(JSON.parse(localStorage.getItem('nossyV2.ownRatings'))['a|2001'].rating).toBe(2.5);
     // toch niet gekeken: uit de doos
     fireEvent.click(screen.getByText(/Toch niet gekeken/));
-    expect(screen.getByText('Kaartjes (1)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Kaartjes 1' })).toBeTruthy();
     k = JSON.parse(localStorage.getItem('nossyV2.kaartjes')).find((x) => x.id === 'a');
     expect(k.antwoord).toBe('niet');
   });
@@ -3598,8 +3629,8 @@ describe('V2 smoke', () => {
       expect(JSON.parse(localStorage.getItem('nossyV2.lbLive'))).toMatchObject({ fout: null, erbij: 2 });
       // geen vraag meer over gisteren: het dagboek is het bewijs
       expect(screen.queryByText(/Gekeken\?/)).toBeNull();
-      fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
-      fireEvent.click(screen.getByText('Kaartjes (1)'));
+      fireEvent.click(screen.getAllByLabelText('Archief')[0]);
+      fireEvent.click(screen.getByRole('button', { name: 'Kaartjes 1' }));
       expect(document.querySelector('.kaartje-stub-stempel').textContent).toBe('★★★★½');
       // en in Setup zie je de stand
       fireEvent.click(screen.getAllByLabelText('Setup')[0]);
@@ -3760,15 +3791,15 @@ describe('V2 smoke', () => {
     const moment = document.querySelector('.kaartje-ontdekt');
     expect(moment.querySelector('.kaartje-ontdekt-kop').textContent).toMatch(/^Gevonden met Zoeken\. Gezien op Letterboxd/);
     fireEvent.click(moment);
-    fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
-    fireEvent.click(screen.getByText('Kaartjes (1)'));
+    fireEvent.click(screen.getAllByLabelText('Archief')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Kaartjes 1' }));
     expect(document.querySelector('.kaartje-stub-bron').textContent).toBe('Gevonden met Zoeken, 2023');
     expect(document.querySelector('.kd-jaar').textContent).toContain('Gevonden met Nossy');
     // Paterson keek je ook, maar dat vond je niet via de tool: zelf toevoegen
     fireEvent.click(screen.getByText('Recent gelogd, niet in de doos (1)'));
     fireEvent.click(screen.getByText('Gevonden via Nossy'));
     expect(screen.getByText('Kaartje 2 in de doos')).toBeTruthy();
-    expect(screen.getByText('Kaartjes (2)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Kaartjes 2' })).toBeTruthy();
     // een afgeleid Gevonden-kaartje aanpassen maakt er een eigen kaartje van
     fireEvent.click(screen.getByLabelText(/^Perfect Days, gekeken op/));
     const notitie = screen.getByPlaceholderText(/Met wie, waar/);
@@ -3777,8 +3808,8 @@ describe('V2 smoke', () => {
     const k = JSON.parse(localStorage.getItem('nossyV2.kaartjes')).find((x) => x.id === 'gevonden|perfect days|2023');
     expect(k).toMatchObject({ bron: 'gevonden', vondst: 'zoeken', antwoord: 'gekeken', notitie: 'alleen, op de bank' });
     // terug in de doos: nog steeds twee kaartjes (geen dubbele), met de notitie
-    fireEvent.click(screen.getByText('Terug naar de bieb'));
-    expect(screen.getByText('Kaartjes (2)')).toBeTruthy();
+    fireEvent.click(screen.getByText('Terug naar het archief'));
+    expect(screen.getByRole('button', { name: 'Kaartjes 2' })).toBeTruthy();
     expect(document.body.textContent).toContain('alleen, op de bank');
   });
 
@@ -4040,8 +4071,8 @@ describe('V2 smoke', () => {
     try {
       render(<App />);
       await waitFor(() => expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes') || '[]').map((k) => k.id)).toContain('pc1'), { timeout: 6000 });
-      fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
-      fireEvent.click(screen.getByText('Kaartjes (1)'));
+      fireEvent.click(screen.getAllByLabelText('Archief')[0]);
+      fireEvent.click(screen.getByRole('button', { name: 'Kaartjes 1' }));
       expect(document.querySelector('.kaartje-stub-stempel').textContent).toBe('★★★★½');
       // en in Setup: de stand
       fireEvent.click(screen.getAllByLabelText('Setup')[0]);
@@ -4215,7 +4246,7 @@ describe('V2 smoke', () => {
         { key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 }, { key: 'c|2022', name: 'C', year: 2022 },
       ]));
       render(<App />);
-      fireEvent.click(screen.getAllByText('Avond')[0]);
+      fireEvent.click(screen.getAllByText('Filmavond')[0]);
       fireEvent.change(screen.getAllByLabelText('Je naam')[0], { target: { value: 'Robin' } });
       fireEvent.click(screen.getByText('Start Voor ons'));
       expect(await screen.findByText('Code: SAM777')).toBeTruthy();
@@ -4250,7 +4281,7 @@ describe('V2 smoke', () => {
       localStorage.setItem('nossyV2.settings', JSON.stringify({ tmdbKey: 'x', lang: 'nl' }));
       localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 }]));
       render(<App />);
-      fireEvent.click(screen.getAllByText('Avond')[0]);
+      fireEvent.click(screen.getAllByText('Filmavond')[0]);
       fireEvent.click(screen.getByText('Start Voor ons'));
       expect(await screen.findByText(/Voor ons is op dit moment niet beschikbaar/)).toBeTruthy();
     } finally {
@@ -4304,7 +4335,7 @@ describe('V2 smoke', () => {
         { key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 }, { key: 'c|2022', name: 'C', year: 2022 },
       ]));
       render(<App />);
-      fireEvent.click(screen.getAllByText('Avond')[0]);
+      fireEvent.click(screen.getAllByText('Filmavond')[0]);
       fireEvent.click(screen.getByText('Start stemronde op afstand'));
       expect(await screen.findByText('Code: QQQ777')).toBeTruthy();
       expect(screen.getByText('Kopieer deellink')).toBeTruthy();
@@ -4329,7 +4360,7 @@ describe('V2 smoke', () => {
         { key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2021', name: 'B', year: 2021 },
       ]));
       render(<App />);
-      fireEvent.click(screen.getAllByText('Avond')[0]);
+      fireEvent.click(screen.getAllByText('Filmavond')[0]);
       fireEvent.click(screen.getByText('Start stemronde op afstand'));
       expect(await screen.findByText(/Stemrondes op afstand zijn op dit moment niet beschikbaar/)).toBeTruthy();
     } finally {
@@ -4462,7 +4493,7 @@ describe('V2 smoke', () => {
     };
     try {
       render(<App />);
-      fireEvent.click(screen.getAllByLabelText('Bieb')[0]);
+      fireEvent.click(screen.getAllByLabelText('Archief')[0]);
       fireEvent.click(screen.getByLabelText('Open A (2020)'));
       fireEvent.click(screen.getByText('Meer zoals deze'));
       expect(await screen.findByText('Meer zoals A')).toBeTruthy();

@@ -9,15 +9,16 @@ optional features use a small server; see Privacy for exactly what they send.
 
 ## Features
 
-- **Pick**: the box office. Choose a mood ("short evening", "hidden gem"),
+- **Tonight**: the box office. Choose a mood ("short evening", "hidden gem"),
   see how many films are in the pot, decide what goes on the table (length,
   genres, language, period, score, your streaming services) and pick. Your
   film gets a trailer, then its ticket slides out of the box office. A smart
   mode favours higher-rated films and avoids recent picks. You can also pick
   from your own Letterboxd lists.
-- **Library**: browse your watchlist and watch history with posters, scores
-  and streaming availability for your region, with clickable JustWatch links.
-- **Explore**: recommendations from outside your list, based on a taste
+- **Archive**: your watchlist, watch history and tickets, filtered with a
+  sentence ("show drama from the '90s, up to 120 minutes") and laid out per
+  decade, with scores and streaming availability for your region.
+- **Programme**: recommendations from outside your list, based on a taste
   profile built from your own ratings. Plus a full search engine over the
   TMDB catalogue.
 - **Movie night**: pick together. Pass-the-phone veto rounds, where the
@@ -34,7 +35,7 @@ optional features use a small server; see Privacy for exactly what they send.
   Films the tool helped you find count too.
 - **Letterboxd live**: enter your Letterboxd username and the tool reads your
   public diary, so a film you log shows up within minutes.
-- **Insights**: your taste, read from your list. Genres, decades, directors,
+- **Yearbook**: your taste, read from your list. Genres, decades, directors,
   your watching rhythm, and how obscure you really are.
 - **Just arrived**: films from your list that recently landed on your
   streaming services.

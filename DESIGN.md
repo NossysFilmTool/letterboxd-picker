@@ -1,10 +1,50 @@
-# Ontwerp: De zaal
+# Ontwerp: Het programma
 
-De tool is iets voor de avond, vlak voor de film. Het scherm gedraagt zich als
-een donkere zaal: de posters en de film in beeld praten, de rest treedt terug.
+De tool is je eigen filmhuis, iets voor de avond, vlak voor de film. Sinds
+versie 5.1 is elk scherm een bladzijde uit het programma van vanavond, zoals
+het gedrukte maandprogramma van een filmhuis: grote filmbeelden, titels met
+schaal, korte bijschriften, en de kleur van de film als groot vlak. De zaal
+blijft donker; de posters en de film in beeld praten.
 
 Een aantal regels wordt bewaakt door `stijl.test.js` (ontwerp: geen AI-clichés).
 Wil je er een breken, pas dan eerst dit document aan.
+
+## Waarom zo
+
+Een interface ziet er door AI gemaakt uit als niemand iets koos: een kaart om
+elk blok, knopjes voor alles, standaardpictogrammen, overal dezelfde afstand.
+Alleen clichés weghalen is niet genoeg; dan blijft er een smaakvol donker
+niets over. Elke keuze hier komt daarom uit de wereld van de film: het
+programmaboekje, het titelblok van een filmposter, het kaartje.
+
+De toets voor elk nieuw scherm: zou het met een ander logo ook van een andere
+app kunnen zijn? Dan is het nog niet af.
+
+## Het programma
+
+- Bovenaan elk scherm de kop van het huis: "Nossy's bioscoop" en de datum van
+  vandaag, zoals op een gedrukt programma.
+- Een scherm opent waar het kan met een filmbeeld uit je eigen lijst, groot
+  en met een bijschrift. Echte beelden, nooit decoratie.
+- Titels zijn groot en smal; bijschriften klein en breed. Het contrast in
+  maat doet het werk, niet kaders of kleur.
+- Lijsten zijn programmaregels (datum of jaar, titel, gegevens) of een raster
+  van posters, geen stapels kaarten.
+- Filters zijn een zin: "Toon *drama* uit *de jaren 90*, *tot 120 minuten*."
+  Je tikt op een onderstreept woord; daaronder ligt een gewone keuzelijst, dus
+  het werkt ook met toetsenbord en schermlezer. Geen muren van knopjes.
+- Tussenkoppen mogen groot en gedempt zijn, zoals de jaartallen in het
+  archief.
+- Het wordt scherm voor scherm opnieuw gebouwd. Wat er al staat: de kop, de
+  navigatie en het archief (5.1). De rest volgt.
+
+## Navigatie
+
+- Vijf plekken met namen uit het filmhuis: Vanavond, Archief, Programma,
+  Filmavond, Jaarboek. Setup (het kantoor) staat apart rechts in de kop.
+- Op een breed scherm staan ze als woorden in de kop. Op een telefoon onderin,
+  met zes eigen getekende pictogrammen (`Pictogram` in `Shell.jsx`): gevulde
+  vormen, één gewicht. Geen standaardset.
 
 ## Kleur
 
@@ -15,12 +55,17 @@ Wil je er een breken, pas dan eerst dit document aan.
   Vanavond-blok en de kop van de filmkaart nemen die kleur aan.
 - Functionele kleuren zijn gedempt: `--dot-o` (waarschuwing), `--dot-g` (ja,
   te streamen), `--dot-b` (koel). Geen neonaccenten.
-- Letterboxds drie punten (oranje, groen, blauw) alleen als logo.
+- Letterboxds drie kleuren horen bij Letterboxd; ze staan nergens in de tool.
 
 ## Letters
 
-- Archivo voor tekst, Archivo Narrow (`--font-display`) voor titels: smal en
-  vet, zoals aftiteling. Geen Inter, geen redactionele serif.
+- Eén familie, Archivo, in drie breedtes: smal en zwaar (62%, gewicht 800)
+  voor titels en tussenkoppen (`--font-kop`), gewoon voor tekst, breed (125%)
+  en klein voor bijschriften (`.label-breed`). Archivo Narrow
+  (`--font-display`) voor kleinere titels in de oudere schermen. Geen Inter,
+  geen redactionele serif.
+- Paginatitels zijn groot (84 px, op een telefoon 68 px), zoals de kop van een
+  programmablad.
 - Cijfers in gelijke breedte (`font-variant-numeric: tabular-nums`) waar ze
   onder of naast elkaar staan.
 - Kopjes in gewone zinsletters, nooit in spatiërende hoofdletters.
@@ -30,9 +75,19 @@ Wil je er een breken, pas dan eerst dit document aan.
   bioscoopkaartje. De hoofdletters staan in de tekst zelf
   (`toLocaleUpperCase`), niet via CSS. Nergens anders.
 
+## Het archief
+
+- Watchlist, Gezien en Kaartjes als woorden met hun aantal erboven, geen
+  knoppen.
+- Bovenaan de filterzin en een zoekregel (alleen een streep eronder).
+- Zolang je niet zoekt of filtert, staat de film met het hoogste cijfer die je
+  nog niet zag uitgelicht, met zijn filmbeeld.
+- Op jaar gesorteerd staan de films per decennium, met het jaartal groot en
+  gedempt als tussenkop.
+
 ## Het kaartje
 
-- Wie een film kiest (Pick, de winnaar bij Avond), krijgt een bioscoopkaartje:
+- Wie een film kiest (Vanavond, de winnaar bij Filmavond), krijgt een bioscoopkaartje:
   papier in de donkere zaal, rechts een afscheurstrook in de filmkleur met de
   poster.
 - Alles op het kaartje is echt: aanvang (nu, afgerond op vijf minuten), einde

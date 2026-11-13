@@ -19,7 +19,6 @@
   --font-display: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
   /* Alleen op het kaartje: letters als van een kaartjesprinter */
   --font-ticket: 'DotGothic16', 'Courier New', monospace;
-  --rail-w: 76px;
   --radius: 3px;
 }
 
@@ -45,26 +44,17 @@ a:hover { text-decoration-color: var(--paper); }
 
 /* ---------- App shell ---------- */
 .shell { display: flex; min-height: 100vh; min-height: 100dvh; }
-.rail {
-  width: var(--rail-w); flex-shrink: 0; background: #0e0d0c;
-  border-right: 1px solid var(--line);
-  display: flex; flex-direction: column; align-items: center;
-  padding: 18px 0 14px; gap: 4px;
-  position: sticky; top: 0; height: 100vh; height: 100dvh;
-}
-.rail .dots { display: flex; gap: 3px; margin-bottom: 16px; }
-.rail .dots span { width: 7px; height: 7px; border-radius: 50%; }
+/* De knoppen van de navigatie onderin (telefoon); de kop staat verderop */
 .nav-btn {
   width: 56px; padding: 9px 0 7px; border: none; background: transparent;
   border-radius: var(--radius); color: var(--fog-dim);
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  font-size: 10.5px; font-weight: 500; letter-spacing: 0.02em;
+  font-size: 10.5px; font-weight: 500;
   transition: color 0.15s, background 0.15s;
 }
 .nav-btn:hover { color: var(--fog); }
 /* Actief: gewoon de tekstkleur, geen gekleurd blok per tab */
 .nav-btn.active { color: var(--paper); font-weight: 600; }
-.rail .spacer { flex: 1; }
 
 .main { flex: 1; min-width: 0; }
 .content { max-width: 900px; margin: 0 auto; padding: 28px 24px 96px; }
@@ -75,7 +65,6 @@ a:hover { text-decoration-color: var(--paper); }
 /* Mobile bottom nav */
 .bottombar { display: none; }
 @media (max-width: 720px) {
-  .rail { display: none; }
   .content { padding: 20px 16px 110px; }
   .bottombar {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
@@ -995,6 +984,80 @@ a.prov-link:hover { border-color: var(--paper); }
 .btn.gevaar { border-color: rgba(217, 154, 91, 0.7); color: var(--dot-o); }
 .btn.gevaar:hover { background: rgba(217, 154, 91, 0.1); }
 @media (prefers-reduced-motion: reduce) { .melding, .zaal-venster-achter { animation: none; } }
+
+/* ---------- Het programma: de basis (DESIGN.md) ----------
+   De kop van het huis met de datum, navigatie als woorden, titels met
+   schaal (Archivo, smal en zwaar) en kleine brede bijschriften. */
+:root { --font-kop: 'Archivo', system-ui, sans-serif; }
+.shell { flex-direction: column; }
+.kop { display: flex; align-items: baseline; gap: 36px; padding: 20px 40px 13px; border-bottom: 1px solid var(--line-strong); }
+.kop-naam { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 30px; line-height: 1; white-space: nowrap; }
+.kop-nav { display: flex; gap: 28px; }
+.kop-knop { background: none; border: none; padding: 0 0 3px; border-bottom: 2px solid transparent; color: var(--fog); font-size: 15.5px; }
+.kop-knop:hover { color: var(--paper); }
+.kop-knop.active { color: var(--paper); font-weight: 700; border-bottom-color: var(--paper); }
+.kop-rechts { margin-left: auto; display: flex; align-items: baseline; gap: 24px; }
+.kop-setup { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; color: var(--fog); font-size: 13.5px; }
+.kop-setup svg { display: none; }
+.kop-setup:hover, .kop-setup.active { color: var(--paper); }
+.label-breed { font-family: var(--font-kop); font-stretch: 125%; font-size: 11px; font-weight: 600; color: var(--fog); font-variant-numeric: tabular-nums; }
+.content { max-width: 1040px; }
+.page-title { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 84px; line-height: 0.84; letter-spacing: -0.015em; }
+@media (max-width: 720px) {
+  .kop { align-items: center; gap: 12px; padding: 8px 8px 6px 16px; }
+  .kop-naam { font-size: 23px; }
+  .kop-nav { display: none; }
+  .kop-rechts { align-items: center; gap: 6px; }
+  .kop-setup { min-width: 44px; min-height: 44px; justify-content: center; }
+  .kop-setup svg { display: block; }
+  .kop-setup span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .page-title { font-size: 68px; }
+  .bottombar .nav-btn { gap: 4px; font-size: 11px; min-width: 60px; }
+  .bottombar .nav-btn.active { font-weight: 700; }
+}
+
+/* Het archief (Bieb.jsx): tabs als woorden, een filterzin, films per decennium */
+.archief-tabs { display: flex; gap: 22px; margin-top: 16px; border-bottom: 1px solid var(--line-strong); }
+.archief-tab { min-height: 40px; padding: 0 0 8px; margin-bottom: -1px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--fog); font-size: 15px; }
+.archief-tab:hover { color: var(--paper); }
+.archief-tab.actief { color: var(--paper); font-weight: 600; border-bottom-color: var(--paper); }
+.archief-tab sup { font-family: var(--font-kop); font-stretch: 125%; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.filterzin { max-width: 760px; margin-top: 18px; font-size: 19px; line-height: 1.7; color: var(--fog); }
+.zinwoord { position: relative; display: inline-block; border-bottom: 2px solid var(--paper); color: var(--paper); font-weight: 600; line-height: 1.25; white-space: nowrap; }
+.zinwoord select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.zinwoord:focus-within { outline: 2px solid var(--paper); outline-offset: 3px; }
+button.zinwoord { padding: 0; background: none; border: none; border-bottom: 2px solid var(--paper); font: inherit; font-weight: 600; line-height: 1.25; cursor: pointer; }
+.zoekregel { display: flex; align-items: center; gap: 10px; max-width: 460px; margin-top: 14px; border-bottom: 1px solid var(--line-strong); color: var(--fog); }
+.zoekregel input { flex: 1; min-width: 0; min-height: 44px; background: none; border: none; outline: none; color: var(--paper); font-size: 15px; }
+.zoekregel input::placeholder { color: var(--fog-dim); }
+.zoekregel:focus-within { border-bottom-color: var(--paper); }
+.uitgelicht { display: block; width: 100%; margin-top: 26px; padding: 0; background: none; border: none; color: var(--paper); text-align: left; cursor: pointer; }
+.uitgelicht img { display: block; width: 100%; aspect-ratio: 2.39 / 1; object-fit: cover; }
+.uitgelicht-regel { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 10px; }
+.uitgelicht-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 38px; line-height: 1; }
+.uitgelicht:hover .uitgelicht-titel { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.uitgelicht:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+.uitgelicht-sub { margin-top: 4px; white-space: pre; }
+.decennium { margin-top: 30px; }
+.decennium-kop { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.decennium-kop h2 { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 76px; line-height: 0.8; color: #6f6a62; font-variant-numeric: tabular-nums; }
+.decennium-kop .label-breed { padding-bottom: 4px; }
+.archief-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 20px 12px; }
+.archief-film { min-width: 0; padding: 0; background: none; border: none; color: var(--paper); text-align: left; cursor: pointer; content-visibility: auto; contain-intrinsic-size: 130px 240px; }
+.archief-film .poster { border: none; }
+.archief-film-titel { display: block; margin-top: 6px; font-size: 13px; line-height: 1.2; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.archief-film-sub { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--fog); font-variant-numeric: tabular-nums; }
+.archief-film-sub .eigen { color: var(--dot-g); }
+.archief-film:hover .archief-film-titel { text-decoration: underline; text-underline-offset: 3px; }
+.archief-film:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+@media (max-width: 720px) {
+  .archief-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; }
+  .decennium-kop h2 { font-size: 64px; }
+  .uitgelicht { width: auto; margin-left: -16px; margin-right: -16px; }
+  .uitgelicht img { aspect-ratio: 16 / 9; }
+  .uitgelicht-regel, .uitgelicht-sub { padding-left: 16px; padding-right: 16px; }
+  .uitgelicht-titel { font-size: 30px; }
+}
 
 /* De première (Premiere.jsx): je kaartje bij de deur, in het licht van de
    ingang. Tik erop en de strook scheurt af; dan gaan de trailers verder. */
