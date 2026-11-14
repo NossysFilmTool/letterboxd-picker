@@ -12,7 +12,7 @@
 // naar een dienst of het kaartje delen zet het kaartje alleen vooraan in de
 // vraag. Zonder bewijs verloopt een kaartje na 14 dagen, zonder melding.
 //
-// Een kaartje: { id, key, name, year, datum (ISO), bron: 'pick'|'avond'|'samen'|'voorjou',
+// Een kaartje: { id, key, name, year, datum (ISO), bron: 'pick'|'avond'|'samen'|'zaal'|'voorjou',
 //   personen, namen?, poster?, doorgeklikt?, antwoord?: 'gekeken'|'niet', sterren?,
 //   beantwoord?, notitie? }. Je eigen antwoord wint altijd van ander bewijs, en
 //   sterren die je op het kaartje zet winnen van die uit het dagboek.

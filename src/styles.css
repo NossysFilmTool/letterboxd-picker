@@ -1157,3 +1157,155 @@ button.zinwoord { padding: 0; background: none; border: none; border-bottom: 2px
 .kaartje-premiere.scheurt .kaartje-premiere-strook { animation: kaartje-premiere-scheur 0.8s cubic-bezier(0.3, 0.7, 0.2, 1) forwards; }
 @keyframes kaartje-premiere-scheur { 0% { transform: none; } 30% { transform: rotate(-4deg) translateY(-4px); } 100% { transform: rotate(-14deg) translate(-40px, -60px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .premiere, .kaartje-premiere, .kaartje-premiere * { animation: none !important; } }
+
+/* Zaalstemming (Filmavond): dit scherm is de zaal, telefoons stemmen.
+   De code groot als op een aanplakbiljet, namen als een rolverdeling. */
+.zs { display: flex; flex-direction: column; gap: 22px; }
+.zs-boven { color: var(--fog); }
+.zs-kop { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 76px; line-height: 0.86; letter-spacing: -0.012em; overflow-wrap: anywhere; }
+.zs-sub { max-width: 640px; font-size: 17px; line-height: 1.45; color: var(--fog); }
+.zs-melding { font-size: 13.5px; color: var(--dot-o); }
+.zs-leeg { font-size: 15px; color: var(--fog-dim); }
+.zs-acties { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.zs-voet { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.zs-sluit { min-height: 44px; font-size: 13.5px; color: var(--fog); }
+@keyframes zs-in { from { opacity: 0; transform: translateY(8px); } }
+
+/* De lobby: links de code, rechts wie er al zit */
+.zs-lobby { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 28px 56px; align-items: start; }
+.zs-lobby .zs-voet { grid-column: 1 / -1; }
+.zs-lobby-code, .zs-lobby-zaal { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.zs-code { font-family: var(--font-kop); font-stretch: 87%; font-weight: 800; font-size: clamp(84px, 12vw, 160px); line-height: 0.9; letter-spacing: 0.06em; white-space: nowrap; color: var(--paper); }
+.zs-adres { font-size: 18px; line-height: 1.45; color: var(--fog); overflow-wrap: anywhere; }
+.zs-deel { align-self: flex-start; min-height: 44px; font-size: 15px; }
+.zs-scan { display: flex; align-items: center; gap: 20px; }
+.zs-qr { display: block; flex-shrink: 0; width: clamp(150px, 17vw, 220px); height: auto; aspect-ratio: 1; }
+.zs-qr rect { fill: var(--paper); }
+.zs-qr path { fill: var(--ink); }
+.zs-scan-tekst { display: flex; flex-direction: column; gap: 6px; font-size: 16px; line-height: 1.45; color: var(--fog); }
+.zs-rubriek { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 34px; line-height: 1; }
+.zs-rubriek sup { margin-left: 2px; font-family: var(--font-display); font-stretch: 100%; font-size: 14px; font-weight: 600; color: var(--fog); vertical-align: super; }
+.zs-namen { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 22px; }
+.zs-namen li { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 42px; line-height: 1.05; animation: zs-in 0.4s ease-out both; }
+.zs-namen li.hier { color: var(--fog); }
+.zs-zelf { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.zs-zelf .switch-row { min-height: 44px; cursor: pointer; }
+.zs-zelf .field { max-width: 220px; }
+.zs-begin { align-self: flex-start; min-height: 52px; }
+
+/* Een stemronde: de opties groot, wie al stemde eronder */
+.zs-opties { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); column-gap: 32px; border-top: 1px solid var(--line-strong); }
+.zs-optie { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%; min-height: 64px; padding: 12px 0; border: none; border-bottom: 1px solid var(--line); background: none; color: var(--paper); text-align: left; font: inherit; }
+button.zs-optie { cursor: pointer; }
+.zs-optie-naam { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 40px; line-height: 1; }
+.zs-optie-n { flex-shrink: 0; font-size: 13px; color: var(--fog); font-variant-numeric: tabular-nums; }
+.zs-optie[aria-pressed="true"] .zs-optie-naam, .zs-t-optie[aria-pressed="true"] span:first-child { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 7px; }
+.zs-optie:focus-visible, .zs-t-optie:focus-visible, .zs-film:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+.zs-wie { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.zs-wie-namen { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; flex: 1 1 320px; }
+.zs-wie-namen li { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: var(--fog-dim); }
+.zs-wie-namen li::before { content: ''; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; }
+.zs-wie-namen li.klaar { color: var(--paper); }
+.zs-wie-namen li.klaar::before { background: var(--paper); }
+.zs-wie-stand { font-size: 15px; color: var(--fog); font-variant-numeric: tabular-nums; }
+
+/* De drie films */
+.zs-films { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.zs-films li { animation: zs-in 0.45s ease-out both; animation-delay: calc(var(--i, 0) * 110ms); }
+.zs-film { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 0; border: none; background: none; color: var(--paper); text-align: left; font: inherit; transition: opacity 0.08s; }
+button.zs-film { cursor: pointer; }
+.zs-film-poster { position: relative; display: block; aspect-ratio: 2 / 3; background: var(--char-2); overflow: hidden; }
+/* Op het scherm passen de posters, de titels en de knoppen samen in beeld */
+.zs-films .zs-film-poster { width: min(100%, calc(38vh * 2 / 3)); }
+.zs-film-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.zs-film-leeg { display: grid; place-items: center; height: 100%; padding: 12px; font-size: 14px; color: var(--fog); text-align: center; }
+.zs-film-badge { position: absolute; top: 10px; left: 10px; padding: 4px 10px; background: var(--paper); color: var(--ink); font-size: 13px; font-weight: 700; }
+.zs-film[aria-pressed="true"] .zs-film-poster { outline: 3px solid var(--paper); outline-offset: 3px; }
+.zs-film-tekst { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.zs-film-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 30px; line-height: 1; overflow-wrap: anywhere; }
+.zs-film-sub { display: flex; flex-wrap: wrap; gap: 0 12px; font-size: 13.5px; color: var(--fog); font-variant-numeric: tabular-nums; }
+/* Het lot: het licht springt tussen de gelijke films */
+.zs-films.lot .zs-film { opacity: 0.32; }
+.zs-films.lot .zs-film.licht { opacity: 1; }
+.zs-films.lot .zs-film.licht .zs-film-poster { outline: 3px solid var(--paper); outline-offset: 3px; }
+.zs-films.lot .zs-film.uit { opacity: 0.12; }
+
+/* De uitslag: de winnaar in de kleur van de film */
+.zs-uitslag-vlak { position: relative; overflow: hidden; background: var(--film, var(--char)); color: #ffffff; }
+.zs-uitslag-beeld { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.32; }
+.zs-uitslag-vlak::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, var(--film, var(--char)) 18%, transparent 85%); }
+.zs-uitslag-tekst { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 16px; padding: 120px 36px 32px; }
+.zs-uitslag .zs-boven { color: var(--programma); }
+.zs-uitslag-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 120px; line-height: 0.84; letter-spacing: -0.015em; overflow-wrap: anywhere; }
+.zs-uitslag-waarom { font-size: 19px; line-height: 1.4; }
+.zs-telling { list-style: none; margin: 0; padding: 0; max-width: 520px; }
+.zs-telling li { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.22); font-size: 15px; color: rgba(255, 255, 255, 0.72); }
+.zs-telling li.wint { color: #ffffff; font-weight: 700; }
+.zs-telling .n { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.zs-uitslag .btn.primary { background: #ffffff; border-color: #ffffff; color: #111111; }
+.zs-uitslag .linkbtn { min-height: 44px; color: #ffffff; text-decoration-color: rgba(255, 255, 255, 0.45); }
+
+/* De trailers: het doek helemaal zwart, YouTube in het midden */
+.zs-trailers { position: fixed; inset: 0; z-index: 210; display: flex; flex-direction: column; gap: 12px; padding: 16px 24px 18px; background: #000000; color: #ffffff; }
+.zs-trailers-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; }
+.zs-trailers-top .label-breed { color: rgba(255, 255, 255, 0.6); }
+.zs-trailers-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 34px; line-height: 1; }
+.zs-trailers-titel span { font-weight: 500; color: rgba(255, 255, 255, 0.6); }
+.zs-trailers-doek { flex: 1; min-height: 0; display: grid; place-items: center; }
+.zs-trailers-doek iframe { width: min(100%, calc((100vh - 170px) * 16 / 9)); aspect-ratio: 16 / 9; border: 0; background: #000000; }
+.zs-trailers-knoppen { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
+.zs-trailers-knoppen .btn { min-height: 44px; }
+.zs-trailers-knoppen .linkbtn { min-height: 44px; color: rgba(255, 255, 255, 0.75); }
+
+/* Op Filmavond: de zaal openen, of meedoen met een code */
+.zs-kaart { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px 32px; align-items: end; margin-bottom: 16px; }
+.zs-kaart-tekst { display: flex; flex-direction: column; gap: 8px; }
+.zs-kaart-kop { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 44px; line-height: 0.9; }
+.zs-kaart-tekst p { max-width: 560px; font-size: 14px; line-height: 1.5; color: var(--fog); }
+.zs-kaart-knoppen { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
+.zs-code-invoer { display: flex; flex-direction: column; gap: 8px; }
+.zs-code-invoer .label-breed { color: var(--fog); }
+.zs-code-rij { display: flex; gap: 8px; }
+.zs-code-veld { max-width: 170px; font-size: 20px; font-weight: 700; letter-spacing: 0.18em; }
+.zs-code-rij .btn { min-height: 44px; }
+.zs-start { max-width: 440px; margin: 0 auto 22px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+
+/* De telefoon: één kolom, grote vlakken om op te tikken */
+.zs-telefoon { display: flex; flex-direction: column; gap: 16px; max-width: 520px; margin: 0 auto; padding: 28px 16px 48px; }
+.zs-t-kop { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 52px; line-height: 0.9; overflow-wrap: anywhere; }
+.zs-t-sub { font-size: 16px; line-height: 1.45; color: var(--fog); }
+.zs-t-aanmelden { display: flex; flex-direction: column; gap: 16px; }
+.zs-t-veld { display: flex; flex-direction: column; gap: 6px; }
+.zs-t-veld .label-breed { color: var(--fog); }
+.zs-t-veld .field { font-size: 18px; padding: 12px 14px; }
+.zs-t-aanmelden .btn { align-self: flex-start; min-height: 52px; }
+.zs-t-opties { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
+.zs-t-optie { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 0; border: none; border-bottom: 1px solid var(--line); background: none; color: var(--paper); text-align: left; font: inherit; cursor: pointer; }
+.zs-t-optie span:first-child { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 34px; line-height: 1; }
+.zs-t-status { font-size: 15.5px; line-height: 1.45; }
+.zs-t-films { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.zs-t-films li { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.zs-t-films .zs-film { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: 14px; }
+.zs-t-films .zs-film-titel { font-size: 28px; }
+.zs-t-films .zs-film-badge { top: 6px; left: 6px; padding: 2px 6px; font-size: 11.5px; }
+.zs-t-trailer { align-self: flex-start; min-height: 32px; display: inline-flex; align-items: center; font-size: 13.5px; color: var(--fog); }
+.zs-t-uitslag { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.zs-t-uitslag-poster { width: 200px; max-width: 60%; }
+.zs-t-uitslag-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 46px; line-height: 0.9; }
+.zs-t-uitslag-titel span { font-weight: 500; color: var(--fog); }
+.zs-weg { align-self: flex-start; min-height: 44px; margin-top: 18px; font-size: 13.5px; color: var(--fog-dim); }
+
+@media (max-width: 860px) {
+  .zs-lobby { grid-template-columns: minmax(0, 1fr); }
+  .zs-kaart { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .zs-kop { font-size: 52px; }
+  .zs-films { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .zs-films .zs-film { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: 14px; }
+  .zs-namen li { font-size: 34px; }
+  .zs-optie-naam { font-size: 32px; }
+  .zs-uitslag-tekst { padding: 90px 18px 22px; }
+  .zs-uitslag-titel { font-size: 68px; }
+}
+@media (prefers-reduced-motion: reduce) { .zs-namen li, .zs-films li { animation: none; } .zs-film { transition: none; } }

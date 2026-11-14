@@ -6,6 +6,8 @@ import { useT } from '../lib/i18n.js';
 import { PROXY_URL } from '../lib/tmdb.js';
 import { importDiff } from '../lib/csv.js';
 import { meld } from '../lib/melding.js';
+import { ZaalCodeInvoer } from './ZaalDelen.jsx';
+import { zaalBeschikbaar } from '../lib/zaalstemming.js';
 
 export default function ImportPanel({ app, hero }) {
   const { t: tr } = useT();
@@ -113,6 +115,12 @@ export default function ImportPanel({ app, hero }) {
           {tr('imp.heroSub')}
         </p>
       </div>
+      {/* Wie hier binnenkomt om mee te stemmen, hoeft niets te laden */}
+      {zaalBeschikbaar() && app.naarZaal && (
+        <div className="zs-start">
+          <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.startKop')} />
+        </div>
+      )}
       {inner}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, marginTop: 26 }}>
         <div className="step"><div className="n">1</div><p dangerouslySetInnerHTML={{ __html: tr('imp.step1') }} /></div>

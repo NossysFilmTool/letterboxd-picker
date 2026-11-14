@@ -43,7 +43,7 @@ export default {
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const url = new URL(request.url);
-    if (request.method !== 'GET' && !(request.method === 'POST' && (url.pathname.startsWith('/session') || url.pathname.startsWith('/sync/')))) return new Response('Alleen GET of sessie-POST', { status: 405, headers: cors });
+    if (request.method !== 'GET' && !(request.method === 'POST' && (url.pathname.startsWith('/session') || url.pathname.startsWith('/sync/') || url.pathname.startsWith('/zaal')))) return new Response('Alleen GET of sessie-POST', { status: 405, headers: cors });
 
     // Rate-drempel per IP (glijdend venster van 1 minuut)
     const ip = request.headers.get('CF-Connecting-IP') || 'onbekend';
@@ -182,6 +182,161 @@ export default {
         return json({ ok: true });
       }
       return json({ error: 'NOT_FOUND' }, 404);
+    }
+
+    // --- Zaalstemming: stemmen met je telefoon, één scherm voor de zaal -----
+    // Het scherm (de app met de watchlist) maakt een zaal en is de enige die
+    // de rondes zet; dat kan alleen met het geheim dat het bij het maken
+    // kreeg. Telefoons doen mee met een naam en stemmen elk in een eigen
+    // sleutel, dus stemmen kunnen elkaar nooit overschrijven. Geen list():
+    // het scherm weet wie er meedoen uit de zaal zelf. KV schrijft hooguit
+    // één keer per seconde naar dezelfde sleutel; lukt dat niet, dan 429 en
+    // probeert de app het zo opnieuw. Alles verdwijnt na 12 uur.
+    if (url.pathname.startsWith('/zaal')) {
+      const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
+        status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+      if (!env.SESSIONS) return json({ error: 'NO_KV' }, 501);
+      const TTL = { expirationTtl: 12 * 3600 };
+      const hex = (bytes) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+      const sha = async (s) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+      const lees = async (k) => { const r = await env.SESSIONS.get(k); return r ? JSON.parse(r) : null; };
+      const schrijf = async (k, v) => { try { await env.SESSIONS.put(k, JSON.stringify(v), TTL); return true; } catch { return false; } };
+      const druk = () => json({ error: 'DRUK' }, 429);
+      const openbaar = (z) => { const { _geheim, ...rest } = z; return rest; };
+      const naamVan = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, 20) : '');
+      const slug = (naam) => naam.toLocaleLowerCase();
+      const tekst = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+      const heel = (v, min, max) => { const x = parseInt(v, 10); return Number.isFinite(x) ? Math.max(min, Math.min(max, x)) : null; };
+      let body = {};
+      if (request.method === 'POST') {
+        try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
+        if (!body || typeof body !== 'object') return json({ error: 'BAD_BODY' }, 400);
+      }
+
+      if (url.pathname === '/zaal/new' && request.method === 'POST') {
+        const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // geen I en O: die lijken op 1 en 0
+        let code = null;
+        for (let i = 0; i < 6 && !code; i++) {
+          const c = [...crypto.getRandomValues(new Uint8Array(4))].map((b) => LETTERS[b % LETTERS.length]).join('');
+          if (!(await env.SESSIONS.get(`z:${c}`))) code = c;
+        }
+        if (!code) return json({ error: 'GEEN_CODE' }, 503);
+        const geheim = hex(crypto.getRandomValues(new Uint8Array(16)));
+        const ok = await schrijf(`z:${code}`, { type: 'zaal', v: 1, at: Date.now(), fase: 'lobby', ronde: 0, spelers: [], _geheim: await sha(geheim) });
+        if (!ok) return druk();
+        return json({ code, geheim, versie: 1 });
+      }
+
+      const z = url.pathname.match(/^\/zaal\/([A-Z]{4})(\/zet|\/stand|\/meedoen|\/stem)?$/);
+      if (!z) return json({ error: 'NOT_FOUND' }, 404);
+      const sleutel = `z:${z[1]}`;
+      const zaal = await lees(sleutel);
+      if (!zaal) return json({ error: 'NOT_FOUND' }, 404);
+      const spelerSleutel = (naam) => `${sleutel}:p:${slug(naam)}`;
+
+      if (!z[2] && request.method === 'GET') return json(openbaar(zaal));
+      if (request.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
+
+      // Het scherm: de volgende ronde zetten, of de stemmen ophalen
+      if (z[2] === '/zet' || z[2] === '/stand') {
+        if (typeof body.geheim !== 'string' || (await sha(body.geheim)) !== zaal._geheim) return json({ error: 'GEEN_TOEGANG' }, 403);
+        if (z[2] === '/stand') {
+          const stemmen = {};
+          await Promise.all((zaal.spelers || []).map(async (naam) => {
+            stemmen[naam] = (await lees(spelerSleutel(naam)))?.stemmen || {};
+          }));
+          return json({ zaal: openbaar(zaal), stemmen });
+        }
+        const s = body.staat && typeof body.staat === 'object' ? body.staat : {};
+        const FASEN = ['lobby', 'genre', 'trailers', 'film', 'uitslag', 'gesloten'];
+        // Wie er meedoet, houdt de Worker zelf bij (zie /meedoen)
+        const nieuw = {
+          type: 'zaal', v: 1, at: Date.now(),
+          fase: FASEN.includes(s.fase) ? s.fase : zaal.fase,
+          ronde: heel(s.ronde, 0, 99) ?? zaal.ronde,
+          spelers: zaal.spelers || [],
+          _geheim: zaal._geheim,
+        };
+        if (Array.isArray(s.opties)) {
+          nieuw.opties = s.opties.slice(0, 12)
+            .map((o) => ({ id: tekst(o?.id, 40), naam: tekst(o?.naam, 40), n: heel(o?.n, 0, 9999) ?? 0 }))
+            .filter((o) => o.id);
+        }
+        if (s.beslissend === true) nieuw.beslissend = true;
+        if (s.genre && typeof s.genre === 'object') {
+          nieuw.genre = {
+            namen: (Array.isArray(s.genre.namen) ? s.genre.namen : []).slice(0, 6).map((g) => tekst(g, 40)).filter(Boolean),
+            wijze: ['meeste', 'allebei', 'beslissend', 'elkWat', 'alles'].includes(s.genre.wijze) ? s.genre.wijze : 'meeste',
+            stemmen: heel(s.genre.stemmen, 0, 99),
+          };
+        }
+        if (Array.isArray(s.films)) {
+          nieuw.films = s.films.slice(0, 3).map((f) => ({
+            key: tekst(f?.key, 120),
+            name: tekst(f?.name, 120),
+            year: heel(f?.year, 1870, 2100),
+            poster: typeof f?.poster === 'string' && /^\/[\w.-]{1,60}$/.test(f.poster) ? f.poster : null,
+            runtime: heel(f?.runtime, 1, 999),
+            trailer: typeof f?.trailer === 'string' && /^[\w-]{6,20}$/.test(f.trailer) ? f.trailer : null,
+            score: f?.score != null && Number.isFinite(+f.score) ? Math.round(+f.score * 10) / 10 : null,
+          })).filter((f) => f.key && f.name);
+        }
+        if (s.uitslag && typeof s.uitslag === 'object' && nieuw.films) {
+          const keys = new Set(nieuw.films.map((f) => f.key));
+          const telling = (o) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {})
+            .filter(([k]) => keys.has(k)).map(([k, v]) => [k, heel(v, 0, 99) ?? 0]));
+          nieuw.uitslag = {
+            key: keys.has(s.uitslag.key) ? s.uitslag.key : null,
+            wijze: ['meeste', 'tweede', 'lot'].includes(s.uitslag.wijze) ? s.uitslag.wijze : 'meeste',
+            telling: telling(s.uitslag.telling),
+            tweede: telling(s.uitslag.tweede),
+            kandidaten: (Array.isArray(s.uitslag.kandidaten) ? s.uitslag.kandidaten : []).filter((k) => keys.has(k)).slice(0, 3),
+          };
+        }
+        if (!(await schrijf(sleutel, nieuw))) return druk();
+        return json({ ok: true, zaal: openbaar(nieuw) });
+      }
+
+      // Een telefoon doet mee: een naam en een eigen sleutel. Het token
+      // (door de telefoon zelf gemaakt) bewijst later dat de stem van hem is;
+      // hier staat alleen een vingerafdruk van.
+      const naam = naamVan(body.naam);
+      if (!naam) return json({ error: 'NO_NAAM' }, 400);
+      if (typeof body.token !== 'string' || !/^[a-f0-9]{32}$/.test(body.token)) return json({ error: 'GEEN_TOEGANG' }, 403);
+      const th = await sha(body.token);
+      const speler = await lees(spelerSleutel(naam));
+      const inDeZaal = (zaal.spelers || []).some((n) => slug(n) === slug(naam));
+
+      if (z[2] === '/meedoen') {
+        if (speler && speler.t !== th) return json({ error: 'NAAM_BEZET' }, 409);
+        if (!inDeZaal && zaal.fase !== 'lobby') return json({ error: 'BEGONNEN' }, 409);
+        if (!inDeZaal && (zaal.spelers || []).length >= 12) return json({ error: 'VOL' }, 409);
+        if (!speler && !(await schrijf(spelerSleutel(naam), { naam, t: th, stemmen: {} }))) return druk();
+        if (!inDeZaal) {
+          zaal.spelers = [...(zaal.spelers || []), naam];
+          if (!(await schrijf(sleutel, zaal))) return druk();
+        }
+        return json({ ok: true, naam: inDeZaal ? zaal.spelers.find((n) => slug(n) === slug(naam)) : naam, zaal: openbaar(zaal) });
+      }
+
+      // Stemmen: alleen in een open ronde, alleen op wat er op tafel ligt
+      if (!speler || speler.t !== th || !inDeZaal) return json({ error: 'GEEN_TOEGANG' }, 403);
+      if (zaal.fase !== 'genre' && zaal.fase !== 'film') return json({ error: 'DICHT' }, 409);
+      if (heel(body.ronde, 0, 99) !== zaal.ronde) return json({ error: 'OUDE_RONDE' }, 409);
+      let keuze = null;
+      if (zaal.fase === 'genre') {
+        if (typeof body.keuze === 'string' && (zaal.opties || []).some((o) => o.id === body.keuze)) keuze = body.keuze;
+      } else if (Array.isArray(body.keuze)) {
+        const keys = new Set((zaal.films || []).map((f) => f.key));
+        const k = body.keuze.slice(0, 2);
+        if (k.length && k.every((x) => keys.has(x)) && new Set(k).size === k.length) keuze = k;
+      }
+      if (!keuze) return json({ error: 'BAD_KEUZE' }, 400);
+      const stemmen = { ...(speler.stemmen || {}), [zaal.ronde]: keuze };
+      Object.keys(stemmen).map(Number).sort((a, b) => a - b).slice(0, -10).forEach((r) => { delete stemmen[r]; });
+      if (!(await schrijf(spelerSleutel(naam), { ...speler, stemmen }))) return druk();
+      return json({ ok: true });
     }
 
     // --- Sync tussen je apparaten ------------------------------------------

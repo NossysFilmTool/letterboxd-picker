@@ -2,6 +2,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import Shell from './components/Shell.jsx';
 import RemoteVote from './components/RemoteVote.jsx';
 import SamenGast from './components/SamenGast.jsx';
+import ZaalTelefoon from './components/ZaalTelefoon.jsx';
+import { zaalCode } from './lib/zaalstemming.js';
 import AvondVraag from './components/AvondVraag.jsx';
 import Afgescheurd from './components/Afgescheurd.jsx';
 import Ontdekt from './components/Ontdekt.jsx';
@@ -46,6 +48,22 @@ export default function App() {
   const avondCode = new URLSearchParams(location.search).get('avond');
   // Of als gast bij "Voor ons" (?samen=CODE): smaak lezen, scores sturen
   const samenCode = new URLSearchParams(location.search).get('samen');
+  // Of als telefoon bij een zaalstemming (?zaal=CODE, of een ingetikte code)
+  const [zaalCodeNu, setZaalCodeNu] = useState(() => zaalCode(new URLSearchParams(location.search).get('zaal')));
+  // (window.history: "history" is hieronder de kijkgeschiedenis)
+  const naarZaal = (code) => {
+    window.history.pushState({}, '', `${location.pathname}?zaal=${code}`);
+    setZaalCodeNu(code);
+  };
+  const uitDeZaal = () => {
+    window.history.replaceState({}, '', location.pathname);
+    setZaalCodeNu(null);
+  };
+  useEffect(() => {
+    const terug = () => setZaalCodeNu(zaalCode(new URLSearchParams(location.search).get('zaal')));
+    window.addEventListener('popstate', terug);
+    return () => window.removeEventListener('popstate', terug);
+  }, []);
   const [settings, setSettings] = useLS('settings', { tmdbKey: '' });
   // Eigen sleutel wint; zonder eigen sleutel loopt alles via de tool-proxy
   // (zodra die geconfigureerd is). Guards en API-calls zien gewoon 'een sleutel'.
@@ -770,11 +788,13 @@ export default function App() {
     freshenProviders,
     ensureDetail,
     pickMatch,
+    naarZaal,
     stopEnrich: () => { stopRef.current = true; },
   };
 
   const needsKey = watchlist.length > 0 && !tmdbKey;
 
+  if (zaalCodeNu) return <ZaalTelefoon key={zaalCodeNu} code={zaalCodeNu} onWeg={uitDeZaal} onCode={naarZaal} />;
   if (avondCode) return <RemoteVote code={avondCode} />;
   if (samenCode) return <SamenGast code={samenCode} />;
 

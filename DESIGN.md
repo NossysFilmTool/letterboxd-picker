@@ -56,8 +56,9 @@ app kunnen zijn? Dan is het nog niet af.
 - Functionele kleuren zijn gedempt: `--dot-o` (waarschuwing), `--dot-g` (ja,
   te streamen), `--dot-b` (koel). Geen neonaccenten.
 - Eén programmakleur, gedempt amber `--programma` (#e8b75c), alleen voor het
-  bovenschrift van de hoofdfilm op het vlak in de kleur van de film, zoals de
-  steunkleur van een gedrukt programma. Nergens anders.
+  bovenschrift op een vlak in de kleur van de film (de hoofdfilm van
+  vanavond, de uitslag van de zaalstemming), zoals de steunkleur van een
+  gedrukt programma. Nergens anders.
 - Letterboxds drie kleuren horen bij Letterboxd; ze staan nergens in de tool.
 
 ## Letters
@@ -222,6 +223,41 @@ app kunnen zijn? Dan is het nog niet af.
   voordat het kaartje uit de sleuf schuift ("Jouw film van vanavond."). Uit
   te zetten op de kassa ("Eerst de trailer"). Het kaartje bestaat al zodra
   het aftellen klaar is, ook als je de trailer wegtikt.
+
+## De zaalstemming
+
+- Op Filmavond wordt één scherm de zaal (de tv, de laptop) en stemt iedereen
+  op de eigen telefoon. Het scherm heeft de watchlist, zet de rondes en telt;
+  een telefoon heeft alleen een naam nodig. Wie bij het scherm zit, kan zelf
+  meedoen ("Ik doe zelf ook mee, op dit scherm").
+- Meedoen: de code (vier letters, zonder I en O) staat groot als op een
+  aanplakbiljet, met het adres eronder, een QR-code met de link (papier met
+  inkt, zelf getekend in `src/lib/qr.js`, geen bibliotheek) en een link om te
+  delen. Op het startscherm en bij Filmavond kun je een code intikken. De
+  namen verschijnen als een rolverdeling.
+- Het verloop: iedereen stemt op een genre, de slimme pick kiest daar drie
+  films uit de pot (films met een trailer gaan voor), de zaal kijkt de echte
+  trailers van YouTube (na de laatste begint de stemming vanzelf), en dan
+  kiest iedereen een favoriet en een tweede keus. De uitslag staat groot in
+  de kleur van de film, met waarom. "Pak het kaartje" geeft een kaartje met
+  alle namen.
+- Gelijkspel lost zichzelf op, zonder overleg, en het scherm zegt hoe:
+  - Genre: zijn er minstens drie films die alle gelijke genres tegelijk zijn,
+    dan worden het die ("films die allebei zijn"). Anders, als iemand op iets
+    anders stemde, een beslissende ronde tussen alleen de gelijke genres: die
+    stemmer beslist. Nog steeds gelijk, of zat iedereen in de gelijkspel, dan
+    van elk wat: één film per genre.
+  - Film: de meeste favorieten wint. Gelijk? Dan de film met de meeste tweede
+    keuzes onder de gelijke films. Nog steeds gelijk? Dan het lot: het licht
+    springt tussen de gelijke films en blijft op één staan.
+- Een ronde sluit vanzelf als iedereen gestemd heeft (bij de films iets later,
+  voor de tweede keus), of eerder met "Sluit de stemming". Wie nog niet
+  stemde, staat er als een open rondje bij.
+- De telefoon: één kolom, grote woorden om op te tikken, en wat er gekozen
+  wordt alleen op het grote scherm. Na herladen ben je nog binnen.
+- Techniek: de zaal leeft twaalf uur in de Worker (`/zaal`, KV). Elke speler
+  schrijft in een eigen sleutel, dus stemmen overschrijven elkaar nooit; het
+  scherm leest ze elke twee seconden. Geen `list()`.
 
 ## De première
 

@@ -14,6 +14,9 @@ import { filterPot, metStandaard } from '../lib/avondFilters.js';
 import { ontgrendel } from '../lib/zaalgeluid.js';
 import { leesOpslag } from '../lib/storage.js';
 import { meld } from '../lib/melding.js';
+import ZaalScherm from '../components/ZaalScherm.jsx';
+import { ZaalCodeInvoer } from '../components/ZaalDelen.jsx';
+import { maakZaal, zaalBeschikbaar } from '../lib/zaalstemming.js';
 
 function Tile({ film, meta, onClick, struck, label, index = 0, onInfo }) {
   const { t: tr } = useT();
@@ -68,17 +71,40 @@ export default function Avond({ app }) {
   const [pairIdx, setPairIdx] = useState(0);
   const [nextRound, setNextRound] = useState([]);
   const [champion, setChampion] = useState(null);
-  // Bij "Voor ons": wie er meededen (namen op het kaartje)
+  // Bij "Voor ons" en de zaalstemming: wie er meededen (namen op het kaartje)
   const [championNamen, setChampionNamen] = useState(null);
+  const [championBron, setChampionBron] = useState(null); // 'samen' | 'zaal'
   // De winnaar van de avond levert een kaartje op, voor iedereen die meedeed
   useEffect(() => {
     if (champion) {
       app.geefKaartje(champion, championNamen
-        ? { bron: 'samen', personen: championNamen.length, namen: championNamen }
+        ? { bron: championBron || 'samen', personen: championNamen.length, namen: championNamen }
         : { bron: 'avond', personen: playerCount });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [champion?.key]);
+  // Zaalstemming: dit scherm is de zaal, de telefoons stemmen
+  const [zaal, setZaal] = useState(null); // { code, geheim }
+  const [zaalBezig, setZaalBezig] = useState(false);
+  const [zaalMelding, setZaalMelding] = useState('');
+  const openZaal = async () => {
+    setZaalMelding('');
+    setZaalBezig(true);
+    try {
+      const z = await maakZaal();
+      setZaal({ code: z.code, geheim: z.geheim });
+    } catch (e) {
+      setZaalMelding(e.message === 'WORKER_OUD' ? tr('zaal.workerOud') : e.message === 'NO_KV' ? tr('avond.kvMissing') : tr('zaal.mislukt', { msg: e.message }));
+    }
+    setZaalBezig(false);
+  };
+  const zaalWinnaar = (film, namen) => {
+    setZaal(null);
+    setChampionBron('zaal');
+    setChampionNamen(namen);
+    setChampion(film);
+    app.freshenProviders(film.key);
+  };
   // Vooraf filteren welke films meedoen aan de avond
   // (lib/avondFilters.js), onthouden in de instellingen
   const filters = metStandaard(app.settings?.avondFilters);
@@ -146,6 +172,7 @@ export default function Avond({ app }) {
   };
 
   const kiesSamen = (film, namen) => {
+    setChampionBron('samen');
     setChampionNamen(namen);
     setChampion(film);
     app.freshenProviders(film.key);
@@ -195,7 +222,7 @@ export default function Avond({ app }) {
     }
   };
 
-  const reset = () => { setMode(null); setChampion(null); setChampionNamen(null); setPitchOpen(false); };
+  const reset = () => { setMode(null); setChampion(null); setChampionNamen(null); setChampionBron(null); setPitchOpen(false); };
 
   if (!watchlist.length) {
     return (
@@ -205,8 +232,18 @@ export default function Avond({ app }) {
           <p className="big">{tr('avond.needWatchlist')}</p>
           <p>{tr('avond.needWatchlistHint')}</p>
         </div>
+        {zaalBeschikbaar() && (
+          <div className="card zs-kaart" style={{ marginTop: 16 }}>
+            <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.meedoenKop')} />
+          </div>
+        )}
       </div>
     );
+  }
+
+  // ---------- zaalstemming: dit scherm is de zaal ----------
+  if (zaal) {
+    return <ZaalScherm app={app} pool={basePool} meta={meta} zaal={zaal} onWinnaar={zaalWinnaar} onStop={() => setZaal(null)} />;
   }
 
   // ---------- even spieken (info-kaart) ----------
@@ -231,7 +268,7 @@ export default function Avond({ app }) {
         </div>
         <Winner
           film={champion} meta={meta[champion.key]}
-          context={championNamen ? tr('samen.gekozenContext') : mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')}
+          context={championBron === 'zaal' ? tr('zaal.context') : championNamen ? tr('samen.gekozenContext') : mode === 'veto' ? tr('avond.survivedVetoes') : tr('avond.bracketWinner')}
           kaartje={championNamen?.length || playerCount} namen={championNamen || undefined} onKijken={() => app.kaartjeDoorgeklikt(champion.key)}
           seen={seenSet.has(champion.key)} onToggleSeen={() => app.toggleSeen(champion.key)}
           onSimilar={() => app.openSimilar(champion, meta[champion.key])}
@@ -348,6 +385,23 @@ export default function Avond({ app }) {
       </div>
 
       <AvondFilters filters={filters} onChange={zetFilters} aantal={basePool.length} genres={genresAvail} decennia={decadesAvail} diensten={diensten} />
+
+      {zaalBeschikbaar() && (
+        <section className="card zs-kaart" aria-label={tr('zaal.titel')}>
+          <div className="zs-kaart-tekst">
+            <h2 className="zs-kaart-kop">{tr('zaal.titel')}</h2>
+            <p>{tr('zaal.uitleg')}</p>
+            <div className="zs-kaart-knoppen">
+              <button type="button" className="btn primary" onClick={openZaal} disabled={zaalBezig || basePool.length < 3}>
+                {zaalBezig ? tr('zaal.openen') : tr('zaal.open')}
+              </button>
+              {basePool.length < 3 && <span className="zs-melding">{tr('zaal.teWeinig')}</span>}
+              {zaalMelding && <span className="zs-melding" role="alert">{zaalMelding}</span>}
+            </div>
+          </div>
+          <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.meedoenKop')} />
+        </section>
+      )}
 
       {remoteAvailable() && (
         <div style={{ marginBottom: 16 }}>

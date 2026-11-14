@@ -42,9 +42,9 @@ export function applyFilters(films, metaByKey, filters, seenSet) {
 }
 
 // Gewogen random: hogere score = meer kans, recent gepickt = flinke penalty
-export function pickWinner(pool, metaByKey, smart, history) {
+export function pickWinner(pool, metaByKey, smart, history, rnd = Math.random) {
   if (!pool.length) return null;
-  if (!smart) return pool[Math.floor(Math.random() * pool.length)];
+  if (!smart) return pool[Math.floor(rnd() * pool.length)];
   const recent = new Set(history.slice(0, 20).map((h) => h.key));
   const weights = pool.map((f) => {
     const m = metaByKey[f.key];
@@ -54,7 +54,7 @@ export function pickWinner(pool, metaByKey, smart, history) {
     return w;
   });
   const total = weights.reduce((a, b) => a + b, 0);
-  let t = Math.random() * total;
+  let t = rnd() * total;
   for (let i = 0; i < pool.length; i++) {
     t -= weights[i];
     if (t <= 0) return pool[i];

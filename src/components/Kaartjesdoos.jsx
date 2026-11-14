@@ -24,6 +24,7 @@ export function bronTekst(k, tr) {
   if (k.bron === 'gevonden') return tr(`kaartje.gevonden_${['voorjou', 'zoeken', 'vergelijkbaar'].includes(k.vondst) ? k.vondst : 'nossy'}`);
   if (k.bron === 'zoeken') return tr('kaartje.bronZoeken');
   if (k.bron === 'samen') return tr('kaartje.bronSamen', { namen: (k.namen || []).join(', ') || k.personen });
+  if (k.bron === 'zaal') return tr('kaartje.bronZaal', { namen: (k.namen || []).join(', ') || k.personen });
   if (k.bron === 'avond') return tr('kaartje.bronAvond', { n: k.personen || 2 });
   if (k.bron === 'voorjou') return tr('kaartje.bronVoorJou');
   return tr('kaartje.bronPick');
