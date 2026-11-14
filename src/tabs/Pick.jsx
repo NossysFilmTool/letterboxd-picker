@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { SlidersHorizontal, Dice5 } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { MOODS, moodTest, pickWinner, nossyScore } from '../lib/pick.js';
 import { filterPot, metStandaard, afwijkend } from '../lib/avondFilters.js';
 import { aanvangTijd } from '../lib/kaartje.js';
 import { inDeDoos } from '../lib/kaartjesdoos.js';
-import { leesOpslag } from '../lib/storage.js';
+import { leesOpslag, useLS } from '../lib/storage.js';
+import { netBinnen } from '../lib/aanbod.js';
+import { kiesHoofdfilm, beschrijfHoofdfilm, vandaag } from '../lib/voorpagina.js';
 import { ontgrendel } from '../lib/zaalgeluid.js';
 import { useT, decimaal } from '../lib/i18n.js';
 import Leader from '../components/Leader.jsx';
@@ -13,17 +15,35 @@ import Winner from '../components/Winner.jsx';
 import Pitch from '../components/Pitch.jsx';
 import AvondVraag from '../components/AvondVraag.jsx';
 import AvondFilters, { Chip } from '../components/AvondFilters.jsx';
-import { Strook } from '../components/Kaartjesdoos.jsx';
+import { Rubriek, Hoofdfilm, Programmaregels, DoosWaaier } from '../components/Voorpagina.jsx';
 import ImportPanel from '../components/ImportPanel.jsx';
 
-// Pick is de kassa van de bioscoop (DESIGN.md, "De kassa"). Bovenaan waar je
-// zin in hebt, daaronder de kassa: hoeveel films er in de pot zitten, wat er
-// op tafel komt, en de sleuf waar je kaartje straks uit komt. De knop staat
-// altijd in beeld, ook op een telefoon. Een stemming kiest niet meteen een
-// film, maar vult de pot. Na het aftellen (en de trailer, als die aan staat)
-// schuift het kaartje uit de sleuf.
+// Vanavond is de voorpagina van het programma (DESIGN.md, "De voorpagina"):
+// elke dag een hoofdfilm uit je eigen lijst, met een echte reden en een
+// knop die je het kaartje geeft. Daaronder de vraag over gisteren, de kassa
+// voor wie liever het lot laat kiezen, wat er net binnen is en je laatste
+// kaartjes. Op een breed scherm een dubbele bladzijde.
+//
+// De kassa (DESIGN.md, "De kassa"): hoeveel films er in de pot zitten, wat er
+// op tafel komt, en de sleuf waar je kaartje uit komt. Een stemming kiest niet
+// meteen een film, maar vult de pot. Na het aftellen (en de trailer, als die
+// aan staat) schuift het kaartje uit de sleuf, ook voor de hoofdfilm.
 
 const stilGewenst = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+// Een breed scherm: dan wordt de voorpagina een dubbele bladzijde
+const BREED = '(min-width: 1000px)';
+function useBreed() {
+  const [breed, setBreed] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(BREED).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(BREED);
+    if (!mq?.addEventListener) return undefined;
+    const bij = () => setBreed(!!mq.matches);
+    mq.addEventListener('change', bij);
+    return () => mq.removeEventListener('change', bij);
+  }, []);
+  return breed;
+}
 
 // Wat er in de pot zit, in een paar woorden onder het getal
 function samenvatting(f, { bronNaam, gezienEruit, diensten }, tr) {
@@ -129,30 +149,66 @@ export default function Pick({ app }) {
   const [nu, setNu] = useState(() => new Date());
   useEffect(() => { const t = setInterval(() => setNu(new Date()), 30000); return () => clearInterval(t); }, []);
   const klok = (d) => new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(d);
-  const datum = (() => {
-    const s = new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(nu);
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  })();
+  const breed = useBreed();
 
-  const runPick = (uit) => {
-    const gekozen = pickWinner(uit, meta, smart, history);
-    if (!gekozen) return;
+  // De hoofdfilm van vanavond. De keuze ligt vast voor de dag (het moment van
+  // openen telt), "Een andere film" schuift door en geldt de rest van de dag,
+  // en een tik op een regel van Net binnen zet die film als hoofdfilm.
+  const [beginNu] = useState(() => new Date());
+  const dag = vandaag(nu);
+  const [hfWeg, setHfWeg] = useLS('hoofdfilmWeg', { dag: '', keys: [] });
+  const weg = hfWeg?.dag === dag ? hfWeg.keys : [];
+  const [voorkeur, setVoorkeur] = useState(null);
+  const binnen = useMemo(() => netBinnen(watchlist, meta, { mijnDiensten: diensten, seenSet }), [watchlist, meta, diensten, seenSet]);
+  const keuze = useMemo(() => {
+    const ratedFilms = app.ratedFilms || [];
+    if (voorkeur) {
+      const f = watchlist.find((x) => x.key === voorkeur);
+      if (f && meta[f.key]) return beschrijfHoofdfilm(f, { meta, ratedFilms, mijnDiensten: diensten, binnen, nu: beginNu });
+    }
+    const basisArgs = { watchlist, meta, seenSet, ratedFilms, mijnDiensten: diensten, nu: beginNu };
+    return kiesHoofdfilm({ ...basisArgs, weg }) || (weg.length ? kiesHoofdfilm({ ...basisArgs, weg: [] }) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voorkeur, watchlist, meta, seenSet, app.ratedFilms, diensten, binnen, dag, weg.join('|')]);
+  const anderHoofdfilm = () => {
+    if (!keuze) return;
+    setVoorkeur(null);
+    setHfWeg({ dag, keys: [...weg.filter((k) => k !== keuze.film.key), keuze.film.key] });
+  };
+  const alsHoofdfilm = (film) => {
+    setVoorkeur(film.key);
+    document.querySelector('.hoofdfilm')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  };
+
+  // Een film kiezen (uit de pot of als hoofdfilm): het aftellen, dan de trailer
+  // als die aan staat, dan het kaartje. contextVoorLijst: wat er in je
+  // geschiedenis bij komt te staan (de stemming of "hoofdfilm van vanavond")
+  const contextVoorLijst = useRef(null);
+  const start = (gekozen, ctx, ctxLijst) => {
     // De trailer alleen met beweging; het geluid mag pas na een klik aan
     metTrailerRef.current = trailerAan && !stilGewenst();
     if (metTrailerRef.current && geluidAan) ontgrendel();
     // Verhaal, regie en rolverdeling voor de trailer en het kaartje
     app.ensureDetail(gekozen);
     setWinner(gekozen);
-    setContext(mood
-      ? tr('pick.moodContext', { mood: tr(`mood.${mood}`).toLowerCase() })
-      : tr('pick.uitPot', { count: uit.length }));
+    setContext(ctx);
+    contextVoorLijst.current = ctxLijst;
     setPhase('leader');
+  };
+  const runPick = (uit) => {
+    const gekozen = pickWinner(uit, meta, smart, history);
+    if (!gekozen) return;
+    const moodTekst = mood ? tr('pick.moodContext', { mood: tr(`mood.${mood}`).toLowerCase() }) : null;
+    start(gekozen, moodTekst || tr('pick.uitPot', { count: uit.length }), moodTekst);
+  };
+  const pakHoofdfilm = () => {
+    if (keuze) start(keuze.film, tr('voorpagina.context'), tr('voorpagina.context'));
   };
 
   const finishLeader = () => {
     geefKaartje(winner, { bron: 'pick', personen: 1 });
     app.freshenProviders(winner.key);
-    setHistory((h) => [{ key: winner.key, name: winner.name, year: winner.year, date: new Date().toISOString(), context: mood ? context : null }, ...h].slice(0, 80));
+    setHistory((h) => [{ key: winner.key, name: winner.name, year: winner.year, date: new Date().toISOString(), context: contextVoorLijst.current }, ...h].slice(0, 80));
     setPhase(metTrailerRef.current ? 'trailer' : 'winner');
   };
 
@@ -160,6 +216,7 @@ export default function Pick({ app }) {
 
   const doos = inDeDoos(app.kaartjesStand || []);
   const vraag = app.vraag;
+  const regels = binnen.filter((b) => b.film.key !== keuze?.film.key).slice(0, 3);
   const bronNaam = bronLijst ? bronLijst.naam : tr('pick.sourceWatchlist');
   const delen = samenvatting(filters, { bronNaam, gezienEruit, diensten }, tr);
   const anders = afwijkend(filters) || !gezienEruit;
@@ -171,21 +228,23 @@ export default function Pick({ app }) {
     </button>
   );
 
-  return (
-    <div className="kassa-pagina">
+  const momenten = (
+    <>
       {phase === 'leader' && <Leader onDone={finishLeader} />}
       {phase === 'trailer' && winner && (
         <Pitch films={[winner]} meta={meta} tmdbKey={app.tmdbKey} onKlaar={() => setPhase('winner')}
           geluid={geluidAan} onGeluid={(v) => setSettings((s) => ({ ...s, pitchGeluid: v }))}
           teksten={{ introKop: tr('pick.trailerIntro'), overslaan: tr('pick.trailerOverslaan'), naarEinde: tr('pick.trailerNaarKaartje'), aria: tr('pick.trailerAria') }} />
       )}
+    </>
+  );
 
-      <header>
+  // Het kaartje schuift uit de sleuf: dan staat alleen dat in beeld
+  if (phase === 'winner' && winner) {
+    return (
+      <div className="kassa-pagina">
+        {momenten}
         <h1 className="page-title">{tr('pick.title')}</h1>
-        <p className="page-sub">{datum}</p>
-      </header>
-
-      {phase === 'winner' && winner ? (
         <div>
           <div className="kassa uitgifte">
             <div className="kassa-pot">
@@ -203,10 +262,21 @@ export default function Pick({ app }) {
           />
           <button type="button" className="btn ghost kassa-terug" onClick={() => setPhase('idle')}>{tr('pick.terugNaarKassa')}</button>
         </div>
-      ) : (
-        <>
+      </div>
+    );
+  }
+
+  const hoofd = keuze
+    ? <Hoofdfilm keuze={keuze} aanvang={aanvangTijd(nu)} onKaartje={pakHoofdfilm} onAnder={anderHoofdfilm} bezig={phase !== 'idle'} />
+    : <h1 className="page-title">{tr('pick.title')}</h1>;
+
+  const vraagBlok = vraag && (
+    <AvondVraag kort key={vraag.avond[0].id} avond={vraag.avond} meta={meta} onAntwoord={vraag.onAntwoord} onLater={vraag.onLater} />
+  );
+
+  const kassaBlok = (
+    <Rubriek kop={tr('voorpagina.kassaKop')} sub={<span className="label-breed">{tr('voorpagina.kassaSub')}</span>}>
           <section className="kassa-moods" aria-label={tr('pick.zinIn')}>
-            <p className="label">{tr('pick.zinIn')}</p>
             <div className="kassa-chips">
               <Chip aan={!mood} onClick={() => setMood(null)}>{tr('pick.alles')}</Chip>
               {MOODS.map((m) => (
@@ -236,8 +306,9 @@ export default function Pick({ app }) {
               <div className="kassa-sleuf" aria-hidden="true" />
             </section>
 
-            <button type="button" className="btn primary big kassa-knop" disabled={phase !== 'idle' || !pot.length} onClick={() => runPick(pot)}>
-              <Dice5 size={19} aria-hidden="true" /> {tr('pick.pickFilm')}
+            {/* Met een hoofdfilm is "Pak dit kaartje" de hoofdknop; dan is het lot de tweede keus */}
+            <button type="button" className={`btn big kassa-knop ${keuze ? 'tweede' : 'primary'}`} disabled={phase !== 'idle' || !pot.length} onClick={() => runPick(pot)}>
+              {tr('pick.pickFilm')}
             </button>
 
             <div className="kassa-schakelaars">
@@ -245,25 +316,32 @@ export default function Pick({ app }) {
               {schakelaar(smart, tr('pick.slimKiezen'), () => setSmart(!smart), tr('pick.smartTitle'))}
             </div>
           </div>
+    </Rubriek>
+  );
+
+  const binnenBlok = regels.length > 0 && (
+    <Rubriek kop={tr('voorpagina.binnenKop')} sub={<span className="label-breed">{tr(diensten.length ? 'voorpagina.binnenSub' : 'voorpagina.binnenSubAlle')}</span>}>
+      <Programmaregels regels={regels} meta={meta} onKies={alsHoofdfilm} />
+    </Rubriek>
+  );
+
+  const doosBlok = doos.length > 0 && (
+    <Rubriek kop={tr('voorpagina.doosKop')}
+      sub={<button type="button" className="linkbtn rubriek-link" onClick={app.naarDeDoos}>{tr('pick.alleKaartjes', { count: doos.length })}</button>}>
+      <DoosWaaier kaartjes={doos} meta={meta} onOpen={app.naarDeDoos} />
+    </Rubriek>
+  );
+
+  return (
+    <div className={`voorpagina${breed ? ' breed' : ''}`}>
+      {momenten}
+      {breed ? (
+        <>
+          <div className="voorpagina-kolom">{hoofd}{binnenBlok}</div>
+          <aside className="voorpagina-kolom zij">{kassaBlok}{vraagBlok}{doosBlok}</aside>
         </>
-      )}
-
-      {vraag && (
-        <AvondVraag kort key={vraag.avond[0].id} avond={vraag.avond} meta={meta} onAntwoord={vraag.onAntwoord} onLater={vraag.onLater} />
-      )}
-
-      {phase !== 'winner' && doos.length > 0 && (
-        <section className="kassa-doos" aria-label={tr('pick.laatstInDoos')}>
-          <div className="kassa-doos-kop">
-            <h2>{tr('pick.laatstInDoos')}</h2>
-            <button type="button" className="linkbtn" onClick={app.naarDeDoos}>{tr('pick.alleKaartjes', { count: doos.length })}</button>
-          </div>
-          <div className="kassa-doos-raster">
-            {doos.slice(0, 4).map((k) => (
-              <Strook key={k.id} k={k} poster={meta[k.key]?.poster || k.poster || null} onOpen={app.naarDeDoos} />
-            ))}
-          </div>
-        </section>
+      ) : (
+        <>{hoofd}{vraagBlok}{kassaBlok}{binnenBlok}{doosBlok}</>
       )}
 
       {laOpen && (

@@ -70,7 +70,7 @@ describe('V2 smoke', () => {
     expect(document.body.textContent).toContain('Verborgen parel');
     expect(document.querySelector('.kassa').textContent).toContain('Aanvang');
     expect(document.querySelector('.kassa-sleuf')).toBeTruthy();
-    expect(screen.getByText('Pick een film')).toBeTruthy();
+    expect(screen.getByText('Laat het lot kiezen')).toBeTruthy();
     const slim = screen.getByRole('switch', { name: 'Slim kiezen' });
     expect(slim.getAttribute('aria-checked')).toBe('false');
     fireEvent.click(slim);
@@ -140,7 +140,7 @@ describe('V2 smoke', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
     try {
       render(<App />);
-      fireEvent.click(screen.getByText('Pick een film'));
+      fireEvent.click(screen.getByText('Laat het lot kiezen'));
       await act(async () => { vi.advanceTimersByTime(4500); });
       const trailer = screen.getByRole('dialog', { name: 'Trailer van je pick' });
       expect(trailer.textContent).toContain('Jouw film van vanavond.');
@@ -167,7 +167,7 @@ describe('V2 smoke', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
     try {
       render(<App />);
-      fireEvent.click(screen.getByText('Pick een film'));
+      fireEvent.click(screen.getByText('Laat het lot kiezen'));
       await act(async () => { vi.advanceTimersByTime(4500); });
       expect(screen.queryByRole('dialog')).toBeNull();
       expect(document.querySelector('.kaartje')).toBeTruthy();
@@ -267,23 +267,100 @@ describe('V2 smoke', () => {
     expect(JSON.parse(localStorage.getItem('nossyV2.settings')).premiere).toBe('5.0');
   });
 
-  it('kassa: laatst in de doos staat onder de kassa en opent de doos', () => {
+  it('voorpagina: de hoofdfilm komt uit je eigen lijst, met een echte reden', async () => {
+    const { kiesHoofdfilm } = await import('./src/lib/voorpagina.js');
+    const nu = new Date(2026, 10, 14, 20, 0);
+    const watchlist = [{ key: 'a', name: 'A' }, { key: 'b', name: 'B' }, { key: 'c', name: 'C' }, { key: 'zag', name: 'Al gezien' }];
+    const meta = {
+      a: { vote: 7.0, runtime: 100, flat: ['MUBI'], backdrop: '/a.jpg' },
+      b: { vote: 9.5, runtime: 110, flat: [], director: 'Wim Wenders' },
+      c: { vote: 5.0, runtime: 95, flat: ['Netflix'], flatSinds: { Netflix: nu.getTime() - 2 * 864e5 } },
+      zag: { vote: 9.9, runtime: 90 },
+      pd: { director: 'Wim Wenders' },
+    };
+    const seenSet = new Set(['zag']);
+    // wat je al zag nooit; het hoogste cijfer dat je nog niet zag wint hier ruim
+    const b = kiesHoofdfilm({ watchlist, meta, seenSet, nu });
+    expect(b.film.key).toBe('b');
+    expect(b.reden).toEqual({ soort: 'hoogste' });
+    // dezelfde dag, dezelfde keuze
+    expect(kiesHoofdfilm({ watchlist, meta, seenSet, nu }).film.key).toBe('b');
+    // dezelfde regisseur als een film die je vijf sterren gaf, is een betere reden
+    const metSterren = kiesHoofdfilm({ watchlist, meta, seenSet, nu, ratedFilms: [{ key: 'pd', name: 'Perfect Days', rating: 5 }] });
+    expect(metSterren.reden).toEqual({ soort: 'regisseur', regisseur: 'Wim Wenders', titel: 'Perfect Days', sterren: 5 });
+    // weggeklikt: de volgende, die nu op een dienst staat en vanavond nog past
+    const a = kiesHoofdfilm({ watchlist, meta, seenSet, nu, weg: ['b'] });
+    expect(a.film.key).toBe('a');
+    expect(a.reden).toEqual({ soort: 'dienst', dienst: 'MUBI' });
+    // net binnen gaat voor alles
+    const c = kiesHoofdfilm({ watchlist, meta, seenSet, nu, weg: ['b', 'a'] });
+    expect(c.reden).toEqual({ soort: 'binnen', dienst: 'Netflix' });
+    // zonder filmdata geen hoofdfilm
+    expect(kiesHoofdfilm({ watchlist, meta: {}, seenSet, nu })).toBeNull();
+  });
+
+  it('voorpagina: een hoofdfilm met titelblok, een andere kiezen, en het kaartje pakken', async () => {
+    const mm = window.matchMedia;
+    window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
+    try {
+      render(<App />);
+      const titel = () => document.querySelector('.hoofdfilm-titel')?.textContent;
+      await waitFor(() => expect(titel()).toBeTruthy());
+      const eerste = titel();
+      expect(fakeFilms.map(([naam]) => naam)).toContain(eerste);
+      expect(document.querySelector('.titelblok').getAttribute('aria-label')).toMatch(/^Een film van /);
+      // met een hoofdfilm is het lot de tweede keus
+      expect(screen.getByText('Laat het lot kiezen').className).toContain('tweede');
+      // een andere film: de vorige blijft vandaag weg
+      fireEvent.click(screen.getByText('Een andere film'));
+      expect(titel()).not.toBe(eerste);
+      const weg = JSON.parse(localStorage.getItem('nossyV2.hoofdfilmWeg'));
+      expect(weg.keys).toHaveLength(1);
+      // het kaartje pakken: het kaartje schuift uit de kassa, met de hoofdfilm erop
+      const tweede = titel();
+      fireEvent.click(screen.getByText('Pak dit kaartje'));
+      expect(await screen.findByText('Meer zoals deze')).toBeTruthy();
+      expect(document.querySelector('.kassa-context').textContent).toBe('Hoofdfilm van vanavond');
+      expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes'))[0].name).toBe(tweede);
+      expect(JSON.parse(localStorage.getItem('nossyV2.history'))[0].context).toBe('Hoofdfilm van vanavond');
+    } finally {
+      window.matchMedia = mm;
+    }
+  });
+
+  it('voorpagina: net binnen als programmaregels, en een regel wordt de hoofdfilm', async () => {
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    const gisteren = Date.now() - 864e5;
+    meta['la haine|1995'].flatSinds = { Netflix: gisteren };
+    meta['close|2022'].flatSinds = { Netflix: gisteren };
+    localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    render(<App />);
+    const rubriek = await screen.findByRole('region', { name: 'Net binnen' });
+    const regels = within(rubriek).getAllByRole('button', { name: /als hoofdfilm van vanavond/ });
+    expect(regels.length).toBeGreaterThan(0);
+    const naam = regels[0].getAttribute('aria-label').replace('Zet ', '').replace(' als hoofdfilm van vanavond', '');
+    fireEvent.click(regels[0]);
+    expect(document.querySelector('.hoofdfilm-titel').textContent).toBe(naam);
+    expect(document.querySelector('.hoofdfilm-reden').textContent).toBe('Net binnen op Netflix.');
+  });
+
+  it('voorpagina: de laatste kaartjes uit je doos, als waaier, openen de doos', () => {
     const gisteren = new Date(Date.now() - 24 * 3600e3).toISOString();
     localStorage.setItem('nossyV2.kaartjes', JSON.stringify([
       { id: `${gisteren}|aftersun|2022`, key: 'aftersun|2022', name: 'Aftersun', year: 2022, datum: gisteren, bron: 'pick', personen: 1, antwoord: 'gekeken', sterren: 4.5, beantwoord: gisteren },
     ]));
     render(<App />);
-    const doos = screen.getByRole('region', { name: 'Laatst in de doos' });
+    const doos = screen.getByRole('region', { name: 'Uit je doos' });
     expect(doos.textContent).toContain('AFTERSUN');
     expect(doos.textContent).toContain('★★★★½');
-    fireEvent.click(within(doos).getByText('Naar de doos'));
+    fireEvent.click(within(doos).getByText('naar de doos'));
     expect(document.body.textContent).toContain('1 kaartje in de doos');
   });
 
   it('pick draait leader en levert winnaar met acties', async () => {
     window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
     render(<App />);
-    fireEvent.click(screen.getAllByText('Pick een film')[0]);
+    fireEvent.click(screen.getAllByText('Laat het lot kiezen')[0]);
     expect(await screen.findByText('Gezien')).toBeTruthy();
     expect(document.body.textContent).toContain('Meer zoals deze');
     // een pick levert een bioscoopkaartje, zonder verzonnen zaal, rij of stoel
@@ -2936,8 +3013,8 @@ describe('V2 smoke', () => {
     localStorage.setItem('nossyV2.watchlist', JSON.stringify([{ key: 'a|2020', name: 'A', year: 2020 }, { key: 'b|2019', name: 'B', year: 2019 }]));
     render(<App />);
     const txt = document.body.textContent;
-    expect(txt).toContain('What are you in the mood for?');
-    expect(txt).toContain('Pick a film');
+    expect(txt).toContain('The box office');
+    expect(txt).toContain('Let fate decide');
     expect(txt).toContain('films in the pot');
     expect(txt).toContain('Trailer first');
     expect(txt).toContain('Seen left out');

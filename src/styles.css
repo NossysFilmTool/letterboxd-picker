@@ -908,13 +908,17 @@ a.prov-link:hover { border-color: var(--paper); }
    de pot en de sleuf waar je kaartje uit komt. De knop staat altijd in beeld. */
 .kassa-pagina { display: flex; flex-direction: column; gap: 22px; max-width: 780px; }
 .kassa-moods { display: flex; flex-direction: column; gap: 8px; }
-.kassa-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.kassa-chips .chip { min-height: 36px; padding: 6px 12px; white-space: nowrap; flex-shrink: 0; }
+/* Stemmingen als woorden met een streep eronder, geen knopjes */
+.kassa-chips { display: flex; gap: 4px 18px; flex-wrap: wrap; }
+.kassa-chips .chip { min-height: 36px; padding: 0 0 4px; border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--fog); font-size: 14.5px; white-space: nowrap; flex-shrink: 0; }
+.kassa-chips .chip:hover:not(:disabled) { color: var(--paper); }
+.kassa-chips .chip.on { border-bottom-color: var(--paper); background: none; color: var(--paper); font-weight: 600; }
+.kassa-chips .chip .count { position: relative; top: -0.45em; font-family: var(--font-kop); font-stretch: 125%; font-size: 10px; font-weight: 600; color: inherit; }
 .kassa-blok { display: flex; flex-direction: column; gap: 12px; }
 .kassa { background: #0e0d0c; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 18px 0; display: flex; flex-direction: column; gap: 10px; }
 .kassa-pot { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .kassa-aantal { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.kassa-aantal .n { font-family: var(--font-display); font-weight: 700; font-size: 64px; line-height: 0.9; color: var(--paper); font-variant-numeric: tabular-nums; }
+.kassa-aantal .n { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 64px; line-height: 0.9; color: var(--paper); font-variant-numeric: tabular-nums; }
 .kassa-aantal .lbl { font-size: 15px; color: var(--fog); }
 .kassa-aanvang { font-size: 13px; color: var(--fog); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .kassa-context { font-size: 14px; color: var(--fog); min-width: 0; }
@@ -926,6 +930,8 @@ a.prov-link:hover { border-color: var(--paper); }
 .kassa-sleuf::before { content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 12px; box-sizing: border-box; border-radius: 6px; background: #000; border-top: 2px solid #050404; border-bottom: 1px solid rgba(236, 230, 220, 0.16); }
 .kassa-sleuf::after { content: ''; position: absolute; left: 22px; right: 22px; top: 13px; height: 3px; background: var(--paper); opacity: 0.8; }
 .kassa-knop { width: 100%; justify-content: center; min-height: 54px; font-size: 16px; }
+/* Met een hoofdfilm erboven is het lot de tweede keus: alleen een rand */
+.kassa-knop.tweede { min-height: 50px; border: 1.5px solid var(--paper); color: var(--paper); font-weight: 600; }
 .kassa-schakelaars { display: flex; gap: 10px; flex-wrap: wrap; }
 .kassa-schakelaars .switch-row { min-height: 44px; }
 /* Na de pick: de sleuf is leeg, het kaartje schuift eruit */
@@ -933,19 +939,16 @@ a.prov-link:hover { border-color: var(--paper); }
 .kassa.uitgifte .kassa-sleuf::after { display: none; }
 .kassa.uitgifte + .winner .kaartje-sleuf { position: relative; margin: -12px 12px 0; border-top: none; }
 .kassa-terug { margin-top: 14px; }
-/* De vraag over gisteren, rustig onder de kassa */
-.kassa-vraag { border-top: 1px solid var(--line); padding-top: 16px; }
-/* Laatst in de doos: de nieuwste stroken, klein */
-.kassa-doos-kop { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.kassa-doos-kop h2 { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1; }
-.kassa-doos-kop .linkbtn { font-size: 13px; color: var(--fog); font-variant-numeric: tabular-nums; }
-.kassa-doos-raster { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.kassa-doos-raster .kaartje-stub { min-height: 96px; }
-.kassa-doos-raster .kaartje-stub-poster { width: 52px; }
-.kassa-doos-raster .kaartje-stub-papier { padding: 8px 10px; }
-.kassa-doos-raster .kaartje-stub-titel { font-size: 17px; }
-.kassa-doos-raster .kaartje-stub-bron, .kassa-doos-raster .kaartje-stub-notitie { display: none; }
-.kassa-doos-raster .kaartje-stub-stempel { font-size: 12px; padding: 1px 6px; }
+/* De vraag over gisteren: een strook papier, zoals een briefje bij de kassa */
+.followup-card.kassa-vraag { gap: 4px 12px; padding: 10px 16px; background: var(--paper); color: #1b1a18; }
+.kassa-vraag .fu-poster { display: none; }
+.kassa-vraag .label { color: #4a4640; }
+.kassa-vraag p { color: #1b1a18 !important; }
+.kassa-vraag .btn.ghost, .kassa-vraag .linkbtn, .kassa-vraag .fu-naam { color: #4a4640; }
+.kassa-vraag .btn.ghost:hover { color: #1b1a18; }
+.kassa-vraag .fu-star { color: #8a8479; }
+.kassa-vraag .fu-keuze { color: #1b1a18; }
+.kassa-vraag :focus-visible { outline-color: #1b1a18; }
 /* De la: wat er op tafel komt, schuift van onderen open */
 .kassa-la-achter { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.62); animation: ko-in 0.2s ease-out both; }
 .kassa-la { position: fixed; z-index: 61; left: 50%; bottom: 0; transform: translateX(-50%); width: min(720px, 100%); max-height: 88dvh; overflow-y: auto; box-sizing: border-box; padding: 8px 18px calc(18px + env(safe-area-inset-bottom)); background: var(--char); border: 1px solid var(--line-strong); border-bottom: none; border-radius: 3px 3px 0 0; outline: none; animation: la-op 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -958,10 +961,74 @@ a.prov-link:hover { border-color: var(--paper); }
 @media (max-width: 720px) {
   .kassa-chips { flex-wrap: nowrap; overflow-x: auto; margin-right: -16px; padding-right: 16px; scrollbar-width: none; }
   .kassa-chips::-webkit-scrollbar { display: none; }
-  .kassa-doos-raster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kassa-doos-raster > :nth-child(n+3) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .kassa-la, .kassa-la-achter { animation: none; } }
+
+/* De voorpagina (Pick.jsx, DESIGN.md): de hoofdfilm van vanavond, de vraag
+   over gisteren, de kassa, wat er net binnen is en je laatste kaartjes. Op een
+   breed scherm een dubbele bladzijde: links de hoofdfilm, rechts de kassa. */
+:root { --programma: #e8b75c; }
+.voorpagina { display: flex; flex-direction: column; gap: 28px; }
+.voorpagina.breed { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 44px; align-items: start; }
+.voorpagina-kolom { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.rubriek { display: flex; flex-direction: column; gap: 12px; }
+.rubriek-kop { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rubriek-kop h2 { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 32px; line-height: 1; }
+.rubriek-link { font-size: 13px; color: var(--fog); text-decoration: none; }
+.rubriek-link:hover { color: var(--paper); }
+/* De hoofdfilm: het filmbeeld, daaronder een vlak in de kleur van de film */
+.hoofdfilm { color: #ffffff; }
+.hoofdfilm-beeld { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--film); }
+.hoofdfilm-vlak { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px 20px 22px; background: var(--film); }
+.voorpagina.breed .hoofdfilm-beeld { aspect-ratio: auto; height: 448px; }
+.voorpagina.breed .hoofdfilm-beeld + .hoofdfilm-vlak { width: min(600px, 92%); margin-top: -128px; padding: 20px 24px 24px; }
+.hoofdfilm-boven.label-breed { display: flex; justify-content: space-between; gap: 12px; color: var(--programma); }
+.hoofdfilm-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 70px; line-height: 0.84; letter-spacing: -0.015em; color: #ffffff; overflow-wrap: anywhere; }
+.voorpagina.breed .hoofdfilm-titel { font-size: 112px; }
+.hoofdfilm-titel.lang { font-size: 52px; }
+.voorpagina.breed .hoofdfilm-titel.lang { font-size: 80px; }
+/* Het titelblok van een filmposter: de kleine woorden tussen de namen in */
+.titelblok { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 16px; line-height: 1.15; color: rgba(255, 255, 255, 0.9); }
+.voorpagina.breed .titelblok { font-size: 20px; }
+.titelblok .tb-klein { font-size: 0.6em; font-weight: 600; vertical-align: 0.3em; }
+.hoofdfilm-reden { margin-top: 2px; font-size: 15px; color: #ffffff; }
+.hoofdfilm-meta { font-size: 13.5px; color: rgba(255, 255, 255, 0.84); }
+.hoofdfilm-acties { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin-top: 6px; }
+.hoofdfilm-acties .btn.primary { min-height: 48px; padding: 0 20px; font-size: 16px; font-weight: 700; }
+.hoofdfilm-acties .linkbtn { min-height: 44px; color: #ffffff; font-size: 14.5px; text-decoration-color: rgba(255, 255, 255, 0.45); }
+.hoofdfilm :focus-visible { outline-color: #ffffff; }
+/* Net binnen: programmaregels */
+.programmaregels { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
+.programmaregel { display: grid; grid-template-columns: 46px minmax(0, 1fr) 40px; align-items: center; gap: 12px; width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid var(--line); background: none; color: var(--paper); text-align: left; cursor: pointer; }
+.voorpagina.breed .programmaregel { grid-template-columns: 64px minmax(0, 1fr) 40px; gap: 16px; }
+.programmaregel-dag { line-height: 1.3; }
+.programmaregel-midden { min-width: 0; }
+.programmaregel-titel { display: block; font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 23px; line-height: 1; overflow-wrap: anywhere; }
+.programmaregel-sub { display: flex; flex-wrap: wrap; gap: 0 14px; margin-top: 4px; font-size: 12.5px; color: var(--fog); font-variant-numeric: tabular-nums; }
+.programmaregel img, .programmaregel-leeg { width: 40px; height: 60px; object-fit: cover; display: grid; place-items: center; background: var(--char-2); color: var(--fog-dim); }
+.programmaregel:hover .programmaregel-titel { text-decoration: underline; text-underline-offset: 3px; }
+.programmaregel:focus-visible { outline: 2px solid var(--paper); outline-offset: 2px; }
+/* Uit je doos: de laatste kaartjes als losse stroken in een waaier */
+.doos-waaier { position: relative; height: 178px; }
+.kaartje-waaier { position: absolute; top: 10px; width: 124px; display: flex; flex-direction: column; padding: 0; border: none; border-radius: 2px; overflow: hidden; background: var(--paper); color: #1b1a18; text-align: left; cursor: pointer; transition: transform 0.18s ease; }
+.kaartje-waaier:nth-child(1) { left: 0; transform: rotate(-3deg); }
+.kaartje-waaier:nth-child(2) { left: calc(50% - 62px); top: 0; z-index: 1; transform: rotate(2deg); }
+.kaartje-waaier:nth-child(3) { right: 0; top: 14px; transform: rotate(-1.5deg); }
+.kaartje-waaier:hover { z-index: 2; }
+.kaartje-waaier:focus-visible { z-index: 2; outline: 2px solid var(--paper); outline-offset: 3px; }
+.kaartje-waaier-beeld { display: block; height: 72px; }
+.kaartje-waaier-beeld img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.kaartje-waaier-papier { display: flex; flex-direction: column; gap: 2px; padding: 7px 9px 9px; border-top: 2px dashed rgba(27, 26, 24, 0.45); }
+.kaartje-waaier-datum { font-family: var(--font-ticket); font-size: 10.5px; color: #4a4640; }
+.kaartje-waaier-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 17px; line-height: 0.95; overflow-wrap: anywhere; }
+.kaartje-waaier-stempel { align-self: flex-end; margin-top: 4px; padding: 0 5px; border: 2px solid currentColor; border-radius: 3px; font-family: var(--font-ticket); font-size: 11px; line-height: 1.3; color: #a8463a; transform: rotate(-6deg); }
+@media (max-width: 720px) {
+  .hoofdfilm { margin: -20px -16px 0; }
+  .notice + .tabfade .hoofdfilm { margin-top: 16px; }
+  .hoofdfilm-vlak { padding: 16px 16px 20px; }
+  .followup-card.kassa-vraag { margin: 0 -16px; }
+}
+@media (prefers-reduced-motion: reduce) { .kaartje-waaier { transition: none; } }
 
 /* Meldingen en vragen (Meldingen.jsx), in plaats van de pop-ups van de
    browser. Een melding staat bovenin, een rustig vlak zonder gekleurde

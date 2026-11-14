@@ -36,7 +36,7 @@ app kunnen zijn? Dan is het nog niet af.
 - Tussenkoppen mogen groot en gedempt zijn, zoals de jaartallen in het
   archief.
 - Het wordt scherm voor scherm opnieuw gebouwd. Wat er al staat: de kop, de
-  navigatie en het archief (5.1). De rest volgt.
+  navigatie en het archief (5.1), de voorpagina (5.2). De rest volgt.
 
 ## Navigatie
 
@@ -55,6 +55,9 @@ app kunnen zijn? Dan is het nog niet af.
   Vanavond-blok en de kop van de filmkaart nemen die kleur aan.
 - Functionele kleuren zijn gedempt: `--dot-o` (waarschuwing), `--dot-g` (ja,
   te streamen), `--dot-b` (koel). Geen neonaccenten.
+- Eén programmakleur, gedempt amber `--programma` (#e8b75c), alleen voor het
+  bovenschrift van de hoofdfilm op het vlak in de kleur van de film, zoals de
+  steunkleur van een gedrukt programma. Nergens anders.
 - Letterboxds drie kleuren horen bij Letterboxd; ze staan nergens in de tool.
 
 ## Letters
@@ -70,10 +73,13 @@ app kunnen zijn? Dan is het nog niet af.
   onder of naast elkaar staan.
 - Kopjes in gewone zinsletters, nooit in spatiërende hoofdletters.
 - Gegevens naast elkaar met ruimte ertussen, niet als "A · B · C"-reeks.
-- Eén uitzondering: het kaartje (zie hieronder) is gedrukt, in hoofdletters en
-  met DotGothic16 (`--font-ticket`) voor de gegevens, zoals een echt
-  bioscoopkaartje. De hoofdletters staan in de tekst zelf
-  (`toLocaleUpperCase`), niet via CSS. Nergens anders.
+- Twee uitzonderingen. Het kaartje (zie hieronder) is gedrukt, in hoofdletters
+  en met DotGothic16 (`--font-ticket`) voor de gegevens, zoals een echt
+  bioscoopkaartje. En het titelblok onder de hoofdfilm staat in hoofdletters,
+  zoals de aftiteling onderaan een filmposter ("EEN FILM VAN WIM WENDERS MET
+  ..."), met de kleine woorden kleiner tussen de namen. Schermlezers krijgen
+  het in gewone letters. De hoofdletters staan in de tekst zelf
+  (`drukletters` uit `src/lib/kaartje.js`), niet via CSS. Nergens anders.
 
 ## Het archief
 
@@ -113,20 +119,43 @@ app kunnen zijn? Dan is het nog niet af.
   je shortlist of klikte door) en die je daarna keek, worden een
   Gevonden-kaartje ("Gevonden met Zoeken"). Regels in `src/lib/vondsten.js`.
 
+## De voorpagina
+
+- Vanavond is het eerste scherm, de voorpagina van het programma. Van boven
+  naar beneden: de hoofdfilm van vanavond, de vraag over gisteren, de kassa,
+  wat er net binnen is en je laatste kaartjes. Op een breed scherm een
+  dubbele bladzijde: links de hoofdfilm en Net binnen, rechts de kassa, de
+  vraag en je doos.
+- De hoofdfilm komt uit je eigen lijst (`src/lib/voorpagina.js`): een film die
+  je nog niet zag, met een hoger cijfer, op je diensten, net binnen en
+  vanavond nog uit, en met een filmbeeld krijgt voorrang. Het lot van de dag
+  beslist tussen films die dicht bij elkaar liggen, dus de voorpagina is elke
+  dag anders maar springt niet bij elke keer openen.
+- Hij staat er met zijn filmbeeld, daaronder een vlak in de kleur van de film:
+  de tijd van nu tot het einde, de titel groot, het titelblok, en één echte
+  reden ("Net binnen op MUBI.", "Van Wim Wenders, net als Perfect Days, die je
+  5 sterren gaf.", "Het hoogste cijfer op je lijst dat je nog niet zag.").
+  Nooit een verzonnen reden.
+- "Pak dit kaartje" is de hoofdknop: het aftellen, de trailer en het kaartje
+  uit de sleuf, net als bij het lot. "Een andere film" schuift door en geldt
+  de rest van de dag.
+- De vraag over gisteren is een strook papier, als een briefje bij de kassa.
+- Net binnen staat als programmaregels (dag, titel, gegevens, een kleine
+  poster). Tik op een regel en die film wordt de hoofdfilm.
+- Je laatste drie kaartjes liggen als losse stroken in een waaier, met een
+  beeld uit de film; ze openen de doos.
+
 ## De kassa
 
-- Pick is de kassa van de zaal, het eerste scherm dat je ziet. Van boven
-  naar beneden: waar je zin in hebt (de stemmingen), de kassa, de knop, en
-  daaronder de vraag over gisteren en je laatste kaartjes uit de doos.
+- De kassa staat op de voorpagina, voor wie liever het lot laat kiezen.
 - De kassa toont hoeveel films er in de pot zitten (groot getal), de
   aanvang van nu en in een paar woorden wat er op tafel komt. Onderaan zit
   de sleuf, met het randje papier van het volgende kaartje erin. Na de pick
   schuift het kaartje uit diezelfde sleuf.
-- "Pick een film" staat altijd in beeld, ook op een telefoon. Niets boven de
-  kassa mag hem onder de rand van het scherm duwen: de vraag over gisteren
-  staat op Pick onder de knop, niet erboven.
-- Een stemming kiest niet meteen een film, maar vult de pot; het getal loopt
-  mee. Er is één knop die kiest.
+- "Laat het lot kiezen" is de knop van de kassa. Met een hoofdfilm erboven is
+  hij de tweede keus (alleen een rand); zonder hoofdfilm is hij de hoofdknop.
+- De stemmingen zijn woorden met een streep eronder, geen knopjes. Een
+  stemming kiest niet meteen een film, maar vult de pot; het getal loopt mee.
 - Wat er op tafel komt, schuift als een la van onderen open. Het is dezelfde
   kaart als bij Filmavond (één filtertaal in de hele tool), plus waar je uit
   kiest en of gezien meedoet. Pick en Filmavond onthouden elk hun eigen
