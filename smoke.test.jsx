@@ -4778,10 +4778,11 @@ describe('Zaalstemming', () => {
   const tB = 'b'.repeat(32);
   const tC = 'c'.repeat(32);
   // Een film zoals TMDB hem geeft, voor de aanraders
-  const tmdbFilm = (id, title, jaar, { vote = 7.5, votes = 2000, runtime = 110, lijsten = 2000, genres = ['Drama'] } = {}) => ({
+  const tmdbFilm = (id, title, jaar, { vote = 7.5, votes = 2000, runtime = 110, lijsten = 2000, genres = ['Drama'], director = null, collectie = null } = {}) => ({
     id, title, release_date: `${jaar}-01-01`, runtime, genres: genres.map((name) => ({ name })),
     vote_average: vote, vote_count: votes, poster_path: `/p${id}.jpg`, backdrop_path: null, overview: '',
-    credits: { crew: [], cast: [] }, videos: { results: [{ site: 'YouTube', type: 'Trailer', key: `trailer${id}` }] },
+    credits: { crew: director ? [{ job: 'Director', name: director, id: 1 }] : [], cast: [] },
+    belongs_to_collection: collectie ? { id: collectie } : null, videos: { results: [{ site: 'YouTube', type: 'Trailer', key: `trailer${id}` }] },
     recommendations: { results: [] }, 'watch/providers': { results: {} }, keywords: { keywords: [] },
     lists: { total_results: lijsten }, release_dates: { results: [{ release_dates: [{ type: 3 }] }] },
   });
@@ -4839,13 +4840,25 @@ describe('Zaalstemming', () => {
     expect(youtubeId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
   });
 
+  // TMDB in de tests: elke /movie/<id> geeft de film uit `films`, de rest 404
+  const metTmdb = async (films, fn) => {
+    const oud = global.fetch;
+    global.fetch = async (u) => {
+      const f = films[String(u).match(/\/movie\/(\d+)/)?.[1]];
+      return f ? { ok: true, status: 200, json: async () => f } : { ok: false, status: 404, json: async () => ({}) };
+    };
+    try { return await fn(); } finally { global.fetch = oud; }
+  };
+  // Zoals Discover een film teruggeeft
+  const gevonden = (f, genre_ids = [18]) => ({ id: f.id, title: f.title, year: +f.release_date.slice(0, 4), vote: f.vote_average, votes: f.vote_count, genre_ids });
+  const rec = (id, title, jaar, genre_ids = [18], vote = 7.6, votes = 3000) => ({ id, title, year: jaar, poster: '/x.jpg', vote, votes, genre_ids });
+
   it('aanraders: van buiten de lijst, in het genre en binnen de filters, zonder opgeblazen cijfers', async () => {
-    const { zoekAanraders, genreIds } = await import('./src/lib/aanraders.js');
+    const { zoekAanraders, genreIds, PAREL_TOT, IEDEREEN_VANAF } = await import('./src/lib/aanraders.js');
     expect(genreIds(['Drama', 'Sciencefiction', 'Onbekend'])).toEqual([18, 878]);
-    const rec = (id, title, jaar, genre_ids, vote = 7.6, votes = 3000) => ({ id, title, year: jaar, poster: '/x.jpg', vote, votes, genre_ids });
     const meta = {
-      'een|2001': { id: 1, title: 'Een', recs: [rec(77, 'Aangeraden', 2015, [18]), rec(88, 'Eng', 2016, [27]), rec(99, 'Al op de lijst', 2010, [18])] },
-      'twee|2002': { id: 2, title: 'Twee', recs: [rec(77, 'Aangeraden', 2015, [18])] },
+      'een|2001': { id: 1, title: 'Een', recs: [rec(77, 'Aangeraden', 2015), rec(88, 'Eng', 2016, [27]), rec(99, 'Al op de lijst', 2010)] },
+      'twee|2002': { id: 2, title: 'Twee', recs: [rec(77, 'Aangeraden', 2015)] },
       'al op de lijst|2010': { id: 99, title: 'Al op de lijst' },
     };
     const films = {
@@ -4860,26 +4873,130 @@ describe('Zaalstemming', () => {
     const vragen = [];
     const ontdek = async (sleutel, opties) => {
       vragen.push(opties);
-      return { results: opties.maxVotes ? [films[102], films[103]].map(licht).map((r) => ({ ...r, year: +r.release_date.slice(0, 4), vote: r.vote_average, votes: r.vote_count, genre_ids: [18] }))
-        : [101, 104, 105, 106].map((id) => films[id]).map((f) => ({ id: f.id, title: f.title, year: +f.release_date.slice(0, 4), vote: f.vote_average, votes: f.vote_count, genre_ids: [18] })) };
+      return { results: (opties.maxVotes === PAREL_TOT ? [102, 103] : [101, 104, 105, 106]).map((id) => gevonden(films[id])) };
     };
-    const { fetchDetailById } = await import('./src/lib/tmdb.js');
-    const haalDetail = async (id) => {
-      global.fetch = async () => ({ ok: true, status: 200, json: async () => films[id] });
-      try { return await fetchDetailById(id, 'x'); } finally { delete global.fetch; }
-    };
-    const uit = await zoekAanraders({
+    const uit = await metTmdb(films, () => zoekAanraders({
       sleutel: 'x', meta, genre: { namen: ['Drama'], wijze: 'meeste' }, filters: { maxDuur: 120 },
       uit: { ids: new Set([1, 2, 99]), keys: new Set(['een|2001', 'twee|2002', 'al op de lijst|2010']) },
-      rnd: () => 0.5, haalDetail, ontdek,
-    });
+      rnd: () => 0.5, ontdek,
+    }));
     expect(uit.map((a) => a.film.name).sort()).toEqual(['Aangeraden', 'Bekend', 'Parel']);
     expect(uit.find((a) => a.film.name === 'Aangeraden')).toMatchObject({ bronnen: 2, via: ['Een', 'Twee'] });
     expect(uit.find((a) => a.film.name === 'Parel').parel).toBe(true);
     expect(uit.find((a) => a.film.name === 'Bekend').m.trailer).toBe('https://www.youtube.com/watch?v=trailer101');
-    // Discover zoekt binnen hetzelfde genre en dezelfde lengte
-    expect(vragen[0]).toMatchObject({ genreIds: ['18'], maxRuntime: 120, minRuntime: 40 });
-    expect(vragen.some((v) => v.maxVotes === 800)).toBe(true);
+    // Discover zoekt binnen hetzelfde genre en dezelfde lengte, zonder de
+    // klassiekers die iedereen al zag; zonder diensten geen derde zoektocht
+    expect(vragen[0]).toMatchObject({ genreIds: ['18'], maxRuntime: 120, minRuntime: 40, maxVotes: IEDEREEN_VANAF });
+    expect(vragen.some((v) => v.maxVotes === PAREL_TOT)).toBe(true);
+    expect(vragen).toHaveLength(2);
+  });
+
+  it('aanraders: de films op tafel en de favorieten wegen, liever-niet zakt, afgewezen en al gezien vallen af', async () => {
+    const { zoekAanraders, verzamelKandidaten } = await import('./src/lib/aanraders.js');
+    const meta = {
+      'tafel|2001': { id: 11, title: 'Tafel', genres: ['Drama'], recs: [rec(201, 'Van tafel', 2011), rec(206, 'Afgewezen', 2012), rec(208, 'Al Gezien', 2016)] },
+      'lijst|2002': { id: 12, title: 'Lijst', genres: ['Drama'], recs: [rec(202, 'Van lijst', 2013), rec(204, 'Afgeraden', 2014)] },
+      'favoriet|1999': { id: 13, title: 'Favoriet', genres: ['Drama'], recs: [rec(203, 'Van favoriet', 2009)] },
+      'nee|1998': { id: 14, title: 'Nee', genres: ['Drama'], recs: [rec(204, 'Afgeraden', 2014)] },
+    };
+    const sterren = { 'favoriet|1999': 5, 'nee|1998': 1 };
+    const lijst = new Set(['tafel|2001', 'lijst|2002']);
+    const bewaard = [{ id: 205, title: 'Bewaard', year: 2018, poster: '/b.jpg', vote: 7.6, genre_ids: [18] }];
+    const uit = { ids: new Set([11, 12, 13, 14]), keys: new Set([...Object.keys(meta), 'al gezien|2015']) };
+    // zonder netwerk: wat de app al weet, en hoe sterk
+    const { kandidaten, anti } = verzamelKandidaten({ meta, tafel: ['tafel|2001'], lijst, sterren, bewaard, isBekend: (r) => r.id === 208 });
+    expect(kandidaten.get(201)).toMatchObject({ waarde: 1.4, bronnen: 1 });
+    expect(kandidaten.get(202)).toMatchObject({ waarde: 0.5, bronnen: 1 });
+    expect(kandidaten.get(203)).toMatchObject({ waarde: 1.8, bronnen: 0 });
+    expect(kandidaten.has(208)).toBe(false);
+    expect(anti.get(204)).toBe(2);
+
+    const films = Object.fromEntries([[201, 'Van tafel', 2011], [202, 'Van lijst', 2013], [203, 'Van favoriet', 2009], [204, 'Afgeraden', 2014], [205, 'Bewaard', 2018], [206, 'Afgewezen', 2012], [208, 'Al Gezien', 2016]]
+      .map(([id, t, j]) => [id, tmdbFilm(id, t, j, { vote: 7.6, votes: 3000 })]));
+    const gekozen = await metTmdb(films, () => zoekAanraders({
+      sleutel: 'x', meta, genre: { namen: ['Drama'], wijze: 'meeste' }, filters: {}, uit,
+      tafel: ['tafel|2001'], lijst, sterren, bewaard, afgewezen: [{ id: 206, reden: 'saai' }],
+      rnd: () => 0.5, ontdek: async () => ({ results: [] }),
+    }));
+    expect(gekozen.map((a) => a.film.name).sort()).toEqual(['Bewaard', 'Van favoriet', 'Van tafel']);
+    // het waarom noemt de film op tafel; een favoriet staat niet op de lijst
+    expect(gekozen.find((a) => a.film.name === 'Van tafel')).toMatchObject({ bronnen: 1, via: ['Tafel'] });
+    expect(gekozen.find((a) => a.film.name === 'Van favoriet')).toMatchObject({ bronnen: 0, via: [] });
+  });
+
+  it('aanraders: drie verschillende, een parel op de laatste plek, en wat de zaal al zag zakt', async () => {
+    const { zoekAanraders } = await import('./src/lib/aanraders.js');
+    const films = {
+      301: tmdbFilm(301, 'Regisseur Een', 2015, { vote: 8.2, votes: 5000, director: 'Dezelfde' }),
+      302: tmdbFilm(302, 'Regisseur Twee', 1995, { vote: 8.1, votes: 5000, director: 'Dezelfde' }),
+      303: tmdbFilm(303, 'Reeks Een', 2005, { vote: 8.0, votes: 5000, collectie: 9 }),
+      304: tmdbFilm(304, 'Reeks Twee', 1985, { vote: 7.9, votes: 5000, collectie: 9 }),
+      305: tmdbFilm(305, 'Gewoon', 1975, { vote: 7.4, votes: 3000 }),
+      306: tmdbFilm(306, 'Kleine Parel', 2019, { vote: 7.6, votes: 400 }),
+    };
+    const ontdek = async () => ({ results: Object.values(films).map((f) => gevonden(f)) });
+    const zoek = (extra = {}) => metTmdb(films, () => zoekAanraders({
+      sleutel: 'x', meta: {}, genre: { namen: ['Drama'], wijze: 'meeste' }, filters: {},
+      uit: { ids: new Set(), keys: new Set() }, rnd: () => 0.5, ontdek, nu: 100 * 86400e3, ...extra,
+    }));
+    // niet twee van dezelfde regisseur of reeks; de parel krijgt de laatste plek
+    expect((await zoek()).map((a) => a.film.name)).toEqual(['Regisseur Een', 'Reeks Een', 'Kleine Parel']);
+    // Reeks Een zag de zaal gisteren: dan liever het andere deel
+    expect((await zoek({ getoond: { 303: 99 * 86400e3 } })).map((a) => a.film.name)).toEqual(['Regisseur Een', 'Reeks Twee', 'Kleine Parel']);
+  });
+
+  it('aanraders: van elk wat, de eigen diensten, en een tweede ronde als de filmdata niet komt', async () => {
+    const { zoekAanraders } = await import('./src/lib/aanraders.js');
+    const films = {
+      501: tmdbFilm(501, 'Drama Een', 2015, { vote: 8.0, votes: 4000 }),
+      502: tmdbFilm(502, 'Drama Twee', 2005, { vote: 7.9, votes: 4000 }),
+      503: tmdbFilm(503, 'Drama Drie', 1995, { vote: 7.8, votes: 4000 }),
+      504: tmdbFilm(504, 'Eng', 1985, { vote: 7.5, votes: 4000, genres: ['Horror'] }),
+    };
+    const vragen = [];
+    const ontdek = async (s, opties) => {
+      vragen.push(opties);
+      return { results: Object.values(films).map((f) => gevonden(f, f.id === 504 ? [27] : [18])) };
+    };
+    const elk = await metTmdb(films, () => zoekAanraders({
+      sleutel: 'x', meta: {}, genre: { namen: ['Drama', 'Horror'], wijze: 'elkWat' }, stemmen: { Drama: 3, Horror: 3 }, filters: {},
+      uit: { ids: new Set(), keys: new Set() }, rnd: () => 0.5, ontdek, dienstIds: [8],
+    }));
+    expect(elk.map((a) => a.film.name)).toContain('Eng');
+    expect(vragen.find((v) => v.providerIds)).toMatchObject({ providerIds: [8], genreIds: ['18|27'] });
+
+    // de eerste acht komen niet: dan haalt hij de volgende
+    const veel = Object.fromEntries(Array.from({ length: 14 }, (_, i) => [600 + i, tmdbFilm(600 + i, `Film ${i}`, 1960 + i * 4, { vote: 8.4 - i * 0.05, votes: 3000 })]));
+    const kapot = Object.fromEntries(Object.entries(veel).filter(([id]) => +id >= 608));
+    const tweede = await metTmdb(kapot, () => zoekAanraders({
+      sleutel: 'x', meta: {}, genre: { namen: [], wijze: 'alles' }, filters: {},
+      uit: { ids: new Set(), keys: new Set() }, rnd: () => 0.5, ontdek: async () => ({ results: Object.values(veel).map((f) => gevonden(f)) }),
+    }));
+    expect(tweede).toHaveLength(3);
+    expect(tweede.every((a) => a.m.id >= 608)).toBe(true);
+  });
+
+  it('aanraders: het cijfer voor een groep, bekendheid, en wat de zaal al zag', async () => {
+    const { zaalCijfer, bekendheid, eerderGetoond, onthoudGetoond, pastBijStemmen, dienstIdsVoor } = await import('./src/lib/aanraders.js');
+    expect(zaalCijfer(7.4, 300)).toBeCloseTo(6.991, 3);
+    expect(zaalCijfer(7.6, 3000)).toBeCloseTo(7.515, 3);
+    expect(bekendheid(9000)).toBe(0);
+    expect(bekendheid(60000)).toBeCloseTo(-1, 5);
+    expect(bekendheid(900000)).toBe(-1.2);
+    const dag = 86400e3;
+    expect(eerderGetoond({ 7: 10 * dag }, 7, 10 * dag)).toBeCloseTo(-1.2, 5);
+    expect(eerderGetoond({ 7: 10 * dag }, 7, 20 * dag)).toBeCloseTo(-1.2 * (11 / 21), 5);
+    expect(eerderGetoond({ 7: 10 * dag }, 7, 31 * dag)).toBe(0);
+    expect(eerderGetoond({}, 7, 10 * dag)).toBe(0);
+    // onthouden: nieuw erbij, ouder dan 60 dagen eruit
+    expect(onthoudGetoond({ 1: 0, 2: 50 * dag }, [3, 2], 70 * dag)).toEqual({ 2: 70 * dag, 3: 70 * dag });
+    expect(Object.keys(onthoudGetoond({}, Array.from({ length: 90 }, (_, i) => i), 0))).toHaveLength(80);
+    // de 2e keuzes tellen mee, hooguit 1,5
+    const aandeel = new Map([[18, 1], [53, 0.75], [27, 0.75]]);
+    expect(pastBijStemmen([18], aandeel)).toBe(1);
+    expect(pastBijStemmen([18, 53, 27], aandeel)).toBe(1.5);
+    expect(dienstIdsVoor(['Netflix', 'MUBI'], { regio: 'NL', lijst: [{ id: 8, naam: 'Netflix' }, { id: 11, naam: 'MUBI' }] }, 'NL')).toEqual([8, 11]);
+    expect(dienstIdsVoor(['Netflix'], { regio: 'BE', lijst: [{ id: 8, naam: 'Netflix' }] }, 'NL')).toEqual([]);
   });
 
   it('qr: zelf getekend, en klopt met de waarden uit de standaard', async () => {
@@ -5016,6 +5133,8 @@ describe('Zaalstemming', () => {
       const zaal1 = await haalZaal(code);
       expect(zaal1.films).toHaveLength(8);
       expect(zaal1.films.filter((f) => f.aanrader)).toHaveLength(3);
+      // wat de zaal zag, onthoudt het scherm: een volgende avond zakken ze
+      expect(Object.keys(JSON.parse(localStorage.getItem('nossyV2.zaalGetoond'))).sort()).toEqual(['901', '902', '903']);
 
       // de trailers, alle acht
       fireEvent.click(screen.getByText('Bekijk de 8 trailers'));

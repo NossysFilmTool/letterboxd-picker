@@ -258,16 +258,31 @@ app kunnen zijn? Dan is het nog niet af.
     films en blijft op één staan.
 - Aanraders (`src/lib/aanraders.js`): films die niet op de lijst staan maar
   er wel bij passen, binnen het gekozen genre en de avondfilters. Ze komen
-  uit de aanbevelingen die TMDB al bij de films op de lijst gaf (hoe meer
-  films op de lijst hem aanraden, hoe sterker) en uit TMDB Discover. Wat je
-  al hebt, en elk opgeblazen cijfer (fans of bots), valt af. Twee plekken
-  voor de sterkste, de derde is een loterij waarin een parel dubbel kans
-  maakt (hoog cijfer, weinig stemmen; Discover zoekt die op de meeste
-  stemmen binnen die band, niet op het hoogste cijfer, want daar staan de
-  fanclubs bovenaan). Ze staan apart, met waarom: bij welke films op de lijst
-  TMDB hem aanraadt ("TMDB raadt hem aan bij Parasite, op de lijst"), of dat
-  het een parel is. Wint er een, dan telt hij als vondst ("Gevonden in de
-  zaal").
+  uit de aanbevelingen die TMDB al gaf: bij de vijf films op tafel (die
+  wegen het zwaarst, de zaal koos ze net), bij de rest van de lijst (hoe
+  meer films hem aanraden, hoe sterker), bij films met 4 of 5 sterren, en
+  uit wat in Verken bewaard is. Daarnaast TMDB Discover: gedragen films
+  (bekend, maar niet de klassiekers die iedereen al zag), parels met weinig
+  stemmen (gezocht op de meeste stemmen binnen die band, niet op het hoogste
+  cijfer, want daar staan de fanclubs bovenaan), en wat er op de eigen
+  diensten staat. Wat je al kent of in Voor jou afwees, en elk opgeblazen
+  cijfer (fans of bots), valt af. Wat TMDB aanraadt bij films van 2 sterren
+  of minder, zakt.
+- De score: een cijfer waarop een groep kan bouwen (gedempt naar het aantal
+  stemmen), hoe sterk en langs hoeveel wegen een film werd aangeraden, de
+  genrestemming (de 2e keuzes tellen mee), de films op tafel, het
+  smaakprofiel, en of het vanavond kan: een trailer, op de eigen diensten,
+  een lengte die op een avond past. Een film die vrijwel iedereen al zag,
+  zakt, net als een aanrader die de zaal de afgelopen drie weken al zag (het
+  scherm onthoudt dat). Dan de drie samen: telkens de beste die het minst
+  lijkt op wat er al ligt, dus niet twee van dezelfde regisseur of reeks, en
+  bij "van elk wat" elk genre aan bod. De laatste plek houdt ruimte voor een
+  parel, als er een goede is. Een beetje toeval houdt twee avonden
+  verschillend als het verschil klein is.
+- Ze staan apart, met waarom: bij welke films op de lijst TMDB hem aanraadt
+  (die op tafel eerst: "TMDB raadt hem aan bij Parasite, op de lijst"), of
+  dat het een parel is. Wint er een, dan telt hij als vondst ("Gevonden in
+  de zaal").
 - Op een breed scherm pakt de zaal de hele breedte: de vijf films van de lijst
   en de drie aanraders staan naast elkaar in één rij, met de knoppen in
   beeld.

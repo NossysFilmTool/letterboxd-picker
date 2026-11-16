@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../lib/i18n.js';
-import { IMG } from '../lib/tmdb.js';
-import { useLS } from '../lib/storage.js';
+import { IMG, getRegion } from '../lib/tmdb.js';
+import { useLS, leesOpslag } from '../lib/storage.js';
 import { usePoll } from '../lib/usePoll.js';
 import { useFilmkleur } from '../lib/filmkleur.js';
 import {
   haalZaal, zetZaal, standZaal, doeMee, stuurStem, nieuwToken, doetMee, keuzesIn,
   genreOpties, uitslagGenre, kiesFilms, uitslagFilm, filmVoorZaal,
 } from '../lib/zaalstemming.js';
-import { zoekAanraders } from '../lib/aanraders.js';
+import { zoekAanraders, onthoudGetoond, dienstIdsVoor } from '../lib/aanraders.js';
 import { genreKop, genreZin, uitslagZin, ZaalFilmInhoud, QrCode, StemKnoppen } from './ZaalDelen.jsx';
 import ZaalTrailers from './ZaalTrailers.jsx';
 
@@ -32,6 +32,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   const [noot, setNoot] = useState(''); // over de aanraders
   const [hostNaam, setHostNaam] = useLS('samenNaam', '');
   const [aanradersAan, setAanradersAan] = useLS('zaalAanraders', true);
+  const [getoond, setGetoond] = useLS('zaalGetoond', {}); // aanraders die de zaal al zag
   const [zelfMee, setZelfMee] = useState(false);
   const token = useRef(null);
   if (!token.current) token.current = nieuwToken();
@@ -85,8 +86,25 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
     ]),
   });
 
-  // Vijf films van de lijst, en zo gewenst drie aanraders van buiten
-  const naarFilms = async (genre, r) => {
+  // Wat de aanraders van de gastheer meenemen: de sterren (favorieten en
+  // liever-niet), wat bewaard en afgewezen is, de eigen diensten
+  const gastheer = () => {
+    const sterren = { ...(app.ratings || {}) };
+    (app.ratedFilms || []).forEach((f) => { if (f.rating != null) sterren[f.key] = f.rating; });
+    return {
+      sterren,
+      lijst: new Set((app.watchlist || []).map((f) => f.key)),
+      bewaard: app.shortlist || [],
+      afgewezen: app.skipped || [],
+      details: leesOpslag('kandDetails', {}),
+      dienstIds: dienstIdsVoor(diensten, leesOpslag('dienstenLijst', null), getRegion()),
+    };
+  };
+
+  // Vijf films van de lijst, en zo gewenst drie aanraders van buiten. De
+  // aanraders kennen de genrestemming (stemmen: punten per genre) en de vijf
+  // films op tafel.
+  const naarFilms = async (genre, r, stemmen = null) => {
     setZoekt(true);
     setNoot('');
     try {
@@ -96,8 +114,10 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
         try {
           const gevonden = await zoekAanraders({
             sleutel: app.tmdbKey, meta, genre, filters, diensten, uit: bekend(), smaak: app.taste, aantal: AANRADERS,
+            stemmen, tafel: lijst.map((f) => f.key), getoond, ...gastheer(),
           });
           gevonden.forEach((a) => { aanraderMeta.current[a.film.key] = a.m; });
+          if (gevonden.length) setGetoond((g) => onthoudGetoond(g, gevonden.map((a) => a.m.id)));
           extra = gevonden.map((a) => filmVoorZaal(a.film, a.m, a)).filter((a) => !lijst.some((f) => f.key === a.key));
           if (!extra.length) setNoot(tr('zaal.aanradersGeen'));
         } catch {
@@ -144,7 +164,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
     sluitend.current = true;
     try {
       const res = uitslagGenre({ opties: staat.opties || [], stemmen: Object.values(keuzes), pool, meta, nodig: LIJST });
-      await naarFilms({ namen: res.namen, wijze: res.wijze, punten: res.punten }, ronde);
+      await naarFilms({ namen: res.namen, wijze: res.wijze, punten: res.punten }, ronde, res.telling?.punten);
     } finally { sluitend.current = false; }
   };
 

@@ -145,8 +145,9 @@ apparaat.
 Zaalstemming: één scherm is de zaal, iedereen stemt op de eigen telefoon met
 een code van vier letters of via de QR-code. Iedereen kiest een 1e en 2e
 genre, de slimme pick legt vijf films van de lijst op tafel plus drie
-aanraders van buiten, de zaal kijkt de trailers en iedereen kiest een 1e en
-2e film. Gelijkspel lost zichzelf op.
+aanraders van buiten (gekozen op wat er op tafel ligt, de genrestemming en
+je smaak, en niet twee van hetzelfde soort), de zaal kijkt de trailers en
+iedereen kiest een 1e en 2e film. Gelijkspel lost zichzelf op.
 
 Versie 5 maakt er een bioscoop van: een kassa met echte kaartjes, een
 kaartjesdoos voor wat je echt keek, Voor jou, trailers bij de filmavond,
