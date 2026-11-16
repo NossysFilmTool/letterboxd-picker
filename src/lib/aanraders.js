@@ -24,8 +24,8 @@
 // De score, met de volledige filmdata erbij:
 //   cijfer       gedempt naar het aantal stemmen: een groep wil zekerheid
 //   aanbevolen   hoe sterk, en langs hoeveel wegen
-//   zaal         de genres waarop de zaal stemde (ook de 2e keuzes), en de
-//                films op tafel
+//   zaal         de genres van de uitslag (bij van elk wat gaat een film die
+//                ze allebei is voor), en de films op tafel
 //   smaak        het smaakprofiel van de gastheer
 //   vanavond     een trailer (dat is de pitch), op de eigen diensten, en een
 //                lengte die op een avond past
@@ -98,22 +98,22 @@ export function dienstIdsVoor(diensten, dienstenLijst, regio) {
   return diensten.map((n) => dienstenLijst.lijst?.find((p) => p.naam === n)?.id).filter(Boolean);
 }
 
-// Hoe goed genres passen bij wat de zaal stemde: elk genre telt naar zijn
-// aandeel in de punten (het winnende genre 1), dus een film die ook de 2e
-// keuzes raakt, gaat voor. Hooguit 1,5.
+// Hoe goed genres passen bij de uitslag: elk genre van de uitslag telt naar
+// zijn aandeel in de punten (het winnende genre 1). Genres die de uitslag
+// niet haalden, sturen niet: wint Fantasy, dan geen voorrang voor een film
+// die ook Sci-fi is. Hooguit 1,5.
 //   aandeel: Map van genre-id naar 0..1
 export function pastBijStemmen(ids, aandeel) {
   return Math.min(1.5, ids.reduce((s, id) => s + (aandeel.get(id) || 0), 0));
 }
 
-// Aandeel per genre-id: { naam: punten } gedeeld door de hoogste
+// Aandeel per genre-id van de uitslag: de punten gedeeld door de hoogste
+// (zonder stemmen telt elk genre van de uitslag 1)
 function stemAandeel(stemmen, namen) {
   const uit = new Map();
-  const bron = stemmen && Object.values(stemmen).some((p) => p > 0)
-    ? Object.entries(stemmen)
-    : (namen || []).map((n) => [n, 1]);
-  const max = Math.max(1, ...bron.map(([, p]) => p || 0));
-  bron.forEach(([naam, p]) => { const id = genreIds([naam])[0]; if (id && p > 0) uit.set(id, p / max); });
+  const telt = (namen || []).map((n) => [n, stemmen?.[n] > 0 ? stemmen[n] : 1]);
+  const max = Math.max(1, ...telt.map(([, p]) => p));
+  telt.forEach(([naam, p]) => { const id = genreIds([naam])[0]; if (id) uit.set(id, p / max); });
   return uit;
 }
 
@@ -266,7 +266,7 @@ export async function zoekAanraders({
 }) {
   const namen = genre?.wijze === 'alles' ? [] : (genre?.namen || []);
   const ids = genreIds(namen);
-  const alle = genre?.wijze === 'allebei';
+  const alle = genre?.wijze === 'allebei' || genre?.wijze === 'ook';
   const pastGenre = (g) => !ids.length || (alle ? ids.every((id) => g.includes(id)) : ids.some((id) => g.includes(id)));
   const bekendeKeys = uit?.keys || new Set();
   const bekendeIds = uit?.ids || new Set();

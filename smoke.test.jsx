@@ -4789,7 +4789,7 @@ describe('Zaalstemming', () => {
   const licht = (f) => ({ id: f.id, title: f.title, release_date: f.release_date, vote_average: f.vote_average, vote_count: f.vote_count, poster_path: f.poster_path, genre_ids: [18], original_language: 'en' });
 
   it('regels: stemmen als 1e en 2e keus, punten, de breedste steun, en de films', async () => {
-    const { uitslagGenre, kiesFilms, uitslagFilm, stemZet, telStemmen, zaalCode, youtubeId, genreOpties } = await import('./src/lib/zaalstemming.js');
+    const { uitslagGenre, kiesFilms, uitslagFilm, stemZet, telStemmen, zaalCode, youtubeId, genreOpties, breedGedragen } = await import('./src/lib/zaalstemming.js');
     // een stem zetten, wisselen en terugnemen
     expect(stemZet([], 'x', 0)).toEqual(['x', null]);
     expect(stemZet(['x', null], 'y', 1)).toEqual(['x', 'y']);
@@ -4825,6 +4825,31 @@ describe('Zaalstemming', () => {
     expect(uitslagGenre({ opties, stemmen: [['Horror', 'Komedie'], ['Komedie', 'Horror']], pool, meta, nodig: 3 }))
       .toMatchObject({ namen: ['Horror', 'Komedie'], wijze: 'elkWat' });
     expect(uitslagGenre({ opties, stemmen: [], pool, meta })).toMatchObject({ namen: [], wijze: 'alles' });
+    // de meeste punten wint, en een 2e genre dat maar bij één persoon op het
+    // lijstje staat, komt er niet bij (1e Horror 2e Komedie, 1e Komedie 2e Drama)
+    expect(uitslagGenre({ opties, stemmen: [['Horror', 'Komedie'], ['Komedie', 'Drama']], pool, meta, nodig: 3 }))
+      .toMatchObject({ namen: ['Komedie'], wijze: 'meeste', punten: 3 });
+    // valt een 2e keus weg, dan is het ineens gelijk: daarom telt het scherm vers
+    expect(uitslagGenre({ opties, stemmen: [['Horror', null], ['Komedie', 'Drama']], pool, meta, nodig: 3 }))
+      .toMatchObject({ namen: ['Horror', 'Komedie'], wijze: 'elkWat' });
+    // het 2e genre staat bij iedereen op het lijstje en zit er dichtbij: films die allebei zijn
+    const breedVoor = [['Drama', 'Thriller'], ['Drama', 'Thriller'], ['Thriller', 'Drama']];
+    expect(uitslagGenre({ opties, stemmen: breedVoor, pool, meta, nodig: 3 }))
+      .toMatchObject({ namen: ['Drama', 'Thriller'], wijze: 'ook', punten: 5 });
+    expect(kiesFilms(pool, meta, { namen: ['Drama', 'Thriller'], wijze: 'ook' }, [], 5, () => 0.5).map((f) => f.key).sort()).toEqual(['a', 'b', 'c']);
+    // maar niet als er te weinig films zijn die allebei zijn
+    expect(uitslagGenre({ opties, stemmen: breedVoor, pool, meta, nodig: 4 })).toMatchObject({ namen: ['Drama'], wijze: 'meeste' });
+    // gelijk op punten, de breedste wint, en de verliezer had ook brede steun
+    expect(uitslagGenre({ opties, stemmen: [...breedVoor, ['Horror', 'Thriller']], pool, meta, nodig: 3 }))
+      .toMatchObject({ namen: ['Thriller', 'Drama'], wijze: 'ook' });
+    // twee genres delen de 2e plek: dan is er geen tweede
+    const telling = { punten: { a: 4, b: 3, c: 3 }, lijstjes: { a: 2, b: 2, c: 2 } };
+    expect(breedGedragen('a', ['a', 'b', 'c'], telling, 3)).toBeNull();
+    expect(breedGedragen('a', ['a', 'b', 'c'], { ...telling, punten: { a: 4, b: 3, c: 1 } }, 3)).toBe('b');
+    expect(breedGedragen('a', ['a', 'b'], { punten: { a: 3, b: 2 }, lijstjes: { a: 2, b: 1 } }, 2)).toBeNull();
+    const { genreZin } = await import('./src/components/ZaalDelen.jsx');
+    expect(genreZin({ namen: ['Drama', 'Thriller'], wijze: 'ook', punten: 5 }, (k, v) => `${k} ${JSON.stringify(v)}`))
+      .toBe('zaal.g_ook {"count":5,"tweede":"Thriller"}');
 
     const keys = (fs) => fs.map((f) => f.key).sort();
     expect(keys(kiesFilms(pool, meta, { namen: ['Horror'], wijze: 'meeste' }, [], 5, () => 0.5))).toEqual(['d', 'e', 'g']);
@@ -5057,7 +5082,9 @@ describe('Zaalstemming', () => {
     const films = Array.from({ length: 9 }, (_, i) => ({ key: `f${i}|2000`, name: `F${i}`, year: 2000, poster: '/x.jpg', trailer: 'abcdef123', score: 7.25 }));
     films[0].poster = 'javascript:x';
     Object.assign(films[6], { aanrader: true, bronnen: 3, parel: false, votes: 4000 });
-    const r2 = await (await vraag(`/zaal/${C}/zet`, { geheim: nieuw.geheim, staat: { fase: 'film', ronde: 2, films } })).json();
+    const genre = { namen: ['Drama', 'Horror'], wijze: 'ook', punten: 5 };
+    const r2 = await (await vraag(`/zaal/${C}/zet`, { geheim: nieuw.geheim, staat: { fase: 'film', ronde: 2, films, genre } })).json();
+    expect(r2.zaal.genre).toEqual(genre);
     expect(r2.zaal.films).toHaveLength(8);
     expect(r2.zaal.films[0].poster).toBeNull();
     expect(r2.zaal.films[1]).toMatchObject({ poster: '/x.jpg', trailer: 'abcdef123', score: 7.3 });
@@ -5117,10 +5144,12 @@ describe('Zaalstemming', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Eerste keus: Drama' }));
       await waitFor(() => expect(JSON.parse(kv.get(`z:${code}:p:robin`)).stemmen['1']).toEqual(['Drama', null]));
       await peil();
-      expect(await screen.findByText('Iedereen heeft gestemd.')).toBeTruthy();
+      expect(await screen.findByText('Iedereen heeft een 1e keus. Nog even tijd voor een 2e.')).toBeTruthy();
+      // Bram zet nog een 2e keus, na de laatste peiling: het scherm telt vers
+      await stuurStem(code, 'Bram', tB, 1, ['Thriller', 'Drama']);
       fireEvent.click(screen.getByText('Sluit de stemming'));
       expect(await screen.findByText('Het wordt Drama')).toBeTruthy();
-      expect(document.body.textContent).toContain('Met 4 punten.');
+      expect(document.body.textContent).toContain('Met 5 punten.');
       expect(document.body.textContent).toContain('De slimme pick koos 5 films uit de lijst.');
       expect(document.body.textContent).toContain('Plus 3 aanraders van buiten.');
       // de aanraders: niet van de lijst, geen opgeblazen cijfer, met waarom

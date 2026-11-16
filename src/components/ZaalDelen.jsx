@@ -34,6 +34,7 @@ export function genreKop(genre, tr) {
 export function genreZin(genre, tr) {
   switch (genre?.wijze) {
     case 'meeste': return tr('zaal.g_meeste', { count: genre.punten || 0 });
+    case 'ook': return tr('zaal.g_ook', { count: genre.punten || 0, tweede: genre.namen?.[1] || '' });
     case 'breed': return tr('zaal.r_breed');
     case 'allebei': return tr(genre.namen.length > 2 ? 'zaal.g_allemaal' : 'zaal.g_allebei');
     case 'elkWat': return tr('zaal.g_elkWat');

@@ -155,28 +155,53 @@ export function bovenaan(ids, telling) {
   return { ids: t2, wijze: 'gelijk' };
 }
 
-// De uitslag van de genreronde. Echt gelijk? Zijn er genoeg films die alle
-// gelijke genres tegelijk zijn, dan worden het die (allebei); anders van
-// elk wat, de grootste genres eerst. Niemand gestemd: alles uit de pot.
+// Het genre na de winnaar, als dat ook brede steun heeft: het staat bij
+// minstens twee mensen en minstens de helft van de stemmers op het lijstje,
+// de winnaar ook bij minstens twee, en het heeft minstens twee derde van de
+// punten van de winnaar. Staat het maar bij één persoon op het lijstje, of
+// delen twee genres de tweede plek, dan is er geen tweede: null.
+export function breedGedragen(winnaar, ids, telling, stemmers) {
+  const { punten, lijstjes } = telling;
+  const [t, volgende] = ids.filter((id) => id !== winnaar)
+    .sort((a, c) => punten[c] - punten[a] || lijstjes[c] - lijstjes[a]);
+  if (t == null || !punten[t]) return null;
+  if (volgende != null && punten[volgende] === punten[t] && lijstjes[volgende] === lijstjes[t]) return null;
+  const genoegMensen = lijstjes[t] >= Math.max(2, Math.ceil(stemmers / 2)) && lijstjes[winnaar] >= 2;
+  return genoegMensen && punten[t] * 3 >= punten[winnaar] * 2 ? t : null;
+}
+
+// De uitslag van de genreronde. Eén genre wint, en heeft het genre erna ook
+// brede steun (breedGedragen), dan worden het films die allebei zijn, als dat
+// er genoeg zijn (ook); anders alleen de winnaar. Echt gelijk? Zijn er genoeg
+// films die alle gelijke genres tegelijk zijn, dan worden het die (allebei);
+// anders van elk wat, de grootste genres eerst. Niemand gestemd: alles uit
+// de pot.
 export function uitslagGenre({ opties, stemmen, pool, meta, nodig = 5 }) {
   const ids = opties.map((o) => o.id);
   const telling = telStemmen(ids, stemmen);
   if (!Object.values(telling.punten).some(Boolean)) return { namen: [], wijze: 'alles', telling };
   const b = bovenaan(ids, telling);
   const punten = telling.punten[b.ids[0]];
-  if (b.wijze !== 'gelijk') return { namen: b.ids, wijze: b.wijze, punten, telling };
-  if (pool.filter((f) => b.ids.every((g) => heeft(meta, f, g))).length >= nodig) return { namen: b.ids, wijze: 'allebei', punten, telling };
+  const genoeg = (namen) => pool.filter((f) => namen.every((g) => heeft(meta, f, g))).length >= nodig;
+  if (b.wijze !== 'gelijk') {
+    const stemmers = stemmen.filter((st) => Array.isArray(st) && st.some((x) => x != null)).length;
+    const tweede = breedGedragen(b.ids[0], ids, telling, stemmers);
+    if (tweede && genoeg([b.ids[0], tweede])) return { namen: [b.ids[0], tweede], wijze: 'ook', punten, telling };
+    return { namen: b.ids, wijze: b.wijze, punten, telling };
+  }
+  if (genoeg(b.ids)) return { namen: b.ids, wijze: 'allebei', punten, telling };
   const grootte = (id) => opties.find((o) => o.id === id)?.n || 0;
   return { namen: [...b.ids].sort((a, c) => grootte(c) - grootte(a)).slice(0, 3), wijze: 'elkWat', punten, telling };
 }
 
 // Vijf films van de lijst met de slimme pick (lib/pick.js: hoger cijfer,
 // meer kans; recent gekozen, minder). Films met een trailer gaan voor, als
-// het er genoeg zijn. Bij "van elk wat" eerst één film per genre.
+// het er genoeg zijn. Bij "van elk wat" eerst één film per genre; bij
+// "allebei" en "ook" films die alle genres tegelijk zijn.
 export function kiesFilms(pool, meta, genre, history = [], n = 5, rnd = Math.random) {
   const namen = genre?.namen || [];
   let basis = pool;
-  if (namen.length && genre.wijze === 'allebei') basis = pool.filter((f) => namen.every((g) => heeft(meta, f, g)));
+  if (namen.length && (genre.wijze === 'allebei' || genre.wijze === 'ook')) basis = pool.filter((f) => namen.every((g) => heeft(meta, f, g)));
   else if (namen.length && genre.wijze !== 'alles') basis = pool.filter((f) => namen.some((g) => heeft(meta, f, g)));
   if (!basis.length) basis = pool;
   const metTrailer = basis.filter((f) => meta[f.key]?.trailer);

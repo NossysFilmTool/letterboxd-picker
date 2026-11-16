@@ -248,7 +248,13 @@ app kunnen zijn? Dan is het nog niet af.
   gedachten veranderen, tot de ronde sluit.
 - Tellen: een 1e keus is 2 punten, een 2e keus 1 punt. Het scherm legt dat
   uit, en zegt bij de uitslag hoe het besliste:
-  - de meeste punten wint;
+  - de meeste punten wint. Bij het genre komt het genre erna er alleen bij
+    als het ook brede steun heeft: het staat bij minstens twee mensen en
+    de helft van de stemmers op het lijstje, en heeft minstens twee derde
+    van de punten. Dan worden het films die allebei zijn, als dat er genoeg
+    zijn. Staat het maar bij één persoon op het lijstje, dan wordt het
+    alleen de winnaar (1e Sci-fi 2e Fantasy, en 1e Fantasy 2e Drama: alleen
+    Fantasy);
   - gelijk op punten? Dan wat op de meeste lijstjes staat: waar de zaal het
     breedst achter staat. Kiezen twee mensen elk een andere favoriet maar
     dezelfde 2e keus, dan wint die 2e keus;
@@ -270,7 +276,8 @@ app kunnen zijn? Dan is het nog niet af.
   of minder, zakt.
 - De score: een cijfer waarop een groep kan bouwen (gedempt naar het aantal
   stemmen), hoe sterk en langs hoeveel wegen een film werd aangeraden, de
-  genrestemming (de 2e keuzes tellen mee), de films op tafel, het
+  genres van de uitslag (een genre dat het niet haalde, stuurt niet), de
+  films op tafel, het
   smaakprofiel, en of het vanavond kan: een trailer, op de eigen diensten,
   een lengte die op een avond past. Een film die vrijwel iedereen al zag,
   zakt, net als een aanrader die de zaal de afgelopen drie weken al zag (het
@@ -286,9 +293,13 @@ app kunnen zijn? Dan is het nog niet af.
 - Op een breed scherm pakt de zaal de hele breedte: de vijf films van de lijst
   en de drie aanraders staan naast elkaar in één rij, met de knoppen in
   beeld.
-- Een ronde sluit vanzelf vier seconden nadat iedereen gestemd heeft (genoeg
-  om nog te wisselen), of eerder met "Sluit de stemming". Wie nog niet
-  stemde, staat er als een open rondje bij.
+- Een ronde sluit vanzelf vier seconden nadat iedereen een 1e en een 2e keus
+  heeft (genoeg om nog te wisselen), of eerder met "Sluit de stemming". Heeft
+  iemand alleen een 1e keus, dan wacht het scherm vijftien seconden ("Nog
+  even tijd voor een 2e"). Vlak voor het tellen haalt het scherm de verse
+  stand op, zodat een 2e keus van het laatste moment niet wegvalt: anders
+  kan er een gelijkspel ontstaan dat er niet was. Wie nog niet stemde,
+  staat er als een open rondje bij.
 - De telefoon: één kolom, grote woorden met de twee knoppen ernaast, je stem
   in woorden eronder ("1e Drama, 2e Thriller"), en wat er gekozen wordt
   alleen op het grote scherm. Na herladen ben je nog binnen.

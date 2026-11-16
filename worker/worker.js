@@ -266,7 +266,7 @@ export default {
         if (s.genre && typeof s.genre === 'object') {
           nieuw.genre = {
             namen: (Array.isArray(s.genre.namen) ? s.genre.namen : []).slice(0, 6).map((g) => tekst(g, 40)).filter(Boolean),
-            wijze: ['meeste', 'breed', 'allebei', 'elkWat', 'alles'].includes(s.genre.wijze) ? s.genre.wijze : 'meeste',
+            wijze: ['meeste', 'breed', 'ook', 'allebei', 'elkWat', 'alles'].includes(s.genre.wijze) ? s.genre.wijze : 'meeste',
             punten: heel(s.genre.punten, 0, 99),
           };
         }

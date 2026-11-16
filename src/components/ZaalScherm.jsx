@@ -21,6 +21,10 @@ import ZaalTrailers from './ZaalTrailers.jsx';
 const stilGewenst = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const LIJST = 5;
 const AANRADERS = 3;
+// Heeft iedereen gestemd, dan sluit de ronde vanzelf na SLUIT_MS; heeft
+// iemand nog alleen een 1e keus, dan na TWEEDE_MS (tijd voor een 2e keus)
+const SLUIT_MS = 4000;
+const TWEEDE_MS = 15000;
 
 export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = [], onWinnaar, onStop, pollMs = 2000, lotMs = 2600 }) {
   const { t: tr } = useT();
@@ -132,6 +136,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
 
   const naamHier = hostNaam.trim();
   const hierInDeZaal = zelfMee && doetMee(spelers, naamHier);
+  const naamInZaal = spelers.find((n) => n.toLocaleLowerCase() === naamHier.toLocaleLowerCase()) || naamHier;
   const aantal = spelers.length + (zelfMee && naamHier && !doetMee(spelers, naamHier) ? 1 : 0);
 
   const naarGenres = (r) => {
@@ -158,12 +163,32 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   const keuzes = stemt ? keuzesIn(stemmen, spelers, ronde) : {};
   const gestemd = Object.keys(keuzes).length;
   const iedereen = stemt && spelers.length > 0 && gestemd >= spelers.length;
+  const compleet = iedereen && Object.values(keuzes).every((k) => k[0] != null && k[1] != null);
+
+  // Vlak voor het tellen de verse stand: de laatste peiling kan twee seconden
+  // oud zijn, en een 2e keus van het laatste moment mag niet wegvallen (dan
+  // kan een gelijkspel ontstaan dat er niet was). De stem op dit scherm telt
+  // zoals hij hier staat, ook als hij nog onderweg is.
+  const versKeuzes = async () => {
+    let uit = keuzes;
+    try {
+      const r = await standZaal(zaal.code, zaal.geheim);
+      setStemmen(r.stemmen || {});
+      uit = keuzesIn(r.stemmen || {}, r.zaal?.spelers || spelers, ronde);
+    } catch { /* dan de laatste peiling */ }
+    if (hierInDeZaal && mijnKeuze?.ronde === ronde) {
+      uit = Object.fromEntries(Object.entries(uit).filter(([n]) => n !== naamInZaal));
+      if (mijnKeuze.keuze.length) uit[naamInZaal] = mijnKeuze.keuze;
+    }
+    return uit;
+  };
 
   const sluitGenre = async () => {
     if (sluitend.current) return;
     sluitend.current = true;
     try {
-      const res = uitslagGenre({ opties: staat.opties || [], stemmen: Object.values(keuzes), pool, meta, nodig: LIJST });
+      const vers = await versKeuzes();
+      const res = uitslagGenre({ opties: staat.opties || [], stemmen: Object.values(vers), pool, meta, nodig: LIJST });
       await naarFilms({ namen: res.namen, wijze: res.wijze, punten: res.punten }, ronde, res.telling?.punten);
     } finally { sluitend.current = false; }
   };
@@ -173,7 +198,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   const sluitFilm = async () => {
     if (sluitend.current) return;
     sluitend.current = true;
-    const res = uitslagFilm(staat.films, Object.values(keuzes));
+    const res = uitslagFilm(staat.films, Object.values(await versKeuzes()));
     const schrijf = async () => {
       try {
         await zet({
@@ -207,16 +232,16 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   }, [lot?.winnaar]);
 
   // Heeft iedereen gestemd, dan sluit de ronde vanzelf, na even wachten:
-  // wie nog een 2e keus wil zetten of wisselen, kan dat nog
+  // wie nog een 2e keus wil zetten of wisselen, kan dat nog. Heeft iemand
+  // alleen een 1e keus, dan wacht het scherm langer.
   useEffect(() => {
     if (!iedereen || bezig || zoekt || lot) return undefined;
-    const t = setTimeout(() => (fase === 'genre' ? sluitGenre() : sluitFilm()), 4000);
+    const t = setTimeout(() => (fase === 'genre' ? sluitGenre() : sluitFilm()), compleet ? SLUIT_MS : TWEEDE_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [iedereen, fase, ronde, JSON.stringify(keuzes), bezig, zoekt, !!lot]);
+  }, [iedereen, compleet, fase, ronde, JSON.stringify(keuzes), bezig, zoekt, !!lot]);
 
   // Zelf meedoen: stemmen vanaf dit scherm, net als op een telefoon
-  const naamInZaal = spelers.find((n) => n.toLocaleLowerCase() === naamHier.toLocaleLowerCase()) || naamHier;
   const hierGekozen = mijnKeuze && mijnKeuze.ronde === ronde ? mijnKeuze.keuze : (keuzes[naamInZaal] || []);
   const stemHier = async (keuze) => {
     setMijnKeuze({ ronde, keuze });
@@ -247,7 +272,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
         {spelers.map((n) => <li key={n} className={keuzes[n] != null ? 'klaar' : undefined}>{n}</li>)}
       </ul>
       <p className="zs-wie-stand">
-        {iedereen ? tr('zaal.iedereen') : tr('zaal.gestemd', { n: gestemd, totaal: spelers.length })}
+        {iedereen ? tr(compleet ? 'zaal.iedereen' : 'zaal.nogTweede') : tr('zaal.gestemd', { n: gestemd, totaal: spelers.length })}
       </p>
       <button type="button" className="btn" onClick={fase === 'genre' ? sluitGenre : sluitFilm} disabled={!gestemd || bezig || zoekt || !!lot}>{tr('zaal.sluitRonde')}</button>
     </div>
