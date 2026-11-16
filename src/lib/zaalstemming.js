@@ -8,8 +8,10 @@
 // lib/aanraders.js), de zaal kijkt de trailers, en dan kiest iedereen een
 // 1e en een 2e film. Een 1e keus is 2 punten, een 2e keus 1 punt. Gelijkspel
 // lossen de regels hieronder op, zonder dat iemand hoeft te overleggen.
+// Gasten kunnen hun eigen Letterboxd laten meetellen (lib/zaalgasten.js).
 import { PROXY_URL } from './tmdb.js';
 import { nossyScore, pickWinner } from './pick.js';
+import { metZaal } from './zaalgasten.js';
 
 export const zaalBeschikbaar = () => !!PROXY_URL;
 export const MAX_SPELERS = 12;
@@ -44,9 +46,40 @@ export async function maakZaal() {
 }
 export const haalZaal = (code) => vraag(`/zaal/${code}`);
 export const zetZaal = (code, geheim, staat) => vraag(`/zaal/${code}/zet`, { geheim, staat });
-export const standZaal = (code, geheim) => vraag(`/zaal/${code}/stand`, { geheim });
+// extra: { oordeel: true } geeft ook wat de gasten met Letterboxd van de films vinden
+export const standZaal = (code, geheim, extra = {}) => vraag(`/zaal/${code}/stand`, { geheim, ...extra });
 export const doeMee = (code, naam, token) => vraag(`/zaal/${code}/meedoen`, { naam, token });
 export const stuurStem = (code, naam, token, ronde, keuze) => vraag(`/zaal/${code}/stem`, { naam, token, ronde, keuze });
+// De films ter beoordeling voor de gasten met Letterboxd (lib/zaalgasten.js)
+export const haalVraag = (code) => vraag(`/zaal/${code}/vraag`);
+export const zetVraag = (code, geheim, films) => vraag(`/zaal/${code}/vraag`, { geheim, films });
+// s: { key: [score, gezien, wil zien] }; v 0 met lege s: meedoen zonder oordeel
+export const stuurSmaak = (code, naam, token, v, s) => vraag(`/zaal/${code}/smaak`, { naam, token, v, s });
+export const trekSmaakIn = (code, naam, token) => vraag(`/zaal/${code}/smaak`, { naam, token, uit: true });
+
+// Stemmen gaan één voor één de deur uit, en alleen de nieuwste wacht. Tik je
+// snel een 1e en een 2e keus, dan kan de eerste stem anders als laatste
+// aankomen en de tweede overschrijven. Een stem die wordt ingehaald voor hij
+// wegging, gaat niet meer weg: die geeft { ingehaald: true }.
+//   stuur(...args): de echte verzending. Geeft een functie met dezelfde args.
+export function stemRij(stuur) {
+  let loopt = false;
+  let wacht = null; // { args, klaar, fout }
+  const draai = async () => {
+    loopt = true;
+    while (wacht) {
+      const { args, klaar, fout } = wacht;
+      wacht = null;
+      try { klaar(await stuur(...args)); } catch (e) { fout(e); }
+    }
+    loopt = false;
+  };
+  return (...args) => new Promise((klaar, fout) => {
+    if (wacht) wacht.klaar({ ingehaald: true });
+    wacht = { args, klaar, fout };
+    if (!loopt) draai();
+  });
+}
 
 // Vier letters, zonder I en O (die lijken op 1 en 0)
 export function zaalCode(invoer) {
@@ -194,16 +227,25 @@ export function uitslagGenre({ opties, stemmen, pool, meta, nodig = 5 }) {
   return { namen: [...b.ids].sort((a, c) => grootte(c) - grootte(a)).slice(0, 3), wijze: 'elkWat', punten, telling };
 }
 
-// Vijf films van de lijst met de slimme pick (lib/pick.js: hoger cijfer,
-// meer kans; recent gekozen, minder). Films met een trailer gaan voor, als
-// het er genoeg zijn. Bij "van elk wat" eerst één film per genre; bij
-// "allebei" en "ook" films die alle genres tegelijk zijn.
-export function kiesFilms(pool, meta, genre, history = [], n = 5, rnd = Math.random) {
+// De films die bij de genre-uitslag passen: bij "allebei" en "ook" films die
+// alle genres tegelijk zijn, anders films met een van de genres
+export function genreBasis(pool, meta, genre) {
   const namen = genre?.namen || [];
   let basis = pool;
   if (namen.length && (genre.wijze === 'allebei' || genre.wijze === 'ook')) basis = pool.filter((f) => namen.every((g) => heeft(meta, f, g)));
   else if (namen.length && genre.wijze !== 'alles') basis = pool.filter((f) => namen.some((g) => heeft(meta, f, g)));
-  if (!basis.length) basis = pool;
+  return basis.length ? basis : pool;
+}
+
+// Vijf films van de lijst met de slimme pick (lib/pick.js: hoger cijfer,
+// meer kans; recent gekozen, minder). Films met een trailer gaan voor, als
+// het er genoeg zijn. Bij "van elk wat" eerst één film per genre; bij
+// "allebei" en "ook" films die alle genres tegelijk zijn.
+//   zaal: wat de gasten met Letterboxd vinden (zaalgasten.js zaalSturing):
+//   wat iemand al zag valt af, de smaak van de zaal weegt mee
+export function kiesFilms(pool, meta, genre, history = [], n = 5, rnd = Math.random, zaal = null) {
+  const namen = genre?.namen || [];
+  const basis = metZaal(genreBasis(pool, meta, genre), zaal, n);
   const metTrailer = basis.filter((f) => meta[f.key]?.trailer);
   const bron = metTrailer.length >= n ? metTrailer : basis;
   const gekozen = [];

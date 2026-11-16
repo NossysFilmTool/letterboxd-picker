@@ -1,0 +1,80 @@
+# Zet de Worker (worker/worker.js) op Cloudflare bij elke push naar main die
+# de Worker verandert. De tests draaien eerst: een kapotte Worker komt nooit
+# live. Ook met de hand te starten (Actions, "Worker naar Cloudflare", Run).
+#
+# Eenmalig nodig, als repository secrets (Settings, Secrets and variables,
+# Actions): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID en CLOUDFLARE_KV_ID.
+# Zolang die er niet zijn, slaat deze workflow de deploy over (zonder fout).
+# Zie worker/README.md.
+name: Worker naar Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths: ['worker/**', '.github/workflows/worker.yml']
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Staan de Cloudflare-sleutels klaar?
+        id: klaar
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          KV: ${{ secrets.CLOUDFLARE_KV_ID }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ] && [ -n "$KV" ]; then
+            echo "ja=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Geen Cloudflare-sleutels als secret: de Worker blijft zoals hij is. Zie worker/README.md."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.klaar.outputs.ja == '1'
+      - uses: actions/setup-node@v4
+        if: steps.klaar.outputs.ja == '1'
+        with:
+          node-version: 20
+          cache: npm
+      - name: Dependencies installeren
+        if: steps.klaar.outputs.ja == '1'
+        run: npm ci
+      - name: Tests draaien (falen = geen deploy)
+        if: steps.klaar.outputs.ja == '1'
+        run: npm test
+      # De instellingen van de Worker. De naam is die uit PROXY_URL; het
+      # KV-id komt uit een secret, zodat het niet in de repo staat. keep_vars
+      # laat variabelen uit het Cloudflare-dashboard staan, en de geheime
+      # TMDB_KEY blijft sowieso staan.
+      - name: Wrangler-instellingen
+        if: steps.klaar.outputs.ja == '1'
+        env:
+          KV: ${{ secrets.CLOUDFLARE_KV_ID }}
+        run: |
+          cat > worker/wrangler.toml <<TOML
+          name = "nossy-tmdb"
+          main = "worker.js"
+          compatibility_date = "2024-11-01"
+          keep_vars = true
+          workers_dev = true
+
+          [[kv_namespaces]]
+          binding = "SESSIONS"
+          id = "$KV"
+          TOML
+      - name: Deploy
+        if: steps.klaar.outputs.ja == '1'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: deploy

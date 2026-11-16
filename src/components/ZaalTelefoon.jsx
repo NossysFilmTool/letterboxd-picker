@@ -3,12 +3,15 @@ import { useT } from '../lib/i18n.js';
 import { IMG } from '../lib/tmdb.js';
 import { leesOpslag, schrijfOpslag } from '../lib/storage.js';
 import { usePoll } from '../lib/usePoll.js';
-import { haalZaal, doeMee, stuurStem, nieuwToken, doetMee } from '../lib/zaalstemming.js';
+import { haalZaal, doeMee, stuurStem, stemRij, nieuwToken, doetMee } from '../lib/zaalstemming.js';
 import { lijstje, genreKop, genreZin, uitslagZin, stemTekst, ZaalFilmInhoud, ZaalCodeInvoer, StemKnoppen } from './ZaalDelen.jsx';
+import ZaalLetterboxd, { useZaalLetterboxd } from './ZaalLetterboxd.jsx';
 
 // De telefoon bij een zaalstemming (?zaal=CODE): een naam, en dan per ronde
-// een 1e en een 2e keus, die je kunt wisselen of terugnemen. Geen watchlist of account nodig; alles komt uit de zaal. Wat er
-// gekozen wordt, staat op het grote scherm (ZaalScherm.jsx).
+// een 1e en een 2e keus, die je kunt wisselen of terugnemen. Geen watchlist
+// of account nodig; alles komt uit de zaal. Wat er gekozen wordt, staat op
+// het grote scherm (ZaalScherm.jsx). Wie wil, laat de eigen Letterboxd
+// meetellen (ZaalLetterboxd.jsx).
 const IK = 'zaalIk'; // { [code]: { naam, token } }, zodat herladen je stem niet kost
 
 export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
@@ -21,6 +24,9 @@ export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
   const [bezig, setBezig] = useState(false);
   const [keuze, setKeuze] = useState(null); // { ronde, keuze }
   const herstel = useRef(false);
+  const verstuur = useRef(null);
+  if (!verstuur.current) verstuur.current = stemRij(stuurStem);
+  const lb = useZaalLetterboxd({ code, ik, zaal, binnen: !!ik && !!zaal && doetMee(zaal.spelers, ik.naam) });
 
   const laad = async () => {
     try { setZaal(await haalZaal(code)); setOngeldig(false); } catch (e) { if (e.message === 'NOT_FOUND') setOngeldig(true); }
@@ -62,7 +68,7 @@ export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
     setKeuze({ ronde, keuze: k });
     setMelding('');
     try {
-      await stuurStem(code, ik.naam, ik.token, ronde, k);
+      await verstuur.current(code, ik.naam, ik.token, ronde, k);
     } catch (err) {
       if (err.message === 'OUDE_RONDE' || err.message === 'DICHT') laad();
       else setMelding(tr('zaal.stemFout', { msg: err.message }));
@@ -126,6 +132,7 @@ export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
         <h1 className="zs-t-kop">{tr('zaal.tBinnen', { naam: ik.naam })}</h1>
         <p className="zs-t-sub">{tr('zaal.tWacht')}</p>
         {zaal.spelers?.length > 1 && <p className="zs-t-sub">{tr('zaal.tMet', { namen: lijstje(zaal.spelers.filter((n) => n !== ik.naam), tr) })}</p>}
+        <ZaalLetterboxd lb={lb} />
       </>,
     );
   }
@@ -151,6 +158,7 @@ export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
           ))}
         </ul>
         {status}
+        <ZaalLetterboxd lb={lb} compact />
       </>,
     );
   }
@@ -201,6 +209,7 @@ export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
     <>
       <h1 className="zs-t-kop">{genreKop(zaal.genre, tr)}</h1>
       <p className="zs-t-sub">{genreZin(zaal.genre, tr)} {tr('zaal.tTrailersOpScherm')}</p>
+      <ZaalLetterboxd lb={lb} compact />
       {groepen((f) => (
         <li key={f.key}>
           <div className="zs-film"><ZaalFilmInhoud film={f} /></div>

@@ -34,6 +34,11 @@ optional features use a small server; see Privacy for exactly what they send.
   and 2nd genre, the smart pick puts five films from the list on the table
   plus three recommendations from outside it, the room watches their YouTube
   trailers, and everyone picks a 1st and 2nd film. Ties settle themselves.
+  The host chooses how the room plays (a genre round or straight to the
+  films, how many films, how many recommendations, closing by hand), and
+  guests can let their own Letterboxd count: films someone has seen are
+  left out and the room's taste weighs in. Optional, in three guided steps,
+  or one tap on a phone that already knows you.
 - **Tickets**: every pick prints a cinema ticket. Once you have really
   watched it (logged on Letterboxd, answered the tool, or rated it), the stub
   is torn off and goes into your ticket box, with a film year to share.
@@ -94,7 +99,10 @@ needs:
   and for For us one score per film, worked out on each phone. Never your
   export or your ratings. Deleted after 24 hours.
 - **House vote**: the names you enter, your votes, and the genres and films
-  on the table. Deleted after 12 hours.
+  on the table. A guest who lets their Letterboxd count sends, per film the
+  screen sets out, only: seen or not, on their watchlist or not, and a
+  score for how well it fits. Never the export or the ratings; those stay
+  on the phone. Deleted after 12 hours.
 - **Sync** (off until you turn it on): your data is encrypted on your device
   with a secret code before it is sent. The server only holds unreadable
   data.
@@ -147,7 +155,11 @@ een code van vier letters of via de QR-code. Iedereen kiest een 1e en 2e
 genre, de slimme pick legt vijf films van de lijst op tafel plus drie
 aanraders van buiten (gekozen op wat er op tafel ligt, de genrestemming en
 je smaak, en niet twee van hetzelfde soort), de zaal kijkt de trailers en
-iedereen kiest een 1e en 2e film. Gelijkspel lost zichzelf op.
+iedereen kiest een 1e en 2e film. Gelijkspel lost zichzelf op. De gastheer
+kiest hoe de zaal speelt, en gasten kunnen hun eigen Letterboxd laten
+meetellen: wat iemand al zag gaat eruit en de smaak van de zaal weegt mee.
+Het hoeft niet; wie het wil, doet het in drie stappen, of met één tik op
+een telefoon die je al kent. Je export blijft op je telefoon.
 
 Versie 5 maakt er een bioscoop van: een kassa met echte kaartjes, een
 kaartjesdoos voor wat je echt keek, Voor jou, trailers bij de filmavond,

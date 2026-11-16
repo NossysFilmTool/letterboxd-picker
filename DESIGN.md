@@ -237,11 +237,36 @@ app kunnen zijn? Dan is het nog niet af.
   namen verschijnen als een rolverdeling.
 - Het verloop: iedereen kiest een 1e en een 2e genre, de slimme pick kiest
   daar vijf films uit de pot (films met een trailer gaan voor), plus drie
-  aanraders van buiten de lijst (aan te zetten in de lobby). De zaal kijkt de
+  aanraders van buiten de lijst. De zaal kijkt de
   echte trailers van YouTube (na de laatste begint de stemming vanzelf), en
   dan kiest iedereen een 1e en een 2e film. De uitslag staat groot in de
   kleur van de film, met waarom en de punten. "Pak het kaartje" geeft een
   kaartje met alle namen.
+- Zo speelt de zaal: in de lobby kiest de gastheer hoe de avond loopt, in
+  dezelfde rijen als de avondfilters, onthouden op het toestel. Eerst samen
+  een genre kiezen of meteen naar de films; drie, vier of vijf films van de
+  lijst; geen tot drie aanraders; of gasten hun Letterboxd mogen laten
+  meetellen, en zo ja wat dat doet (al gezien gaat eruit, hun smaak weegt
+  mee); en of een ronde vanzelf sluit of met de hand.
+- Gasten met Letterboxd (`src/lib/zaalgasten.js`, `ZaalLetterboxd.jsx`):
+  staat het aan, dan vraagt de telefoon "Mag de zaal rekening houden met
+  jou?". Het hoeft niet, en nee is één tik. Kent de telefoon je al (een
+  onthouden export, of de tool zelf met je gegevens), dan is ja ook één tik.
+  Anders drie genummerde stappen: een knop die Letterboxd opent op de
+  pagina van de export, dat het zip-bestand in je downloads komt (uitpakken
+  hoeft niet), en een knop om het te kiezen. De telefoon leest de smaak
+  (dezelfde als bij Voor ons) en onthoudt alleen sleutels en het
+  smaakprofiel, als je dat wilt. Daarna oordeelt hij vanzelf over de films
+  die het scherm klaarzet: per film al gezien of niet, op je watchlist of
+  niet, en hoe goed hij bij je past. Meer gaat er niet heen; de export
+  blijft op de telefoon. Op het scherm staat "met Letterboxd" onder je naam.
+- Wat het scherm ermee doet: wat iemand al zag, gaat uit de pot (als er
+  genoeg overblijft); wat iemand echt niet ziet zitten (onder de ondergrens
+  van Voor ons) ook, als het kan; dan de beter passende helft, waarbinnen de
+  slimme pick kiest. Bij de aanraders zakt wat iemand al zag ver, telt de
+  smaak van de zaal mee en helpt een plek op iemands watchlist. Het scherm
+  wacht hooguit acht seconden op de telefoons, en zegt erbij met wiens
+  Letterboxd het koos.
 - Stemmen gaat met twee knoppen per optie, "1e" en "2e", als kleine
   kaartjesgaten: gekozen is papier. Nog eens tikken haalt de keus weg; 1e
   tikken bij je 2e keus (of andersom) wisselt ze. Zo kun je altijd van
@@ -294,7 +319,8 @@ app kunnen zijn? Dan is het nog niet af.
   en de drie aanraders staan naast elkaar in één rij, met de knoppen in
   beeld.
 - Een ronde sluit vanzelf vier seconden nadat iedereen een 1e en een 2e keus
-  heeft (genoeg om nog te wisselen), of eerder met "Sluit de stemming". Heeft
+  heeft (genoeg om nog te wisselen), of eerder met "Sluit de stemming" (koos
+  de gastheer "Sluiten met de hand", dan alleen zo). Heeft
   iemand alleen een 1e keus, dan wacht het scherm vijftien seconden ("Nog
   even tijd voor een 2e"). Vlak voor het tellen haalt het scherm de verse
   stand op, zodat een 2e keus van het laatste moment niet wegvalt: anders
@@ -302,10 +328,14 @@ app kunnen zijn? Dan is het nog niet af.
   staat er als een open rondje bij.
 - De telefoon: één kolom, grote woorden met de twee knoppen ernaast, je stem
   in woorden eronder ("1e Drama, 2e Thriller"), en wat er gekozen wordt
-  alleen op het grote scherm. Na herladen ben je nog binnen.
+  alleen op het grote scherm. Na herladen ben je nog binnen. Stemmen gaan
+  één voor één de deur uit (alleen de nieuwste wacht), zodat een snelle 2e
+  keus nooit door een trage 1e wordt overschreven.
 - Techniek: de zaal leeft twaalf uur in de Worker (`/zaal`, KV). Elke speler
   schrijft in een eigen sleutel, dus stemmen overschrijven elkaar nooit; het
-  scherm leest ze elke twee seconden. Geen `list()`.
+  scherm leest ze elke twee seconden. Geen `list()`. De films voor de gasten
+  met Letterboxd staan in één sleutel die groeit (`/vraag`), elk oordeel in
+  een eigen sleutel (`/smaak`); alleen het scherm leest de oordelen.
 
 ## De première
 

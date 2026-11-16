@@ -38,6 +38,7 @@ export function genreZin(genre, tr) {
     case 'breed': return tr('zaal.r_breed');
     case 'allebei': return tr(genre.namen.length > 2 ? 'zaal.g_allemaal' : 'zaal.g_allebei');
     case 'elkWat': return tr('zaal.g_elkWat');
+    case 'vrij': return tr('zaal.g_vrij');
     default: return tr('zaal.g_alles');
   }
 }

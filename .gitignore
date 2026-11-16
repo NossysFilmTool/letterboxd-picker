@@ -4,6 +4,9 @@ node_modules/
 # Build-output (GitHub Actions bouwt zelf; hoort niet in de repo)
 dist/
 
+# De Worker-instellingen maakt de workflow zelf (met het KV-id uit een secret)
+worker/wrangler.toml
+
 # Systeem- en editorbestanden
 .DS_Store
 *.log

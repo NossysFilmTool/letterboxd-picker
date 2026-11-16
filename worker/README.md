@@ -11,7 +11,7 @@ talks to one small Cloudflare Worker (`worker.js`). It runs on the free tier.
 | `/3/...` | TMDB proxy. Adds the API key server-side, so visitors need no key. | Nothing. Film details are cached at the edge for 5 minutes; searches are never cached. |
 | `/lb/<username>` | Letterboxd live. Passes on the public RSS diary feed of one user. | Nothing. The feed is cached for 1 minute. |
 | `/session/...` | Remote voting rounds and For us. | The films on the table, player names, votes, and for For us one score (0 to 100) per film plus whether it is on someone's watchlist or already seen. Never an export or ratings. Deleted after 24 hours. |
-| `/zaal/...` | House vote: phones vote, one screen runs the evening. | Player names, their votes per round, and what the screen puts on the table (genres, up to eight films with poster and trailer id, the result). Only the screen can set a round, with a secret it got when it opened the house; each phone writes its own key. Deleted after 12 hours. |
+| `/zaal/...` | House vote: phones vote, one screen runs the evening. | Player names, their votes per round, and what the screen puts on the table (genres, up to eight films with poster and trailer id, the result). Only the screen can set a round, with a secret it got when it opened the house; each phone writes its own key. Guests who let their Letterboxd count: the films the screen asks about (title, year, genres, keyword ids, rating; up to 400) and, per guest, per film only seen or not, on the watchlist or not and a 0 to 100 score. Only the screen reads those. Deleted after 12 hours. |
 | `/sync/<id>` | Sync between devices. | Data that each device encrypts itself (AES-GCM) with a key derived from the sync code, which never leaves the devices. The Worker cannot read it. Deleted after six months without a sync. |
 
 ## Protection
@@ -41,9 +41,31 @@ talks to one small Cloudflare Worker (`worker.js`). It runs on the free tier.
 To check it: `https://<your-worker>.workers.dev/3/movie/550` returns JSON
 about Fight Club, and `/lb/<letterboxd-username>` returns the RSS feed.
 
-When `worker.js` changes, paste the new version into the Worker and deploy
-again. The tool notices when the Worker does not know a feature yet and shows
-it as unavailable.
+When `worker.js` changes, the Worker has to be deployed again. The tool
+notices when the Worker does not know a feature yet and shows it as
+unavailable.
+
+### Deploying automatically
+
+`.github/workflows/worker.yml` deploys the Worker on every push to `main`
+that changes `worker/`, after the tests pass. It can also be started by hand
+(Actions, "Worker naar Cloudflare", Run workflow). It needs three repository
+secrets (Settings, Secrets and variables, Actions, New repository secret):
+
+| Secret | Where to find it |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare, My Profile, API Tokens, Create Token, template "Edit Cloudflare Workers". |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare, Workers & Pages: the Account ID on the right. |
+| `CLOUDFLARE_KV_ID` | Cloudflare, Storage & databases, KV: the ID of the namespace bound as `SESSIONS`. |
+
+Without them the workflow skips the deploy and says so. The workflow writes
+the Wrangler settings itself (Worker name from `PROXY_URL`, the KV binding,
+`keep_vars` so variables set in the dashboard stay); the `TMDB_KEY` secret
+stays in Cloudflare and is never touched. Running your own Worker under a
+different name? Change `name` in the workflow.
+
+Without the workflow: paste the new `worker.js` into the Worker in the
+Cloudflare dashboard and deploy.
 
 ## Limits
 
@@ -51,4 +73,5 @@ The free tier allows 100,000 requests and 1,000 KV writes a day. Loading
 film data for 1,000 films takes about 2,000 requests. Sync only writes when
 something changed, a few times an hour at most. A house vote with six
 phones takes about 40 writes and, over a quarter of an hour, roughly 6,000
-reads (every phone and the screen check every two seconds).
+reads (every phone and the screen check every two seconds). Guests who let
+their Letterboxd count add a few writes each.

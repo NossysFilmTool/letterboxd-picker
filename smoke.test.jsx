@@ -4788,6 +4788,32 @@ describe('Zaalstemming', () => {
   });
   const licht = (f) => ({ id: f.id, title: f.title, release_date: f.release_date, vote_average: f.vote_average, vote_count: f.vote_count, poster_path: f.poster_path, genre_ids: [18], original_language: 'en' });
 
+  it('stemmen gaan op volgorde de deur uit: een snelle 2e keus wordt nooit door een trage 1e overschreven', async () => {
+    const { stemRij } = await import('./src/lib/zaalstemming.js');
+    const aangekomen = [];
+    let los;
+    const traag = new Promise((r) => { los = r; });
+    const stuur = async (k) => {
+      if (k === 'a') await traag;
+      if (k === 'kapot') throw new Error('DRUK');
+      aangekomen.push(k);
+      return { ok: k };
+    };
+    const rij = stemRij(stuur);
+    const a = rij('a');
+    const b = rij('b');
+    const c = rij('c');
+    // b werd ingehaald voor hij wegging: die gaat niet meer
+    expect(await b).toEqual({ ingehaald: true });
+    los();
+    expect(await a).toEqual({ ok: 'a' });
+    expect(await c).toEqual({ ok: 'c' });
+    expect(aangekomen).toEqual(['a', 'c']);
+    // een fout komt bij de afzender terug, en de rij loopt door
+    await expect(rij('kapot')).rejects.toThrow('DRUK');
+    expect(await rij('d')).toEqual({ ok: 'd' });
+  });
+
   it('regels: stemmen als 1e en 2e keus, punten, de breedste steun, en de films', async () => {
     const { uitslagGenre, kiesFilms, uitslagFilm, stemZet, telStemmen, zaalCode, youtubeId, genreOpties, breedGedragen } = await import('./src/lib/zaalstemming.js');
     // een stem zetten, wisselen en terugnemen
@@ -5128,7 +5154,10 @@ describe('Zaalstemming', () => {
       expect(code).toMatch(/^[A-Z]{4}$/);
       const qr = screen.getByRole('img', { name: `QR-code met de link naar zaal ${code}` });
       expect(qr.querySelector('path').getAttribute('d').length).toBeGreaterThan(1000);
-      expect(screen.getByRole('button', { name: /Ook 3 aanraders van buiten de lijst/ }).getAttribute('aria-pressed')).toBe('true');
+      const spel = screen.getByRole('group', { name: 'Zo speelt de zaal' });
+      expect(within(spel).getByRole('button', { name: '3 aanraders van buiten de lijst' }).getAttribute('aria-pressed')).toBe('true');
+      expect(within(spel).getByRole('button', { name: '5 films' }).getAttribute('aria-pressed')).toBe('true');
+      await waitFor(() => expect(JSON.parse(kv.get(`z:${code}`)).lb).toBe(true));
       await doeMee(code, 'Anna', tA);
       await doeMee(code, 'Bram', tB);
       fireEvent.click(screen.getByText('Ik doe zelf ook mee, op dit scherm'));
@@ -5235,6 +5264,8 @@ describe('Zaalstemming', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Doe mee' }));
       expect(await screen.findByText('Je zit erin, Pim.')).toBeTruthy();
       expect(JSON.parse(localStorage.getItem('nossyV2.zaalIk'))[code].naam).toBe('Pim');
+      // de gastheer vroeg niet naar Letterboxd: dan ook geen vraag op de telefoon
+      expect(screen.queryByText('Mag de zaal rekening houden met jou?')).toBeNull();
 
       // het genre: 1e, 2e, en de 1e weer terugnemen
       await zet({ fase: 'genre', ronde: 1, opties: [{ id: 'Drama', naam: 'Drama', n: 5 }, { id: 'Horror', naam: 'Horror', n: 3 }] });
@@ -5276,6 +5307,294 @@ describe('Zaalstemming', () => {
       delete global.fetch;
       delete document.hidden;
       history.pushState({}, '', '/');
+    }
+  });
+
+  it('gasten met Letterboxd: per film gezien, op de watchlist en hoe goed hij past, en hoe de zaal dat meeweegt', async () => {
+    const { maakProfiel, oordeelVan, zaalOordeel, zaalSturing, metZaal, aanradersMetZaal, vraagUitPot, profielUitApp } = await import('./src/lib/zaalgasten.js');
+    const { kiesFilms } = await import('./src/lib/zaalstemming.js');
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    const pool = JSON.parse(localStorage.getItem('nossyV2.watchlist'));
+    // een profiel: sleutels en een smaakprofiel, klein genoeg om te onthouden
+    const p = maakProfiel({
+      watched: [{ key: 'the witch|2015' }, { key: 'mockingjay - part 2|2015' }],
+      ratedFilms: [{ key: 'aftersun|2022', rating: 5 }, { key: 'whiplash|2014', rating: 1 }],
+      watchlist: [{ key: 'close|2022' }],
+      meta, nu: 1000,
+    });
+    expect(p).toMatchObject({ v: 1, bron: 'export', at: 1000, lijst: ['close|2022'], beoordeeld: 2 });
+    expect([...p.gezien].sort()).toEqual(['aftersun|2022', 'mockingjay - part 2|2015', 'the witch|2015', 'whiplash|2014']);
+    expect(JSON.parse(JSON.stringify(p))).toEqual(p);
+    // het oordeel: gezien herkend, ook bij een jaar verschil en andere leestekens
+    const kand = [
+      { key: 'the witch|2016', name: 'The Witch', year: 2016, genres: ['Horror'], keywords: [], vote: 7, votes: 9000 },
+      { key: 'mockingjay – part 2|2015', name: 'Mockingjay – Part 2', year: 2015, genres: ['Actie'], keywords: [], vote: 6.9, votes: 9000 },
+      { key: 'close|2022', name: 'Close', year: 2022, genres: ['Drama'], keywords: [], vote: 7.7, votes: 1100 },
+      { key: 'la haine|1995', name: 'La haine', year: 1995, genres: ['Drama', 'Crime'], keywords: [], vote: 8.1, votes: 9000 },
+    ];
+    const o = oordeelVan(kand, p);
+    expect(o['the witch|2016']).toEqual([null, 1, 0]);
+    expect(o['mockingjay – part 2|2015']).toEqual([null, 1, 0]);
+    expect(o['close|2022'].slice(1)).toEqual([0, 1]);
+    expect(o['la haine|1995'][0]).toBeGreaterThan(0);
+    expect(o['la haine|1995'].slice(1)).toEqual([0, 0]);
+
+    // wat de zaal vindt: per film wie hem zag, wie hem wil zien, de laagste en de gemiddelde score
+    const zo = zaalOordeel({
+      Anna: { s: { a: [80, 0, 1], b: [null, 1, 0], c: [30, 0, 0] } },
+      Bram: { s: { a: [60, 0, 0], c: [70, 0, 0] } },
+      Cas: { v: 0, n: 0 },
+    });
+    expect(zo.a).toEqual({ gezien: [], wil: ['Anna'], scores: [80, 60], min: 60, gem: 70 });
+    expect(zo.b).toMatchObject({ gezien: ['Anna'], scores: [], min: null, gem: null });
+    expect(zo.c).toMatchObject({ min: 30, gem: 50 });
+    expect([...zaalSturing(zo).uit]).toEqual(['b']);
+    expect(zaalSturing(zo).score).toEqual({ a: 70, c: 50 });
+    expect(zaalSturing(zo, { gezienWeg: false, smaakMee: true }).uit.size).toBe(0);
+    expect(zaalSturing(zo, { gezienWeg: true, smaakMee: false }).score).toEqual({});
+
+    // de pot: wat iemand zag gaat eruit als er genoeg overblijft; wat iemand
+    // echt niet ziet zitten ook; dan de beter passende films
+    const pot = Array.from({ length: 12 }, (_, i) => ({ key: `f${i}` }));
+    expect(metZaal(pot, null)).toBe(pot);
+    expect(metZaal(pot, { uit: new Set(['f0', 'f1']) }, 5).map((f) => f.key)).not.toContain('f0');
+    expect(metZaal(pot.slice(0, 5), { uit: new Set(['f0']) }, 5)).toHaveLength(5);
+    const score = Object.fromEntries(pot.map((f, i) => [f.key, 40 + i * 5]));
+    expect(metZaal(pot, { uit: new Set(), score, min: { ...score, f11: 20 } }, 3).map((f) => f.key))
+      .toEqual(['f10', 'f9', 'f8', 'f7', 'f6', 'f5', 'f4', 'f3', 'f2']);
+    // de slimme pick kiest nooit wat een gast al zag, zolang het kan
+    for (let i = 0; i < 20; i++) {
+      const zaal = { uit: new Set(['whiplash|2014', 'close|2022', 'aftersun|2022']), score: {}, min: {} };
+      expect(kiesFilms(pool, meta, { namen: [], wijze: 'vrij' }, [], 3, Math.random, zaal).map((f) => f.key).sort())
+        .toEqual(['first cow|2019', 'la haine|1995', 'stalker|1979']);
+    }
+
+    // de aanraders: gezien valt af (of zakt ver), de smaak en de watchlist van de zaal tellen mee
+    const rij = [{ film: { key: 'x' }, s: 5 }, { film: { key: 'y' }, s: 4 }, { film: { key: 'z' }, s: 3 }, { film: { key: 'q' }, s: 2 }];
+    const oo = {
+      x: { gezien: ['Anna'], wil: [], scores: [], min: null, gem: null },
+      y: { gezien: [], wil: ['Bram'], scores: [90], min: 90, gem: 90 },
+      z: { gezien: [], wil: [], scores: [20], min: 20, gem: 20 },
+    };
+    const na = aanradersMetZaal(rij, oo, { aantal: 3 });
+    expect(na.map((x) => x.film.key)).toEqual(['y', 'z', 'q']);
+    expect(na[0].s).toBeCloseTo(4 + 35 / 25 + 0.4);
+    expect(na[1].s).toBeCloseTo(3 - 35 / 25 - 0.8);
+    expect(na[2].s).toBe(2);
+    expect(aanradersMetZaal(rij.slice(0, 3), oo, { aantal: 3 })[0].s).toBe(2);
+    expect(aanradersMetZaal(rij, {}, { aantal: 3 })).toBe(rij);
+
+    // wat naar de telefoons gaat: de pot, met een hoger cijfer eerst, zonder meer dan nodig
+    const vr = vraagUitPot(pool, meta, 4);
+    expect(vr).toHaveLength(4);
+    expect(vr[0].key).toBe('whiplash|2014');
+    expect(Object.keys(vr[0]).sort()).toEqual(['genres', 'id', 'key', 'keywords', 'lang', 'name', 'poster', 'runtime', 'vote', 'votes', 'year']);
+    // zonder filmdata gaat een film als laatste mee: gezien herkent de telefoon op titel en jaar, een score is er dan niet
+    const metOnbekend = vraagUitPot([{ key: 'onbekend|2020', name: 'Onbekend', year: 2020 }, ...pool], meta);
+    expect(metOnbekend).toHaveLength(7);
+    expect(metOnbekend[6]).toMatchObject({ key: 'onbekend|2020', genres: [] });
+    expect(oordeelVan([{ key: 'the witch|2016', name: 'The Witch', year: 2016, genres: [] }, { key: 'n|2020', name: 'N', year: 2020, genres: [] }], p))
+      .toEqual({ 'the witch|2016': [null, 1, 0], 'n|2020': [null, 0, 0] });
+
+    // wie de tool zelf gebruikt, hoeft geen export te kiezen; de demo telt niet
+    const lees = (k, d) => { const r = localStorage.getItem(`nossyV2.${k}`); return r ? JSON.parse(r) : d; };
+    const app = await profielUitApp({ lees, metaLezen: async () => meta });
+    expect(app.bron).toBe('app');
+    expect(app.gezien).toEqual(expect.arrayContaining(['columbus|2017', 'petite maman|2021', 'aftersun|2022', 'la haine|1995', 'stalker|1979']));
+    expect(app.lijst).toHaveLength(6);
+    localStorage.setItem('nossyV2.demoMode', 'true');
+    expect(await profielUitApp({ lees, metaLezen: async () => meta })).toBeNull();
+  });
+
+  it('worker: gasten met Letterboxd geven alleen een oordeel per film, en alleen het scherm leest het', async () => {
+    const { kv, SESSIONS } = nepKV();
+    const vraag = vraagAan(await laadWorker(), { SESSIONS, TMDB_KEY: 'x' });
+    const { code: C, geheim } = await (await vraag('/zaal/new', {})).json();
+    await vraag(`/zaal/${C}/meedoen`, { naam: 'Anna', token: tA });
+    await vraag(`/zaal/${C}/meedoen`, { naam: 'Bram', token: tB });
+    // de gastheer zet het aan; de telefoons zien het
+    expect((await (await vraag(`/zaal/${C}/zet`, { geheim, staat: { fase: 'lobby', ronde: 0, lb: true } })).json()).zaal.lb).toBe(true);
+    expect((await (await vraag(`/zaal/${C}`)).json()).lb).toBe(true);
+    expect(await (await vraag(`/zaal/${C}/vraag`)).json()).toEqual({ v: 0, films: [] });
+    // alleen het scherm zet films klaar, alleen de gast zelf geeft een oordeel
+    expect((await vraag(`/zaal/${C}/vraag`, { geheim: 'fout', films: [] })).status).toBe(403);
+    expect((await vraag(`/zaal/${C}/smaak`, { naam: 'Anna', token: tB, v: 0, s: {} })).status).toBe(403);
+    expect((await vraag(`/zaal/${C}/smaak`, { naam: 'Anna', token: tA, v: 0, s: [] })).status).toBe(400);
+    // een gast meldt zich (v 0): het scherm ziet het
+    expect(await (await vraag(`/zaal/${C}/smaak`, { naam: 'Anna', token: tA, v: 0, s: {} })).json()).toMatchObject({ ok: true, v: 0, n: 0 });
+    expect((await (await vraag(`/zaal/${C}/stand`, { geheim })).json()).gasten).toEqual({ Anna: { v: 0, n: 0 } });
+    // films klaarzetten: opgeschoond tot wat een telefoon nodig heeft om te scoren
+    const films = [
+      { key: 'a|2001', name: 'A', year: 2001, id: 11, genres: ['Drama'], keywords: [1, 2, 'x'], vote: 7.46, votes: 900, lang: 'en', poster: '/p.jpg', plot: 'weg' },
+      { key: 'b|2002', name: 'B', year: 2002, genres: ['Horror'], vote: 6.1 },
+      { name: 'zonder sleutel' },
+    ];
+    expect(await (await vraag(`/zaal/${C}/vraag`, { geheim, films })).json()).toMatchObject({ ok: true, v: 1, n: 2 });
+    const v1 = await (await vraag(`/zaal/${C}/vraag`)).json();
+    expect(v1.v).toBe(1);
+    expect(v1.films[0]).toEqual({ key: 'a|2001', name: 'A', year: 2001, id: 11, genres: ['Drama'], keywords: [1, 2], vote: 7.5, votes: 900, lang: 'en' });
+    expect((await (await vraag(`/zaal/${C}`)).json()).vraag).toBe(1);
+    // de vraag groeit: wie later aanhaakt, krijgt alles
+    await vraag(`/zaal/${C}/vraag`, { geheim, films: [{ key: 'c|2003', name: 'C', year: 2003 }, { key: 'a|2001', name: 'A', year: 2001 }] });
+    expect((await (await vraag(`/zaal/${C}/vraag`)).json()).films.map((f) => f.key)).toEqual(['b|2002', 'c|2003', 'a|2001']);
+    // het oordeel: alleen films op de vraag, alleen [score, gezien, wil zien]
+    const r = await (await vraag(`/zaal/${C}/smaak`, { naam: 'Anna', token: tA, v: 2, s: { 'a|2001': [140, 0, 1], 'b|2002': [null, 1, 0], 'x|1999': [50, 0, 0], 'c|2003': 'kapot' } })).json();
+    expect(r).toMatchObject({ ok: true, v: 2, n: 2 });
+    expect(JSON.parse(kv.get(`z:${C}:s:anna`))).toEqual({ v: 2, s: { 'a|2001': [100, 0, 1], 'b|2002': [null, 1, 0] } });
+    // een nieuwe ronde houdt het aan en de vraag vast; een stem houdt het merkje
+    expect((await (await vraag(`/zaal/${C}/zet`, { geheim, staat: { fase: 'genre', ronde: 1, opties: [{ id: 'Drama', naam: 'Drama', n: 3 }] } })).json()).zaal)
+      .toMatchObject({ lb: true, vraag: 2 });
+    expect((await vraag(`/zaal/${C}/stem`, { naam: 'Anna', token: tA, ronde: 1, keuze: ['Drama'] })).status).toBe(200);
+    const stand = await (await vraag(`/zaal/${C}/stand`, { geheim })).json();
+    expect(stand.gasten).toEqual({ Anna: { v: 2, n: 2 } });
+    expect(stand.stemmen.Anna).toEqual({ 1: ['Drama', null] });
+    expect((await (await vraag(`/zaal/${C}/stand`, { geheim, oordeel: true })).json()).gasten.Anna.s).toEqual({ 'a|2001': [100, 0, 1], 'b|2002': [null, 1, 0] });
+    // toch niet: het scherm ziet niets meer
+    expect((await vraag(`/zaal/${C}/smaak`, { naam: 'Anna', token: tA, uit: true })).status).toBe(200);
+    expect((await (await vraag(`/zaal/${C}/stand`, { geheim, oordeel: true })).json()).gasten).toEqual({});
+    // de gastheer kan het weer uitzetten
+    expect((await (await vraag(`/zaal/${C}/zet`, { geheim, staat: { fase: 'genre', ronde: 1, lb: false } })).json()).zaal.lb).toBeUndefined();
+  });
+
+  it('de telefoon: je Letterboxd laten meetellen in drie stappen; alleen een oordeel per film gaat de deur uit', async () => {
+    const { kv, SESSIONS } = nepKV();
+    const w = await laadWorker();
+    const env = { SESSIONS, TMDB_KEY: 'x' };
+    const vraag = vraagAan(w, env);
+    const calls = [];
+    const doorgeven = via(w, env);
+    global.fetch = async (url, opts = {}) => { calls.push({ url: String(url), body: opts.body }); return doorgeven(url, opts); };
+    const { code, geheim } = await (await vraag('/zaal/new', {})).json();
+    await vraag(`/zaal/${code}/zet`, { geheim, staat: { fase: 'lobby', ronde: 0, lb: true } });
+    const oordeel = () => JSON.parse(kv.get(`z:${code}:s:pim`) || 'null');
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+      history.pushState({}, '', `?zaal=${code}`);
+      render(<App />);
+      expect(await screen.findByText('Welkom in de zaal')).toBeTruthy();
+      fireEvent.change(screen.getByLabelText('Je naam'), { target: { value: 'Pim' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Doe mee' }));
+      expect(await screen.findByText('Mag de zaal rekening houden met jou?')).toBeTruthy();
+      expect(document.body.textContent).toContain('Je export blijft op je telefoon.');
+      // nee kan, en terug ook
+      fireEvent.click(screen.getByText('Nee, liever niet'));
+      expect(await screen.findByText('Je Letterboxd telt niet mee.')).toBeTruthy();
+      fireEvent.click(screen.getByText('Toch wel'));
+
+      // de drie stappen: Letterboxd openen, het zip-bestand, kiezen
+      fireEvent.click(screen.getByText('Ja, met mijn Letterboxd-export'));
+      expect(screen.getByText('Je export, in drie stappen')).toBeTruthy();
+      expect(screen.getByRole('link', { name: 'Open Letterboxd' }).getAttribute('href')).toBe('https://letterboxd.com/settings/data/');
+      expect(screen.getByRole('button', { name: 'Onthoud op deze telefoon, voor een volgende filmavond' }).getAttribute('aria-pressed')).toBe('true');
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      zip.file('watched.csv', 'Date,Name,Year,Letterboxd URI\n2024-01-01,Gezien Een,2010,x\n2024-01-02,Zodiac,2007,x');
+      zip.file('ratings.csv', 'Date,Name,Year,Letterboxd URI,Rating\n2024-01-01,Gezien Een,2010,x,4.5');
+      zip.file('watchlist.csv', 'Date,Name,Year,Letterboxd URI\n2024-01-01,Wil Ik,2015,x');
+      const bestand = new File([await zip.generateAsync({ type: 'blob' })], 'letterboxd-pim.zip');
+      fireEvent.change(document.querySelector('.zs-lb input[type="file"]'), { target: { files: [bestand] } });
+      expect(await screen.findByText('Je Letterboxd telt mee', {}, { timeout: 5000 })).toBeTruthy();
+      expect(document.body.textContent).toContain('2 gezien, 1 beoordeeld, 1 op je watchlist.');
+      // aangemeld (v 0); de telefoon onthoudt alleen sleutels en een smaakprofiel
+      await waitFor(() => expect(oordeel()).toEqual({ v: 0, s: {} }));
+      expect(JSON.parse(kv.get(`z:${code}:p:pim`)).lb).toEqual({ v: 0, n: 0 });
+      const onthouden = JSON.parse(localStorage.getItem('nossyV2.zaalMijnLetterboxd')).profiel;
+      expect([...onthouden.gezien].sort()).toEqual(['gezien een|2010', 'zodiac|2007']);
+      expect(onthouden.lijst).toEqual(['wil ik|2015']);
+
+      // het scherm zet films klaar; de telefoon beantwoordt de vraag vanzelf
+      const kand = (key, name, year, genres) => ({ key, name, year, genres, keywords: [], vote: 7.5, votes: 5000 });
+      await vraag(`/zaal/${code}/vraag`, { geheim, films: [kand('zodiac|2007', 'Zodiac', 2007, ['Thriller']), kand('wil ik|2015', 'Wil Ik', 2015, ['Drama']), kand('nieuw|2020', 'Nieuw', 2020, ['Drama'])] });
+      await peil();
+      await waitFor(() => expect(oordeel().v).toBe(1));
+      const s = oordeel().s;
+      expect(s['zodiac|2007']).toEqual([null, 1, 0]);
+      expect(s['wil ik|2015'].slice(1)).toEqual([0, 1]);
+      expect(s['nieuw|2020'][0]).toBeGreaterThanOrEqual(0);
+      expect(await screen.findByText('Het scherm weet wat je van 3 films vindt.')).toBeTruthy();
+      // de export zelf gaat nergens heen
+      expect(calls.some((c) => c.body && /Gezien Een|4\.5/.test(c.body))).toBe(false);
+
+      // toch niet: het oordeel is weg
+      fireEvent.click(screen.getByText('Toch niet meetellen'));
+      expect(await screen.findByText('Je Letterboxd telt niet mee.')).toBeTruthy();
+      expect(oordeel()).toEqual({ uit: true });
+      expect(JSON.parse(kv.get(`z:${code}:p:pim`)).lb).toBeUndefined();
+      // en weer wel: nu met één tik, met de onthouden export
+      fireEvent.click(screen.getByText('Toch wel'));
+      expect(document.body.textContent).toContain('Met je export van');
+      fireEvent.click(screen.getByText('Ja, tel mijn Letterboxd mee'));
+      expect(await screen.findByText('Je Letterboxd telt mee')).toBeTruthy();
+      await waitFor(() => expect(oordeel().v).toBe(1));
+      expect(oordeel().s['zodiac|2007']).toEqual([null, 1, 0]);
+    } finally {
+      delete global.fetch;
+      delete document.hidden;
+      history.pushState({}, '', '/');
+    }
+  });
+
+  it('het scherm: zo speelt de zaal kies je vooraf, en wat een gast met Letterboxd al zag komt niet op tafel', async () => {
+    const { kv, SESSIONS } = nepKV();
+    global.fetch = via(await laadWorker(), { SESSIONS, TMDB_KEY: 'x' });
+    const { doeMee, stuurSmaak, haalZaal, haalVraag } = await import('./src/lib/zaalstemming.js');
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
+      fireEvent.click(screen.getByText('Open de zaal'));
+      expect(await screen.findByText('Pak je telefoon')).toBeTruthy();
+      const code = document.querySelector('.zs-code').textContent;
+      // de gastheer kiest; dit toestel onthoudt het
+      const spel = screen.getByRole('group', { name: 'Zo speelt de zaal' });
+      expect(within(spel).getByRole('button', { name: '3 aanraders van buiten de lijst' }).getAttribute('aria-pressed')).toBe('true');
+      expect(within(spel).getByText('Vraag het de gasten').getAttribute('aria-pressed')).toBe('true');
+      fireEvent.click(within(spel).getByText('Meteen naar de films'));
+      fireEvent.click(within(spel).getByRole('button', { name: '3 films' }));
+      fireEvent.click(within(spel).getByRole('button', { name: 'Geen aanraders van buiten de lijst' }));
+      fireEvent.click(within(spel).getByText('Sluiten met de hand'));
+      expect(JSON.parse(localStorage.getItem('nossyV2.zaalOpties'))).toMatchObject({ genreRonde: false, lijst: 3, aanraders: 0, gasten: true, vanzelf: false });
+      // de telefoons mogen het vragen
+      await waitFor(() => expect(JSON.parse(kv.get(`z:${code}`)).lb).toBe(true));
+
+      await doeMee(code, 'Anna', tA);
+      await doeMee(code, 'Bram', tB);
+      await stuurSmaak(code, 'Anna', tA, 0, {});
+      await peil();
+      // Anna telt haar Letterboxd mee: het scherm laat het zien en zet de pot alvast klaar
+      await waitFor(() => expect(document.querySelector('.zs-namen').textContent).toContain('Annamet Letterboxd'));
+      await waitFor(() => expect(kv.get(`z:${code}:k`)).toBeTruthy());
+      const vr = await haalVraag(code);
+      const zag = ['whiplash|2014', 'close|2022', 'aftersun|2022'];
+      const rest = vr.films.map((f) => f.key).filter((k) => !zag.includes(k)).sort();
+      expect(rest).toHaveLength(3);
+      await stuurSmaak(code, 'Anna', tA, vr.v, Object.fromEntries(vr.films.map((f) => [f.key, zag.includes(f.key) ? [null, 1, 0] : [70, 0, 0]])));
+
+      fireEvent.click(await screen.findByText('Begin met 2 spelers'));
+      expect(await screen.findByText('Het wordt alles door elkaar')).toBeTruthy();
+      expect(document.body.textContent).toContain('Zonder genreronde, dus alles uit de pot.');
+      expect(document.body.textContent).toContain('De slimme pick koos 3 films uit de lijst.');
+      expect(document.body.textContent).toContain('Met de Letterboxd van Anna: wat iemand al zag, ging eruit, en hun smaak telde mee.');
+      const z = await haalZaal(code);
+      expect(z.films.map((f) => f.key).sort()).toEqual(rest);
+      expect(z.films.some((f) => f.aanrader)).toBe(false);
+
+      // met de hand sluiten: ook als iedereen gestemd heeft, wacht het scherm
+      fireEvent.click(screen.getByText('Nu stemmen'));
+      expect(await screen.findByText('Welke wordt het?')).toBeTruthy();
+      const ronde = (await haalZaal(code)).ronde;
+      const { stuurStem } = await import('./src/lib/zaalstemming.js');
+      await stuurStem(code, 'Anna', tA, ronde, [rest[0], rest[1]]);
+      await stuurStem(code, 'Bram', tB, ronde, [rest[0], rest[2]]);
+      await peil();
+      expect(await screen.findByText('Iedereen heeft gestemd. Sluit de stemming als jullie klaar zijn.')).toBeTruthy();
+      expect((await haalZaal(code)).fase).toBe('film');
+      fireEvent.click(screen.getByText('Sluit de stemming'));
+      expect(await screen.findByText('Pak het kaartje')).toBeTruthy();
+      expect((await haalZaal(code)).uitslag.key).toBe(rest[0]);
+    } finally {
+      delete global.fetch;
+      delete document.hidden;
     }
   });
 

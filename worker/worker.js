@@ -192,6 +192,11 @@ export default {
     // het scherm weet wie er meedoen uit de zaal zelf. KV schrijft hooguit
     // één keer per seconde naar dezelfde sleutel; lukt dat niet, dan 429 en
     // probeert de app het zo opnieuw. Alles verdwijnt na 12 uur.
+    //
+    // Gasten kunnen hun eigen Letterboxd laten meetellen. Hun export blijft op
+    // de telefoon: het scherm zet de films klaar die op tafel kunnen komen
+    // (/vraag), de telefoon geeft per film alleen terug of je hem al zag, of
+    // hij op je watchlist staat en hoe goed hij bij je past (/smaak).
     if (url.pathname.startsWith('/zaal')) {
       const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
         status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -208,6 +213,7 @@ export default {
       const slug = (naam) => naam.toLocaleLowerCase();
       const tekst = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
       const heel = (v, min, max) => { const x = parseInt(v, 10); return Number.isFinite(x) ? Math.max(min, Math.min(max, x)) : null; };
+      const getal = (v, min, max) => { const x = typeof v === 'number' ? v : NaN; return Number.isFinite(x) ? Math.max(min, Math.min(max, Math.round(x * 10) / 10)) : null; };
       let body = {};
       if (request.method === 'POST') {
         try { body = await request.json(); } catch { return json({ error: 'BAD_BODY' }, 400); }
@@ -228,25 +234,65 @@ export default {
         return json({ code, geheim, versie: 1 });
       }
 
-      const z = url.pathname.match(/^\/zaal\/([A-Z]{4})(\/zet|\/stand|\/meedoen|\/stem)?$/);
+      const z = url.pathname.match(/^\/zaal\/([A-Z]{4})(\/zet|\/stand|\/meedoen|\/stem|\/vraag|\/smaak)?$/);
       if (!z) return json({ error: 'NOT_FOUND' }, 404);
       const sleutel = `z:${z[1]}`;
       const zaal = await lees(sleutel);
       if (!zaal) return json({ error: 'NOT_FOUND' }, 404);
       const spelerSleutel = (naam) => `${sleutel}:p:${slug(naam)}`;
+      const vraagSleutel = `${sleutel}:k`;
+      const smaakSleutel = (naam) => `${sleutel}:s:${slug(naam)}`;
 
       if (!z[2] && request.method === 'GET') return json(openbaar(zaal));
+      // De films ter beoordeling: net zo openbaar als de zaal zelf
+      if (z[2] === '/vraag' && request.method === 'GET') return json((await lees(vraagSleutel)) || { v: 0, films: [] });
       if (request.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
 
-      // Het scherm: de volgende ronde zetten, of de stemmen ophalen
-      if (z[2] === '/zet' || z[2] === '/stand') {
+      // Het scherm: de volgende ronde zetten, de stemmen ophalen, of films
+      // klaarzetten voor de gasten met Letterboxd
+      if (z[2] === '/zet' || z[2] === '/stand' || z[2] === '/vraag') {
         if (typeof body.geheim !== 'string' || (await sha(body.geheim)) !== zaal._geheim) return json({ error: 'GEEN_TOEGANG' }, 403);
         if (z[2] === '/stand') {
+          // gasten: wie de eigen Letterboxd meetelt, en welke vraag die
+          // beantwoordde (v) over hoeveel films (n). Met oordeel: true ook
+          // de oordelen zelf (s), voor het kiezen.
           const stemmen = {};
+          const gasten = {};
           await Promise.all((zaal.spelers || []).map(async (naam) => {
-            stemmen[naam] = (await lees(spelerSleutel(naam)))?.stemmen || {};
+            const p = await lees(spelerSleutel(naam));
+            stemmen[naam] = p?.stemmen || {};
+            if (p?.lb) {
+              gasten[naam] = { v: p.lb.v, n: p.lb.n };
+              if (body.oordeel === true) {
+                const o = await lees(smaakSleutel(naam));
+                gasten[naam].s = o && !o.uit ? o.s || {} : {};
+              }
+            }
           }));
-          return json({ zaal: openbaar(zaal), stemmen });
+          return json({ zaal: openbaar(zaal), stemmen, gasten });
+        }
+        // Films erbij zetten. De vraag groeit (hooguit 400 films, de nieuwste
+        // blijven), zodat een gast die later aanhaakt alles in één keer krijgt.
+        if (z[2] === '/vraag') {
+          if (!Array.isArray(body.films)) return json({ error: 'BAD_FILMS' }, 400);
+          const nieuw = body.films.slice(0, 200).map((f) => ({
+            key: tekst(f?.key, 120),
+            name: tekst(f?.name, 120),
+            year: heel(f?.year, 1870, 2100),
+            id: heel(f?.id, 1, 1e9),
+            genres: (Array.isArray(f?.genres) ? f.genres : []).slice(0, 6).map((g) => tekst(g, 40)).filter(Boolean),
+            keywords: (Array.isArray(f?.keywords) ? f.keywords : []).slice(0, 15).map((k) => heel(k, 1, 1e9)).filter((k) => k != null),
+            vote: getal(f?.vote, 0, 10),
+            votes: heel(f?.votes, 0, 1e8),
+            lang: typeof f?.lang === 'string' && /^[a-z]{2,3}$/.test(f.lang) ? f.lang : null,
+          })).filter((f) => f.key && f.name);
+          const oud = (await lees(vraagSleutel))?.films || [];
+          const keys = new Set(nieuw.map((f) => f.key));
+          const films = [...oud.filter((f) => !keys.has(f.key)), ...nieuw].slice(-400);
+          const v = (zaal.vraag || 0) + 1;
+          if (!(await schrijf(vraagSleutel, { v, films }))) return druk();
+          if (!(await schrijf(sleutel, { ...zaal, vraag: v }))) return druk();
+          return json({ ok: true, v, n: films.length });
         }
         const s = body.staat && typeof body.staat === 'object' ? body.staat : {};
         const FASEN = ['lobby', 'genre', 'trailers', 'film', 'uitslag', 'gesloten'];
@@ -258,6 +304,10 @@ export default {
           spelers: zaal.spelers || [],
           _geheim: zaal._geheim,
         };
+        // Mogen gasten hun Letterboxd laten meetellen (lb), en de laatste
+        // vraag (zie /vraag): die blijven staan tot het scherm iets anders zegt
+        if (typeof s.lb === 'boolean' ? s.lb : zaal.lb === true) nieuw.lb = true;
+        if (zaal.vraag) nieuw.vraag = zaal.vraag;
         if (Array.isArray(s.opties)) {
           nieuw.opties = s.opties.slice(0, 12)
             .map((o) => ({ id: tekst(o?.id, 40), naam: tekst(o?.naam, 40), n: heel(o?.n, 0, 9999) ?? 0 }))
@@ -266,7 +316,7 @@ export default {
         if (s.genre && typeof s.genre === 'object') {
           nieuw.genre = {
             namen: (Array.isArray(s.genre.namen) ? s.genre.namen : []).slice(0, 6).map((g) => tekst(g, 40)).filter(Boolean),
-            wijze: ['meeste', 'breed', 'ook', 'allebei', 'elkWat', 'alles'].includes(s.genre.wijze) ? s.genre.wijze : 'meeste',
+            wijze: ['meeste', 'breed', 'ook', 'allebei', 'elkWat', 'alles', 'vrij'].includes(s.genre.wijze) ? s.genre.wijze : 'meeste',
             punten: heel(s.genre.punten, 0, 99),
           };
         }
@@ -337,6 +387,33 @@ export default {
       // stem is [1e keus, 2e keus], elk een optie of null; allebei leeg
       // betekent: stem teruggenomen.
       if (!speler || speler.t !== th || !inDeZaal) return json({ error: 'GEEN_TOEGANG' }, 403);
+
+      // Een gast laat de eigen Letterboxd meetellen: per film op de vraag
+      // [score 0-100 of null, al gezien 0/1, op de watchlist 0/1]. v 0 met
+      // niets erin: "ik doe mee, zet maar films klaar". { uit: true } trekt
+      // het weer in. De export zelf komt hier nooit.
+      if (z[2] === '/smaak') {
+        if (zaal.fase === 'gesloten') return json({ error: 'DICHT' }, 409);
+        if (body.uit === true) {
+          if (!(await schrijf(smaakSleutel(naam), { uit: true }))) return druk();
+          const { lb, ...zonder } = speler;
+          if (lb && !(await schrijf(spelerSleutel(naam), zonder))) return druk();
+          return json({ ok: true });
+        }
+        const v = heel(body.v, 0, 9999);
+        if (v == null || !body.s || typeof body.s !== 'object' || Array.isArray(body.s)) return json({ error: 'BAD_SMAAK' }, 400);
+        const geldig = new Set(v > 0 ? ((await lees(vraagSleutel))?.films || []).map((f) => f.key) : []);
+        const oordeel = {};
+        Object.entries(body.s).slice(0, 400).forEach(([k, o]) => {
+          if (!geldig.has(k) || !Array.isArray(o)) return;
+          oordeel[k] = [o[0] == null ? null : heel(o[0], 0, 100), o[1] ? 1 : 0, o[2] ? 1 : 0];
+        });
+        if (!(await schrijf(smaakSleutel(naam), { v, s: oordeel }))) return druk();
+        const lb = { v, n: Object.keys(oordeel).length };
+        if ((speler.lb?.v !== lb.v || speler.lb?.n !== lb.n) && !(await schrijf(spelerSleutel(naam), { ...speler, lb }))) return druk();
+        return json({ ok: true, ...lb });
+      }
+
       if (zaal.fase !== 'genre' && zaal.fase !== 'film') return json({ error: 'DICHT' }, 409);
       if (heel(body.ronde, 0, 99) !== zaal.ronde) return json({ error: 'OUDE_RONDE' }, 409);
       const geldig = new Set(zaal.fase === 'genre' ? (zaal.opties || []).map((o) => o.id) : (zaal.films || []).map((f) => f.key));

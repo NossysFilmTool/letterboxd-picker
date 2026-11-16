@@ -43,6 +43,8 @@ import { matchScore } from './taste.js';
 import { plekGewicht } from './rows.js';
 import { maakHerkenner } from './gezien.js';
 import { filmKey } from './storage.js';
+import { kandidaatVoorSessie } from './samen.js';
+import { aanradersMetZaal } from './zaalgasten.js';
 
 // Onder dit aantal TMDB-stemmen is een film een parel
 export const PAREL_TOT = 800;
@@ -258,11 +260,13 @@ const afwijzingen = (afgewezen) => {
 //   getoond: { id: tijdstip } eerder in de zaal; details: de detailcache van
 //   Voor jou (daar staat soms het IMDb-cijfer in, als tweede mening)
 //   haalDetail, ontdek: de TMDB-aanroepen (te vervangen in tests)
+//   zaal: de gasten met Letterboxd (lib/zaalgasten.js): { oordeel(kandidaten)
+//   geeft een zaalOordeel, gezienWeg, smaakMee }
 // Geeft [{ film: { key, name, year }, m: filmdata, bronnen, via: [titels], parel }]
 export async function zoekAanraders({
   sleutel, meta, genre, filters, diensten = [], dienstIds = [], uit, smaak = null, aantal = 3,
   stemmen = null, tafel = [], lijst = null, sterren = {}, afgewezen = [], bewaard = [], getoond = {}, details = {},
-  nu = Date.now(), rnd = Math.random, haalDetail = fetchDetailById, ontdek = discover,
+  nu = Date.now(), rnd = Math.random, haalDetail = fetchDetailById, ontdek = discover, zaal = null,
 }) {
   const namen = genre?.wijze === 'alles' ? [] : (genre?.namen || []);
   const ids = genreIds(namen);
@@ -375,6 +379,14 @@ export async function zoekAanraders({
     if (meer.length) rij = [...rij, ...(await haal(meer))];
   }
   rij = rij.filter((x, i) => rij.findIndex((y) => y.film.key === x.film.key) === i);
+
+  // De gasten kijken mee: wat iemand al zag zakt weg, hun smaak telt mee
+  if (zaal?.oordeel && rij.length) {
+    try {
+      const oordeel = await zaal.oordeel(rij.map((x) => kandidaatVoorSessie(x.film, x.m)));
+      rij = aanradersMetZaal(rij, oordeel, { gezienWeg: zaal.gezienWeg !== false, smaakMee: zaal.smaakMee !== false, aantal });
+    } catch { /* dan zonder de gasten */ }
+  }
 
   // Een beetje toeval (Gumbel): bij een klein verschil wisselt de volgorde
   // weleens, bij een groot verschil niet
