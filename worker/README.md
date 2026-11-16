@@ -11,7 +11,7 @@ talks to one small Cloudflare Worker (`worker.js`). It runs on the free tier.
 | `/3/...` | TMDB proxy. Adds the API key server-side, so visitors need no key. | Nothing. Film details are cached at the edge for 5 minutes; searches are never cached. |
 | `/lb/<username>` | Letterboxd live. Passes on the public RSS diary feed of one user. | Nothing. The feed is cached for 1 minute. |
 | `/session/...` | Remote voting rounds and For us. | The films on the table, player names, votes, and for For us one score (0 to 100) per film plus whether it is on someone's watchlist or already seen. Never an export or ratings. Deleted after 24 hours. |
-| `/zaal/...` | House vote: phones vote, one screen runs the evening. | Player names, their votes per round, and what the screen puts on the table (genres, three films with poster and trailer id, the result). Only the screen can set a round, with a secret it got when it opened the house; each phone writes its own key. Deleted after 12 hours. |
+| `/zaal/...` | House vote: phones vote, one screen runs the evening. | Player names, their votes per round, and what the screen puts on the table (genres, up to eight films with poster and trailer id, the result). Only the screen can set a round, with a secret it got when it opened the house; each phone writes its own key. Deleted after 12 hours. |
 | `/sync/<id>` | Sync between devices. | Data that each device encrypts itself (AES-GCM) with a key derived from the sync code, which never leaves the devices. The Worker cannot read it. Deleted after six months without a sync. |
 
 ## Protection

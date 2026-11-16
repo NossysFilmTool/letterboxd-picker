@@ -30,9 +30,10 @@ optional features use a small server; see Privacy for exactly what they send.
 - **For us**: everyone opens a link on their own phone, their taste is scored
   there, and the tool picks the film the whole group will like.
 - **House vote**: one screen is the cinema, everyone votes on their own phone
-  with a four-letter code or by scanning the QR code. First a genre, then the smart pick puts three
-  films on the table, the room watches their YouTube trailers, and everyone
-  picks a favourite and a second choice. Ties settle themselves.
+  with a four-letter code or by scanning the QR code. Everyone picks a 1st
+  and 2nd genre, the smart pick puts five films from the list on the table
+  plus three recommendations from outside it, the room watches their YouTube
+  trailers, and everyone picks a 1st and 2nd film. Ties settle themselves.
 - **Tickets**: every pick prints a cinema ticket. Once you have really
   watched it (logged on Letterboxd, answered the tool, or rated it), the stub
   is torn off and goes into your ticket box, with a film year to share.
@@ -92,8 +93,8 @@ needs:
 - **For us and remote voting**: the films on the table, the names you enter,
   and for For us one score per film, worked out on each phone. Never your
   export or your ratings. Deleted after 24 hours.
-- **House vote**: the names you enter, your votes, and the genres and three
-  films on the table. Deleted after 12 hours.
+- **House vote**: the names you enter, your votes, and the genres and films
+  on the table. Deleted after 12 hours.
 - **Sync** (off until you turn it on): your data is encrypted on your device
   with a secret code before it is sent. The server only holds unreadable
   data.
@@ -142,9 +143,10 @@ staat precies wat ze versturen. Sync versleutelt alles eerst op je eigen
 apparaat.
 
 Zaalstemming: één scherm is de zaal, iedereen stemt op de eigen telefoon met
-een code van vier letters of via de QR-code. Eerst op een genre, dan kiest de slimme pick drie
-films, de zaal kijkt de trailers en iedereen kiest een favoriet en een tweede
-keus. Gelijkspel lost zichzelf op.
+een code van vier letters of via de QR-code. Iedereen kiest een 1e en 2e
+genre, de slimme pick legt vijf films van de lijst op tafel plus drie
+aanraders van buiten, de zaal kijkt de trailers en iedereen kiest een 1e en
+2e film. Gelijkspel lost zichzelf op.
 
 Versie 5 maakt er een bioscoop van: een kassa met echte kaartjes, een
 kaartjesdoos voor wat je echt keek, Voor jou, trailers bij de filmavond,

@@ -235,26 +235,48 @@ app kunnen zijn? Dan is het nog niet af.
   inkt, zelf getekend in `src/lib/qr.js`, geen bibliotheek) en een link om te
   delen. Op het startscherm en bij Filmavond kun je een code intikken. De
   namen verschijnen als een rolverdeling.
-- Het verloop: iedereen stemt op een genre, de slimme pick kiest daar drie
-  films uit de pot (films met een trailer gaan voor), de zaal kijkt de echte
-  trailers van YouTube (na de laatste begint de stemming vanzelf), en dan
-  kiest iedereen een favoriet en een tweede keus. De uitslag staat groot in
-  de kleur van de film, met waarom. "Pak het kaartje" geeft een kaartje met
-  alle namen.
-- Gelijkspel lost zichzelf op, zonder overleg, en het scherm zegt hoe:
-  - Genre: zijn er minstens drie films die alle gelijke genres tegelijk zijn,
-    dan worden het die ("films die allebei zijn"). Anders, als iemand op iets
-    anders stemde, een beslissende ronde tussen alleen de gelijke genres: die
-    stemmer beslist. Nog steeds gelijk, of zat iedereen in de gelijkspel, dan
-    van elk wat: één film per genre.
-  - Film: de meeste favorieten wint. Gelijk? Dan de film met de meeste tweede
-    keuzes onder de gelijke films. Nog steeds gelijk? Dan het lot: het licht
-    springt tussen de gelijke films en blijft op één staan.
-- Een ronde sluit vanzelf als iedereen gestemd heeft (bij de films iets later,
-  voor de tweede keus), of eerder met "Sluit de stemming". Wie nog niet
+- Het verloop: iedereen kiest een 1e en een 2e genre, de slimme pick kiest
+  daar vijf films uit de pot (films met een trailer gaan voor), plus drie
+  aanraders van buiten de lijst (aan te zetten in de lobby). De zaal kijkt de
+  echte trailers van YouTube (na de laatste begint de stemming vanzelf), en
+  dan kiest iedereen een 1e en een 2e film. De uitslag staat groot in de
+  kleur van de film, met waarom en de punten. "Pak het kaartje" geeft een
+  kaartje met alle namen.
+- Stemmen gaat met twee knoppen per optie, "1e" en "2e", als kleine
+  kaartjesgaten: gekozen is papier. Nog eens tikken haalt de keus weg; 1e
+  tikken bij je 2e keus (of andersom) wisselt ze. Zo kun je altijd van
+  gedachten veranderen, tot de ronde sluit.
+- Tellen: een 1e keus is 2 punten, een 2e keus 1 punt. Het scherm legt dat
+  uit, en zegt bij de uitslag hoe het besliste:
+  - de meeste punten wint;
+  - gelijk op punten? Dan wat op de meeste lijstjes staat: waar de zaal het
+    breedst achter staat. Kiezen twee mensen elk een andere favoriet maar
+    dezelfde 2e keus, dan wint die 2e keus;
+  - ook gelijk op lijstjes (dan zijn ook de 1e keuzes gelijk)? Bij het genre
+    worden het films die allebei zijn, als dat er genoeg zijn, en anders van
+    elk wat. Bij de film beslist het lot: het licht springt tussen de gelijke
+    films en blijft op één staan.
+- Aanraders (`src/lib/aanraders.js`): films die niet op de lijst staan maar
+  er wel bij passen, binnen het gekozen genre en de avondfilters. Ze komen
+  uit de aanbevelingen die TMDB al bij de films op de lijst gaf (hoe meer
+  films op de lijst hem aanraden, hoe sterker) en uit TMDB Discover. Wat je
+  al hebt, en elk opgeblazen cijfer (fans of bots), valt af. Twee plekken
+  voor de sterkste, de derde is een loterij waarin een parel dubbel kans
+  maakt (hoog cijfer, weinig stemmen; Discover zoekt die op de meeste
+  stemmen binnen die band, niet op het hoogste cijfer, want daar staan de
+  fanclubs bovenaan). Ze staan apart, met waarom: bij welke films op de lijst
+  TMDB hem aanraadt ("TMDB raadt hem aan bij Parasite, op de lijst"), of dat
+  het een parel is. Wint er een, dan telt hij als vondst ("Gevonden in de
+  zaal").
+- Op een breed scherm pakt de zaal de hele breedte: de vijf films van de lijst
+  en de drie aanraders staan naast elkaar in één rij, met de knoppen in
+  beeld.
+- Een ronde sluit vanzelf vier seconden nadat iedereen gestemd heeft (genoeg
+  om nog te wisselen), of eerder met "Sluit de stemming". Wie nog niet
   stemde, staat er als een open rondje bij.
-- De telefoon: één kolom, grote woorden om op te tikken, en wat er gekozen
-  wordt alleen op het grote scherm. Na herladen ben je nog binnen.
+- De telefoon: één kolom, grote woorden met de twee knoppen ernaast, je stem
+  in woorden eronder ("1e Drama, 2e Thriller"), en wat er gekozen wordt
+  alleen op het grote scherm. Na herladen ben je nog binnen.
 - Techniek: de zaal leeft twaalf uur in de Worker (`/zaal`, KV). Elke speler
   schrijft in een eigen sleutel, dus stemmen overschrijven elkaar nooit; het
   scherm leest ze elke twee seconden. Geen `list()`.

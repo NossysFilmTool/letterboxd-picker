@@ -3,10 +3,11 @@
 // telefoons hebben niets nodig behalve een naam. De zaal leeft in de Worker
 // (worker/worker.js, /zaal), twaalf uur lang.
 //
-// Het verloop: iedereen stemt op een genre, de slimme pick kiest daar drie
-// films uit de pot, de zaal kijkt de trailers, en dan stemt iedereen op een
-// favoriet en een tweede keus. Gelijkspel lossen de regels hieronder op,
-// zonder dat iemand hoeft te overleggen.
+// Het verloop: iedereen kiest een 1e en een 2e genre, de slimme pick kiest
+// daar vijf films uit de pot (plus drie aanraders van buiten de lijst, zie
+// lib/aanraders.js), de zaal kijkt de trailers, en dan kiest iedereen een
+// 1e en een 2e film. Een 1e keus is 2 punten, een 2e keus 1 punt. Gelijkspel
+// lossen de regels hieronder op, zonder dat iemand hoeft te overleggen.
 import { PROXY_URL } from './tmdb.js';
 import { nossyScore, pickWinner } from './pick.js';
 
@@ -78,65 +79,108 @@ export function youtubeId(url) {
   return m ? m[1] : null;
 }
 
-// Wat de telefoons van een film te zien krijgen
-export function filmVoorZaal(f, m) {
-  return {
+// Wat de telefoons van een film te zien krijgen. Een aanrader (niet van de
+// lijst) draagt waarom: bij hoeveel films op de lijst TMDB hem aanraadt, of
+// dat het een parel is (hoog cijfer, weinig stemmen).
+export function filmVoorZaal(f, m, aanrader = null) {
+  const film = {
     key: f.key, name: f.name, year: f.year || null,
     poster: m?.poster || null, runtime: m?.runtime || null,
     trailer: youtubeId(m?.trailer), score: nossyScore(m),
   };
+  if (aanrader) {
+    Object.assign(film, { aanrader: true, bronnen: aanrader.bronnen || 0, via: (aanrader.via || []).slice(0, 2), parel: !!aanrader.parel, votes: m?.votes || null });
+  }
+  return film;
 }
 
 const heeft = (meta, f, g) => (meta[f.key]?.genres || []).includes(g);
 
-// De genres op tafel: alles met minstens drie films in de pot, het meest eerst
+// De genres op tafel: wat in de pot genoeg films heeft (liefst vijf, anders
+// drie), het meest eerst
 export function genreOpties(pool, meta, max = 8) {
   const n = {};
   pool.forEach((f) => (meta[f.key]?.genres || []).forEach((g) => { n[g] = (n[g] || 0) + 1; }));
+  const genoeg = Object.values(n).filter((c) => c >= 5).length >= 2 ? 5 : 3;
   return Object.entries(n)
-    .filter(([, c]) => c >= 3)
+    .filter(([, c]) => c >= genoeg)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, max)
     .map(([g, c]) => ({ id: g, naam: g, n: c }));
 }
 
-// De uitslag van een genreronde. Meeste stemmen wint. Bij gelijkspel:
-//   1. allebei: zijn er minstens drie films die alle gelijke genres tegelijk
-//      zijn, dan worden het die. Iedereen krijgt zijn genre.
-//   2. beslissende ronde: stemde iemand op iets anders, dan stemt iedereen
-//      opnieuw tussen alleen de gelijke genres. Wie buiten de gelijkspel
-//      stemde, beslist.
-//   3. van elk wat: nog steeds gelijk (of niemand stemde erbuiten), dan
-//      komen de drie films uit de gelijke genres, één per genre.
-// Geeft { klaar: { namen, wijze, stemmen } } of { opnieuw: [ids] }.
-export function uitslagGenre({ opties, keuzes, pool, meta, beslissend = false }) {
-  const telling = Object.fromEntries(opties.map((o) => [o.id, 0]));
-  keuzes.forEach((k) => { if (k in telling) telling[k] += 1; });
-  const totaal = Object.values(telling).reduce((a, b) => a + b, 0);
-  if (!totaal) return { klaar: { namen: [], wijze: 'alles' }, telling };
-  const max = Math.max(...Object.values(telling));
-  const gelijk = opties.filter((o) => telling[o.id] === max).map((o) => o.id);
-  if (gelijk.length === 1) return { klaar: { namen: gelijk, wijze: beslissend ? 'beslissend' : 'meeste', stemmen: max }, telling };
-  if (pool.filter((f) => gelijk.every((g) => heeft(meta, f, g))).length >= 3) {
-    return { klaar: { namen: gelijk, wijze: 'allebei', stemmen: max }, telling };
-  }
-  if (!beslissend && totaal > max * gelijk.length) return { opnieuw: gelijk, telling };
-  const grootte = (id) => opties.find((o) => o.id === id)?.n || 0;
-  const namen = [...gelijk].sort((a, b) => grootte(b) - grootte(a)).slice(0, 3);
-  return { klaar: { namen, wijze: 'elkWat', stemmen: max }, telling };
+// Een stem is [1e keus, 2e keus], elk een id of null. Tik je 1e of 2e bij
+// iets, dan staat het daar; nog eens tikken haalt het weg. Tik je 1e bij je
+// 2e keus (of andersom), dan wisselen ze. Leeg ([]) is geen stem.
+export function stemZet(huidig, id, plek) {
+  let [e = null, t = null] = huidig || [];
+  if (plek === 0) {
+    if (e === id) e = null;
+    else { if (t === id) t = e; e = id; }
+  } else if (t === id) t = null;
+  else { if (e === id) e = t; t = id; }
+  return e == null && t == null ? [] : [e, t];
 }
 
-// Drie films met de slimme pick (lib/pick.js: hoger cijfer, meer kans;
-// recent gekozen, minder). Films met een trailer gaan voor, als het er
-// genoeg zijn. Bij "van elk wat" eerst één film per genre.
-export function kiesDrie(pool, meta, genre, history = [], rnd = Math.random) {
+// Tellen: 2 punten voor een 1e keus, 1 voor een 2e. Daarnaast op hoeveel
+// lijstjes iets staat, en hoe vaak als 1e keus.
+export function telStemmen(ids, stemmen) {
+  const punten = {};
+  const lijstjes = {};
+  const eersten = {};
+  ids.forEach((id) => { punten[id] = 0; lijstjes[id] = 0; eersten[id] = 0; });
+  stemmen.forEach((s) => {
+    if (!Array.isArray(s)) return;
+    const [e, t] = s;
+    if (e != null && e in punten) { punten[e] += 2; lijstjes[e] += 1; eersten[e] += 1; }
+    if (t != null && t !== e && t in punten) { punten[t] += 1; lijstjes[t] += 1; }
+  });
+  return { punten, lijstjes, eersten };
+}
+
+// Wie bovenaan staat: de meeste punten. Gelijk? Dan wat op de meeste
+// lijstjes staat: waar de zaal het breedst achter staat (kiezen twee mensen
+// elk een andere favoriet maar dezelfde 2e keus, dan wint die 2e keus).
+// Zijn punten en lijstjes allebei gelijk, dan ook de 1e keuzes (punten min
+// lijstjes), dus dan is het echt gelijk.
+export function bovenaan(ids, telling) {
+  const top = (lijst, maat) => {
+    const max = Math.max(...lijst.map((id) => maat[id]));
+    return lijst.filter((id) => maat[id] === max);
+  };
+  const t1 = top(ids, telling.punten);
+  if (t1.length === 1) return { ids: t1, wijze: 'meeste' };
+  const t2 = top(t1, telling.lijstjes);
+  if (t2.length === 1) return { ids: t2, wijze: 'breed' };
+  return { ids: t2, wijze: 'gelijk' };
+}
+
+// De uitslag van de genreronde. Echt gelijk? Zijn er genoeg films die alle
+// gelijke genres tegelijk zijn, dan worden het die (allebei); anders van
+// elk wat, de grootste genres eerst. Niemand gestemd: alles uit de pot.
+export function uitslagGenre({ opties, stemmen, pool, meta, nodig = 5 }) {
+  const ids = opties.map((o) => o.id);
+  const telling = telStemmen(ids, stemmen);
+  if (!Object.values(telling.punten).some(Boolean)) return { namen: [], wijze: 'alles', telling };
+  const b = bovenaan(ids, telling);
+  const punten = telling.punten[b.ids[0]];
+  if (b.wijze !== 'gelijk') return { namen: b.ids, wijze: b.wijze, punten, telling };
+  if (pool.filter((f) => b.ids.every((g) => heeft(meta, f, g))).length >= nodig) return { namen: b.ids, wijze: 'allebei', punten, telling };
+  const grootte = (id) => opties.find((o) => o.id === id)?.n || 0;
+  return { namen: [...b.ids].sort((a, c) => grootte(c) - grootte(a)).slice(0, 3), wijze: 'elkWat', punten, telling };
+}
+
+// Vijf films van de lijst met de slimme pick (lib/pick.js: hoger cijfer,
+// meer kans; recent gekozen, minder). Films met een trailer gaan voor, als
+// het er genoeg zijn. Bij "van elk wat" eerst één film per genre.
+export function kiesFilms(pool, meta, genre, history = [], n = 5, rnd = Math.random) {
   const namen = genre?.namen || [];
   let basis = pool;
   if (namen.length && genre.wijze === 'allebei') basis = pool.filter((f) => namen.every((g) => heeft(meta, f, g)));
   else if (namen.length && genre.wijze !== 'alles') basis = pool.filter((f) => namen.some((g) => heeft(meta, f, g)));
-  if (basis.length < 3) basis = pool;
+  if (!basis.length) basis = pool;
   const metTrailer = basis.filter((f) => meta[f.key]?.trailer);
-  const bron = metTrailer.length >= 3 ? metTrailer : basis;
+  const bron = metTrailer.length >= n ? metTrailer : basis;
   const gekozen = [];
   const trek = (uit) => {
     const f = pickWinner(uit.filter((x) => !gekozen.includes(x)), meta, true, history, rnd);
@@ -145,41 +189,20 @@ export function kiesDrie(pool, meta, genre, history = [], rnd = Math.random) {
   };
   if (genre?.wijze === 'elkWat') {
     namen.forEach((g) => {
-      if (gekozen.length < 3 && !trek(bron.filter((f) => heeft(meta, f, g)))) trek(basis.filter((f) => heeft(meta, f, g)));
+      if (gekozen.length < n && !trek(bron.filter((f) => heeft(meta, f, g)))) trek(basis.filter((f) => heeft(meta, f, g)));
     });
   }
-  while (gekozen.length < 3 && trek(bron));
-  while (gekozen.length < 3 && trek(basis));
+  while (gekozen.length < n && trek(bron));
+  while (gekozen.length < n && trek(basis));
   return gekozen;
 }
 
-// Tikken in de filmronde: de eerste tik is je favoriet, een tik op een andere
-// film je tweede keus, nog eens op de tweede keus haalt die weg.
-export function tikFilm(huidig, key) {
-  const [fav, tweede] = huidig || [];
-  if (!fav || key === fav) return [key];
-  if (key === tweede) return [fav];
-  return [fav, key];
-}
-
-// De uitslag van de filmronde. Elke stem is [favoriet, tweede keus?].
-//   1. de meeste favorieten wint;
-//   2. gelijk? Dan wint van de gelijke films die met de meeste tweede keuzes:
-//      wat de rest van de zaal ervan vindt, geeft de doorslag;
-//   3. nog steeds gelijk? Dan het lot, tussen alleen die films.
+// De uitslag van de filmronde: zoals hierboven, en is het echt gelijk, dan
+// het lot, tussen alleen die films.
 export function uitslagFilm(films, stemmen, rnd = Math.random) {
-  const telling = Object.fromEntries(films.map((f) => [f.key, 0]));
-  const tweede = Object.fromEntries(films.map((f) => [f.key, 0]));
-  stemmen.forEach((s) => {
-    if (!Array.isArray(s)) return;
-    if (s[0] in telling) telling[s[0]] += 1;
-    if (s[1] in tweede && s[1] !== s[0]) tweede[s[1]] += 1;
-  });
-  const max = Math.max(...Object.values(telling));
-  const gelijk = films.map((f) => f.key).filter((k) => telling[k] === max);
-  if (gelijk.length === 1) return { key: gelijk[0], wijze: 'meeste', telling, tweede, kandidaten: gelijk };
-  const max2 = Math.max(...gelijk.map((k) => tweede[k]));
-  const nogGelijk = gelijk.filter((k) => tweede[k] === max2);
-  if (nogGelijk.length === 1) return { key: nogGelijk[0], wijze: 'tweede', telling, tweede, kandidaten: gelijk };
-  return { key: nogGelijk[Math.floor(rnd() * nogGelijk.length)], wijze: 'lot', telling, tweede, kandidaten: nogGelijk };
+  const ids = films.map((f) => f.key);
+  const telling = telStemmen(ids, stemmen);
+  const b = bovenaan(ids, telling);
+  const key = b.wijze === 'gelijk' ? b.ids[Math.floor(rnd() * b.ids.length)] : b.ids[0];
+  return { key, wijze: b.wijze === 'gelijk' ? 'lot' : b.wijze, ...telling, kandidaten: b.ids };
 }

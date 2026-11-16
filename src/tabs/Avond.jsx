@@ -98,7 +98,13 @@ export default function Avond({ app }) {
     }
     setZaalBezig(false);
   };
-  const zaalWinnaar = (film, namen) => {
+  // Een aanrader van buiten de lijst die wint: zijn filmdata erbij (voor het
+  // kaartje en de filmkaart), en hij telt als iets dat de tool je liet vinden
+  const zaalWinnaar = (film, namen, filmdata) => {
+    if (filmdata) {
+      app.setMeta((m) => ({ ...m, [film.key]: filmdata }));
+      app.vondst?.({ key: film.key, id: filmdata.id, name: film.name, year: film.year, poster: filmdata.poster }, { bron: 'zaal', sterk: true });
+    }
     setZaal(null);
     setChampionBron('zaal');
     setChampionNamen(namen);
@@ -243,7 +249,7 @@ export default function Avond({ app }) {
 
   // ---------- zaalstemming: dit scherm is de zaal ----------
   if (zaal) {
-    return <ZaalScherm app={app} pool={basePool} meta={meta} zaal={zaal} onWinnaar={zaalWinnaar} onStop={() => setZaal(null)} />;
+    return <ZaalScherm app={app} pool={basePool} meta={meta} zaal={zaal} filters={filters} diensten={diensten} onWinnaar={zaalWinnaar} onStop={() => setZaal(null)} />;
   }
 
   // ---------- even spieken (info-kaart) ----------

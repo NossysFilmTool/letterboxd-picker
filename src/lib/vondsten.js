@@ -15,7 +15,7 @@
 // Stond hij vóór de vondst al in je dagboek, dan telt hij niet.
 //
 // Een vondst: { key, id, name, year, poster, bron: 'voorjou'|'zoeken'|
-//   'vergelijkbaar', eerst, laatst, sterk } (tijden in ms)
+//   'vergelijkbaar'|'zaal', eerst, laatst, sterk } (tijden in ms)
 
 const UUR = 3600e3;
 const DAG = 24 * UUR;

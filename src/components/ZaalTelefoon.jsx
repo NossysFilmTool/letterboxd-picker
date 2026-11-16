@@ -3,11 +3,11 @@ import { useT } from '../lib/i18n.js';
 import { IMG } from '../lib/tmdb.js';
 import { leesOpslag, schrijfOpslag } from '../lib/storage.js';
 import { usePoll } from '../lib/usePoll.js';
-import { haalZaal, doeMee, stuurStem, nieuwToken, doetMee, tikFilm } from '../lib/zaalstemming.js';
-import { lijstje, genreKop, genreZin, uitslagZin, ZaalFilmInhoud, ZaalCodeInvoer } from './ZaalDelen.jsx';
+import { haalZaal, doeMee, stuurStem, nieuwToken, doetMee } from '../lib/zaalstemming.js';
+import { lijstje, genreKop, genreZin, uitslagZin, stemTekst, ZaalFilmInhoud, ZaalCodeInvoer, StemKnoppen } from './ZaalDelen.jsx';
 
 // De telefoon bij een zaalstemming (?zaal=CODE): een naam, en dan per ronde
-// stemmen. Geen watchlist of account nodig; alles komt uit de zaal. Wat er
+// een 1e en een 2e keus, die je kunt wisselen of terugnemen. Geen watchlist of account nodig; alles komt uit de zaal. Wat er
 // gekozen wordt, staat op het grote scherm (ZaalScherm.jsx).
 const IK = 'zaalIk'; // { [code]: { naam, token } }, zodat herladen je stem niet kost
 
@@ -130,23 +130,27 @@ export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
     );
   }
 
+  // Je stem in deze ronde: wat je net tikte, of wat de zaal van je heeft
+  const naamVan = (id) => (zaal.opties || []).find((o) => o.id === id)?.naam || films.find((f) => f.key === id)?.name || id;
+  const status = gekozen?.length > 0 && (
+    <p className="zs-t-status" role="status">{tr('zaal.tJouwStem', { stem: stemTekst(gekozen, naamVan, tr) })}</p>
+  );
+
   if (zaal.fase === 'genre') {
     const opties = zaal.opties || [];
-    const gekozenNaam = opties.find((o) => o.id === gekozen)?.naam;
     return scherm(
       <>
-        <h1 className="zs-t-kop">{zaal.beslissend ? tr('zaal.rondeBeslissend') : tr('zaal.tKiesGenre')}</h1>
-        {zaal.beslissend && <p className="zs-t-sub">{tr('zaal.gelijkTussen', { lijst: lijstje(opties.map((o) => o.naam), tr) })}</p>}
+        <h1 className="zs-t-kop">{tr('zaal.tKiesGenre')}</h1>
+        <p className="zs-t-sub">{tr('zaal.tStemUitleg')}</p>
         <ul className="zs-t-opties">
           {opties.map((o) => (
-            <li key={o.id}>
-              <button type="button" className="zs-t-optie" aria-pressed={gekozen === o.id} onClick={() => stem(o.id)}>
-                <span>{o.naam}</span><span className="zs-optie-n">{tr('zaal.nFilms', { count: o.n })}</span>
-              </button>
+            <li key={o.id} className="zs-t-optie">
+              <span className="zs-t-optie-naam">{o.naam}<span className="zs-optie-n">{tr('zaal.nFilms', { count: o.n })}</span></span>
+              <StemKnoppen id={o.id} naam={o.naam} stem={gekozen} onStem={stem} />
             </li>
           ))}
         </ul>
-        {gekozenNaam && <p className="zs-t-status" role="status">{tr('zaal.tGestemdOp', { keuze: gekozenNaam })} {tr('zaal.tWachtRest')}</p>}
+        {status}
       </>,
     );
   }
@@ -156,23 +160,38 @@ export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
       {tr('zaal.tTrailerYoutube', { name: f.name })}
     </a>
   );
+  // Eerst de films van de lijst, dan de aanraders, elk met een kopje
+  const groepen = (regel) => {
+    const lijst = films.filter((f) => !f.aanrader);
+    const aanraders = films.filter((f) => f.aanrader);
+    const ol = (fs) => <ol className="zs-t-films">{fs.map(regel)}</ol>;
+    if (!aanraders.length) return ol(lijst);
+    return (
+      <>
+        <p className="label-breed zs-groep">{tr('zaal.vanLijst')}</p>
+        {ol(lijst)}
+        <p className="label-breed zs-groep">{tr('zaal.aanradersKop')}</p>
+        {ol(aanraders)}
+      </>
+    );
+  };
 
   if (zaal.fase === 'film') {
     const badge = (f) => (gekozen?.[0] === f.key ? tr('zaal.favoriet') : gekozen?.[1] === f.key ? tr('zaal.tweede') : null);
     return scherm(
       <>
-        <h1 className="zs-t-kop">{gekozen?.length > 1 ? tr('zaal.tKlaar') : gekozen?.length ? tr('zaal.tKiesTweede') : tr('zaal.tKiesFavoriet')}</h1>
-        <ol className="zs-t-films">
-          {films.map((f) => (
-            <li key={f.key}>
-              <button type="button" className="zs-film" aria-pressed={!!badge(f)} onClick={() => stem(tikFilm(gekozen, f.key))}>
-                <ZaalFilmInhoud film={f} badge={badge(f)} />
-              </button>
-              {trailerLink(f)}
-            </li>
-          ))}
-        </ol>
-        {gekozen?.length > 0 && <p className="zs-t-status" role="status">{gekozen.length > 1 ? tr('zaal.tWachtRest') : tr('zaal.tStemBinnen')}</p>}
+        <h1 className="zs-t-kop">{tr('zaal.tKiesFilm')}</h1>
+        <p className="zs-t-sub">{tr('zaal.tStemUitleg')}</p>
+        {status}
+        {groepen((f) => (
+          <li key={f.key}>
+            <div className="zs-t-filmregel">
+              <div className="zs-film"><ZaalFilmInhoud film={f} badge={badge(f)} /></div>
+              <StemKnoppen id={f.key} naam={f.name} stem={gekozen} onStem={stem} />
+            </div>
+            {trailerLink(f)}
+          </li>
+        ))}
       </>,
     );
   }
@@ -181,15 +200,13 @@ export default function ZaalTelefoon({ code, onWeg, onCode, pollMs = 2000 }) {
   return scherm(
     <>
       <h1 className="zs-t-kop">{genreKop(zaal.genre, tr)}</h1>
-      <p className="zs-t-sub">{genreZin(zaal.genre, tr, !!zaal.beslissend)} {tr('zaal.tTrailersOpScherm')}</p>
-      <ol className="zs-t-films">
-        {films.map((f) => (
-          <li key={f.key}>
-            <div className="zs-film"><ZaalFilmInhoud film={f} /></div>
-            {trailerLink(f)}
-          </li>
-        ))}
-      </ol>
+      <p className="zs-t-sub">{genreZin(zaal.genre, tr)} {tr('zaal.tTrailersOpScherm')}</p>
+      {groepen((f) => (
+        <li key={f.key}>
+          <div className="zs-film"><ZaalFilmInhoud film={f} /></div>
+          {trailerLink(f)}
+        </li>
+      ))}
     </>,
   );
 }

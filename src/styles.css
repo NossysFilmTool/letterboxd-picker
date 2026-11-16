@@ -1195,12 +1195,17 @@ button.zinwoord { padding: 0; background: none; border: none; border-bottom: 2px
 
 /* Een stemronde: de opties groot, wie al stemde eronder */
 .zs-opties { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); column-gap: 32px; border-top: 1px solid var(--line-strong); }
-.zs-optie { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%; min-height: 64px; padding: 12px 0; border: none; border-bottom: 1px solid var(--line); background: none; color: var(--paper); text-align: left; font: inherit; }
+.zs-optie { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 button.zs-optie { cursor: pointer; }
-.zs-optie-naam { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 40px; line-height: 1; }
+.zs-optie-naam { flex: 1; min-width: 0; font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 40px; line-height: 1; overflow-wrap: anywhere; }
 .zs-optie-n { flex-shrink: 0; font-size: 13px; color: var(--fog); font-variant-numeric: tabular-nums; }
-.zs-optie[aria-pressed="true"] .zs-optie-naam, .zs-t-optie[aria-pressed="true"] span:first-child { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 7px; }
-.zs-optie:focus-visible, .zs-t-optie:focus-visible, .zs-film:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+/* De stemknoppen: 1e en 2e, als twee kleine kaartjesgaten; gekozen is papier */
+.zs-stemknoppen { display: inline-flex; flex-shrink: 0; gap: 8px; }
+.zs-stemknop { min-width: 52px; min-height: 44px; padding: 0 10px; border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: none; color: var(--fog); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s; }
+.zs-stemknop:hover { border-color: var(--paper); color: var(--paper); }
+.zs-stemknop[aria-pressed="true"] { background: var(--paper); border-color: var(--paper); color: var(--ink); }
+.zs-stemknop:focus-visible { outline: 2px solid var(--paper); outline-offset: 2px; }
+
 .zs-wie { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
 .zs-wie-namen { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; flex: 1 1 320px; }
 .zs-wie-namen li { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: var(--fog-dim); }
@@ -1210,13 +1215,26 @@ button.zs-optie { cursor: pointer; }
 .zs-wie-stand { font-size: 15px; color: var(--fog); font-variant-numeric: tabular-nums; }
 
 /* De drie films */
-.zs-films { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+/* De films op tafel: de lijst en de aanraders naast elkaar, in één rij */
+.zs-filmgroepen { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 32px; }
+.zs-filmgroepen.met-aanraders { grid-template-columns: var(--kolommen); }
+.zs-filmgroep { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.zs-groep { color: var(--fog); }
+.zs-films { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr)); gap: 18px 16px; }
+/* Op een breed scherm (een tv) mag de zaal de hele breedte pakken */
+@media (min-width: 1100px) {
+  .zs-breed { width: min(1400px, calc(100vw - 64px)); margin-left: calc((100% - min(1400px, calc(100vw - 64px))) / 2); }
+}
+.zs-films li { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .zs-films li { animation: zs-in 0.45s ease-out both; animation-delay: calc(var(--i, 0) * 110ms); }
 .zs-film { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 0; border: none; background: none; color: var(--paper); text-align: left; font: inherit; transition: opacity 0.08s; }
 button.zs-film { cursor: pointer; }
 .zs-film-poster { position: relative; display: block; aspect-ratio: 2 / 3; background: var(--char-2); overflow: hidden; }
 /* Op het scherm passen de posters, de titels en de knoppen samen in beeld */
-.zs-films .zs-film-poster { width: min(100%, calc(38vh * 2 / 3)); }
+.zs-films .zs-film-poster { width: min(100%, calc(34vh * 2 / 3)); }
+.zs-films .zs-film-titel { font-size: 22px; }
+.zs-films .zs-film-sub { font-size: 12.5px; gap: 0 8px; }
+.zs-films .zs-stemknoppen .zs-stemknop { min-width: 44px; }
 .zs-film-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .zs-film-leeg { display: grid; place-items: center; height: 100%; padding: 12px; font-size: 14px; color: var(--fog); text-align: center; }
 .zs-film-badge { position: absolute; top: 10px; left: 10px; padding: 4px 10px; background: var(--paper); color: var(--ink); font-size: 13px; font-weight: 700; }
@@ -1224,6 +1242,7 @@ button.zs-film { cursor: pointer; }
 .zs-film-tekst { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .zs-film-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 30px; line-height: 1; overflow-wrap: anywhere; }
 .zs-film-sub { display: flex; flex-wrap: wrap; gap: 0 12px; font-size: 13.5px; color: var(--fog); font-variant-numeric: tabular-nums; }
+.zs-film-reden { font-size: 12.5px; line-height: 1.35; color: var(--fog); }
 /* Het lot: het licht springt tussen de gelijke films */
 .zs-films.lot .zs-film { opacity: 0.32; }
 .zs-films.lot .zs-film.licht { opacity: 1; }
@@ -1280,13 +1299,17 @@ button.zs-film { cursor: pointer; }
 .zs-t-veld .field { font-size: 18px; padding: 12px 14px; }
 .zs-t-aanmelden .btn { align-self: flex-start; min-height: 52px; }
 .zs-t-opties { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
-.zs-t-optie { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 0; border: none; border-bottom: 1px solid var(--line); background: none; color: var(--paper); text-align: left; font: inherit; cursor: pointer; }
-.zs-t-optie span:first-child { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 34px; line-height: 1; }
+.zs-t-optie { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 64px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.zs-t-optie-naam { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 32px; line-height: 1; overflow-wrap: anywhere; }
+.zs-t-optie-naam .zs-optie-n { font-family: var(--font-display); font-stretch: 100%; font-weight: 400; }
+.zs-t-filmregel { display: flex; align-items: center; gap: 12px; }
+.zs-t-filmregel .zs-film { flex: 1; min-width: 0; }
+.zs-t-filmregel .zs-stemknoppen { flex-direction: column; gap: 6px; }
 .zs-t-status { font-size: 15.5px; line-height: 1.45; }
 .zs-t-films { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .zs-t-films li { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.zs-t-films .zs-film { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: 14px; }
-.zs-t-films .zs-film-titel { font-size: 28px; }
+.zs-t-films .zs-film { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; }
+.zs-t-films .zs-film-titel { font-size: 24px; }
 .zs-t-films .zs-film-badge { top: 6px; left: 6px; padding: 2px 6px; font-size: 11.5px; }
 .zs-t-trailer { align-self: flex-start; min-height: 32px; display: inline-flex; align-items: center; font-size: 13.5px; color: var(--fog); }
 .zs-t-uitslag { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
@@ -1296,6 +1319,8 @@ button.zs-film { cursor: pointer; }
 .zs-weg { align-self: flex-start; min-height: 44px; margin-top: 18px; font-size: 13.5px; color: var(--fog-dim); }
 
 @media (max-width: 860px) {
+  .zs-filmgroepen.met-aanraders { grid-template-columns: minmax(0, 1fr); }
+  .zs-films { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .zs-lobby { grid-template-columns: minmax(0, 1fr); }
   .zs-kaart { grid-template-columns: minmax(0, 1fr); }
 }

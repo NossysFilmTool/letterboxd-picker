@@ -263,24 +263,36 @@ export default {
             .map((o) => ({ id: tekst(o?.id, 40), naam: tekst(o?.naam, 40), n: heel(o?.n, 0, 9999) ?? 0 }))
             .filter((o) => o.id);
         }
-        if (s.beslissend === true) nieuw.beslissend = true;
         if (s.genre && typeof s.genre === 'object') {
           nieuw.genre = {
             namen: (Array.isArray(s.genre.namen) ? s.genre.namen : []).slice(0, 6).map((g) => tekst(g, 40)).filter(Boolean),
-            wijze: ['meeste', 'allebei', 'beslissend', 'elkWat', 'alles'].includes(s.genre.wijze) ? s.genre.wijze : 'meeste',
-            stemmen: heel(s.genre.stemmen, 0, 99),
+            wijze: ['meeste', 'breed', 'allebei', 'elkWat', 'alles'].includes(s.genre.wijze) ? s.genre.wijze : 'meeste',
+            punten: heel(s.genre.punten, 0, 99),
           };
         }
+        // Vijf films van de lijst en tot drie aanraders van buiten
         if (Array.isArray(s.films)) {
-          nieuw.films = s.films.slice(0, 3).map((f) => ({
-            key: tekst(f?.key, 120),
-            name: tekst(f?.name, 120),
-            year: heel(f?.year, 1870, 2100),
-            poster: typeof f?.poster === 'string' && /^\/[\w.-]{1,60}$/.test(f.poster) ? f.poster : null,
-            runtime: heel(f?.runtime, 1, 999),
-            trailer: typeof f?.trailer === 'string' && /^[\w-]{6,20}$/.test(f.trailer) ? f.trailer : null,
-            score: f?.score != null && Number.isFinite(+f.score) ? Math.round(+f.score * 10) / 10 : null,
-          })).filter((f) => f.key && f.name);
+          nieuw.films = s.films.slice(0, 8).map((f) => {
+            const film = {
+              key: tekst(f?.key, 120),
+              name: tekst(f?.name, 120),
+              year: heel(f?.year, 1870, 2100),
+              poster: typeof f?.poster === 'string' && /^\/[\w.-]{1,60}$/.test(f.poster) ? f.poster : null,
+              runtime: heel(f?.runtime, 1, 999),
+              trailer: typeof f?.trailer === 'string' && /^[\w-]{6,20}$/.test(f.trailer) ? f.trailer : null,
+              score: f?.score != null && Number.isFinite(+f.score) ? Math.round(+f.score * 10) / 10 : null,
+            };
+            if (f?.aanrader === true) {
+              Object.assign(film, {
+                aanrader: true,
+                bronnen: heel(f.bronnen, 0, 99) ?? 0,
+                via: (Array.isArray(f.via) ? f.via : []).slice(0, 2).map((v) => tekst(v, 80)).filter(Boolean),
+                parel: f.parel === true,
+                votes: heel(f.votes, 0, 1e7),
+              });
+            }
+            return film;
+          }).filter((f) => f.key && f.name);
         }
         if (s.uitslag && typeof s.uitslag === 'object' && nieuw.films) {
           const keys = new Set(nieuw.films.map((f) => f.key));
@@ -288,10 +300,11 @@ export default {
             .filter(([k]) => keys.has(k)).map(([k, v]) => [k, heel(v, 0, 99) ?? 0]));
           nieuw.uitslag = {
             key: keys.has(s.uitslag.key) ? s.uitslag.key : null,
-            wijze: ['meeste', 'tweede', 'lot'].includes(s.uitslag.wijze) ? s.uitslag.wijze : 'meeste',
-            telling: telling(s.uitslag.telling),
-            tweede: telling(s.uitslag.tweede),
-            kandidaten: (Array.isArray(s.uitslag.kandidaten) ? s.uitslag.kandidaten : []).filter((k) => keys.has(k)).slice(0, 3),
+            wijze: ['meeste', 'breed', 'lot'].includes(s.uitslag.wijze) ? s.uitslag.wijze : 'meeste',
+            punten: telling(s.uitslag.punten),
+            lijstjes: telling(s.uitslag.lijstjes),
+            eersten: telling(s.uitslag.eersten),
+            kandidaten: (Array.isArray(s.uitslag.kandidaten) ? s.uitslag.kandidaten : []).filter((k) => keys.has(k)).slice(0, 8),
           };
         }
         if (!(await schrijf(sleutel, nieuw))) return druk();
@@ -320,20 +333,19 @@ export default {
         return json({ ok: true, naam: inDeZaal ? zaal.spelers.find((n) => slug(n) === slug(naam)) : naam, zaal: openbaar(zaal) });
       }
 
-      // Stemmen: alleen in een open ronde, alleen op wat er op tafel ligt
+      // Stemmen: alleen in een open ronde, alleen op wat er op tafel ligt. Een
+      // stem is [1e keus, 2e keus], elk een optie of null; allebei leeg
+      // betekent: stem teruggenomen.
       if (!speler || speler.t !== th || !inDeZaal) return json({ error: 'GEEN_TOEGANG' }, 403);
       if (zaal.fase !== 'genre' && zaal.fase !== 'film') return json({ error: 'DICHT' }, 409);
       if (heel(body.ronde, 0, 99) !== zaal.ronde) return json({ error: 'OUDE_RONDE' }, 409);
-      let keuze = null;
-      if (zaal.fase === 'genre') {
-        if (typeof body.keuze === 'string' && (zaal.opties || []).some((o) => o.id === body.keuze)) keuze = body.keuze;
-      } else if (Array.isArray(body.keuze)) {
-        const keys = new Set((zaal.films || []).map((f) => f.key));
-        const k = body.keuze.slice(0, 2);
-        if (k.length && k.every((x) => keys.has(x)) && new Set(k).size === k.length) keuze = k;
-      }
-      if (!keuze) return json({ error: 'BAD_KEUZE' }, 400);
-      const stemmen = { ...(speler.stemmen || {}), [zaal.ronde]: keuze };
+      const geldig = new Set(zaal.fase === 'genre' ? (zaal.opties || []).map((o) => o.id) : (zaal.films || []).map((f) => f.key));
+      if (!Array.isArray(body.keuze) || body.keuze.length > 2) return json({ error: 'BAD_KEUZE' }, 400);
+      const keuze = [body.keuze[0] ?? null, body.keuze[1] ?? null];
+      if (keuze.some((x) => x !== null && !geldig.has(x)) || (keuze[0] !== null && keuze[0] === keuze[1])) return json({ error: 'BAD_KEUZE' }, 400);
+      const stemmen = { ...(speler.stemmen || {}) };
+      if (keuze[0] === null && keuze[1] === null) delete stemmen[zaal.ronde];
+      else stemmen[zaal.ronde] = keuze;
       Object.keys(stemmen).map(Number).sort((a, b) => a - b).slice(0, -10).forEach((r) => { delete stemmen[r]; });
       if (!(await schrijf(spelerSleutel(naam), { ...speler, stemmen }))) return druk();
       return json({ ok: true });
