@@ -241,13 +241,28 @@ app kunnen zijn? Dan is het nog niet af.
   echte trailers van YouTube (na de laatste begint de stemming vanzelf), en
   dan kiest iedereen een 1e en een 2e film. De uitslag staat groot in de
   kleur van de film, met waarom en de punten. "Pak het kaartje" geeft een
-  kaartje met alle namen.
+  kaartje met alle namen. Elke telefoon krijgt hetzelfde kaartje mee naar
+  huis: bewaren zet het in de kaartjesdoos op die telefoon (de tool vraagt
+  later of je hem keek), delen maakt er een plaatje van. De regie, de
+  rolverdeling en waar hij te zien is, haalt de telefoon zelf bij TMDB.
 - Zo speelt de zaal: in de lobby kiest de gastheer hoe de avond loopt, in
   dezelfde rijen als de avondfilters, onthouden op het toestel. Eerst samen
   een genre kiezen of meteen naar de films; drie, vier of vijf films van de
-  lijst; geen tot drie aanraders; of gasten hun Letterboxd mogen laten
-  meetellen, en zo ja wat dat doet (al gezien gaat eruit, hun smaak weegt
-  mee); en of een ronde vanzelf sluit of met de hand.
+  lijst; geen tot drie aanraders; geen tot drie voordrachten van gasten; of
+  gasten hun Letterboxd mogen laten meetellen, en zo ja wat dat doet (al
+  gezien gaat eruit, hun smaak weegt mee); en of een ronde vanzelf sluit of
+  met de hand.
+- Voordragen (`ZaalVoordracht.jsx`): staat het aan, dan kan elke gast op de
+  telefoon zelf een film voordragen, tot de films op tafel komen (in de
+  lobby en tijdens de genrestemming). Zoeken op titel, één tik, en een
+  andere kiezen of intrekken kan altijd. Het scherm laat onder de namen
+  zien wie wat voordraagt. De voordrachten komen als eigen groep op tafel
+  ("Voorgedragen door gasten"), met de naam erbij; ligt de film al op tafel
+  van de lijst, dan krijgt die de naam. Zijn er meer voordrachten dan plek,
+  dan gaat voor wat meer gasten voordroegen, dan wat bij het genre past, en
+  verder beslist het lot; het scherm zegt dat erbij. Een voordracht hoeft
+  niet bij het genre te passen: het is de eigen keus van een gast. Geen
+  aanrader die iemand al voordroeg.
 - Gasten met Letterboxd (`src/lib/zaalgasten.js`, `ZaalLetterboxd.jsx`):
   staat het aan, dan vraagt de telefoon "Mag de zaal rekening houden met
   jou?". Het hoeft niet, en nee is één tik. Kent de telefoon je al (een
@@ -315,9 +330,14 @@ app kunnen zijn? Dan is het nog niet af.
   (die op tafel eerst: "TMDB raadt hem aan bij Parasite, op de lijst"), of
   dat het een parel is. Wint er een, dan telt hij als vondst ("Gevonden in
   de zaal").
-- Op een breed scherm pakt de zaal de hele breedte: de vijf films van de lijst
-  en de drie aanraders staan naast elkaar in één rij, met de knoppen in
-  beeld.
+- Op een breed scherm pakt de zaal de hele breedte: de films van de lijst,
+  de aanraders en de voordrachten staan naast elkaar in één rij, met de
+  knoppen in beeld.
+- Tijdens de trailers kijken de telefoons mee: "Nu op het scherm: trailer 3
+  van 8", met de film en de twee knoppen. Wie het al weet, stemt alvast;
+  dat telt zodra het stemmen begint en gaat dan meteen de deur uit. Het
+  scherm meldt alleen de laatste stand (wie snel doortikt, stuurt niet elke
+  trailer apart) en maakt die af voor de stemming opengaat.
 - Een ronde sluit vanzelf vier seconden nadat iedereen een 1e en een 2e keus
   heeft (genoeg om nog te wisselen), of eerder met "Sluit de stemming" (koos
   de gastheer "Sluiten met de hand", dan alleen zo). Heeft
@@ -335,7 +355,9 @@ app kunnen zijn? Dan is het nog niet af.
   schrijft in een eigen sleutel, dus stemmen overschrijven elkaar nooit; het
   scherm leest ze elke twee seconden. Geen `list()`. De films voor de gasten
   met Letterboxd staan in één sleutel die groeit (`/vraag`), elk oordeel in
-  een eigen sleutel (`/smaak`); alleen het scherm leest de oordelen.
+  een eigen sleutel (`/smaak`); alleen het scherm leest de oordelen. Elke
+  voordracht staat ook in een eigen sleutel (`/voordracht`), zodat hij nooit
+  botst met een stem of een oordeel van dezelfde telefoon.
 
 ## De première
 

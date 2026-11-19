@@ -5104,20 +5104,20 @@ describe('Zaalstemming', () => {
     // terugnemen: een lege stem haalt hem weg
     expect((await vraag(`/zaal/${C}/stem`, { naam: 'Bram', token: tB, ronde: 1, keuze: [] })).status).toBe(200);
     expect((await (await vraag(`/zaal/${C}/stand`, { geheim: nieuw.geheim })).json()).stemmen.Bram).toEqual({});
-    // acht films op tafel, aanraders met waarom
-    const films = Array.from({ length: 9 }, (_, i) => ({ key: `f${i}|2000`, name: `F${i}`, year: 2000, poster: '/x.jpg', trailer: 'abcdef123', score: 7.25 }));
+    // twaalf films op tafel (lijst, aanraders, voordrachten), aanraders met waarom
+    const films = Array.from({ length: 13 }, (_, i) => ({ key: `f${i}|2000`, name: `F${i}`, year: 2000, poster: '/x.jpg', trailer: 'abcdef123', score: 7.25 }));
     films[0].poster = 'javascript:x';
     Object.assign(films[6], { aanrader: true, bronnen: 3, parel: false, votes: 4000 });
     const genre = { namen: ['Drama', 'Horror'], wijze: 'ook', punten: 5 };
     const r2 = await (await vraag(`/zaal/${C}/zet`, { geheim: nieuw.geheim, staat: { fase: 'film', ronde: 2, films, genre } })).json();
     expect(r2.zaal.genre).toEqual(genre);
-    expect(r2.zaal.films).toHaveLength(8);
+    expect(r2.zaal.films).toHaveLength(12);
     expect(r2.zaal.films[0].poster).toBeNull();
     expect(r2.zaal.films[1]).toMatchObject({ poster: '/x.jpg', trailer: 'abcdef123', score: 7.3 });
     expect(r2.zaal.films[1].aanrader).toBeUndefined();
     expect(r2.zaal.films[6]).toMatchObject({ aanrader: true, bronnen: 3, parel: false, votes: 4000 });
     expect((await vraag(`/zaal/${C}/stem`, { naam: 'Bram', token: tB, ronde: 2, keuze: ['f7|2000', 'f1|2000'] })).status).toBe(200);
-    expect((await vraag(`/zaal/${C}/stem`, { naam: 'Bram', token: tB, ronde: 2, keuze: ['f8|2000'] })).status).toBe(400);
+    expect((await vraag(`/zaal/${C}/stem`, { naam: 'Bram', token: tB, ronde: 2, keuze: ['f12|2000'] })).status).toBe(400);
     expect((await (await vraag(`/zaal/${C}/stand`, { geheim: nieuw.geheim })).json()).stemmen.Bram).toEqual({ 2: ['f7|2000', 'f1|2000'] });
     // botst een schrijver met KV, dan 429: de app probeert het zo opnieuw
     SESSIONS.put = async () => { throw new Error('KV PUT failed: 429 Too Many Requests'); };
@@ -5595,6 +5595,256 @@ describe('Zaalstemming', () => {
     } finally {
       delete global.fetch;
       delete document.hidden;
+    }
+  });
+
+  it('voordrachten: per film met wie hem voordroeg; bij te veel gaat voor wat vaker voorgedragen is en bij het genre past', async () => {
+    const { voordrachtenPerFilm, kiesVoordrachten, filmVoorZaal } = await import('./src/lib/zaalstemming.js');
+    const per = voordrachtenPerFilm({
+      Anna: { id: 1, name: 'Heat', year: 1995 }, Bram: { id: 2, name: 'Clue', year: 1985, poster: '/c.jpg' },
+      Cas: { id: 1, name: 'Heat', year: 1995 }, Dirk: { name: 'Zonder nummer' },
+    });
+    expect(per).toEqual([
+      { id: 1, name: 'Heat', year: 1995, poster: null, voor: ['Anna', 'Cas'] },
+      { id: 2, name: 'Clue', year: 1985, poster: '/c.jpg', voor: ['Bram'] },
+    ]);
+    const k = (id, voor, genres) => ({ id, voor, m: { genres } });
+    const lijst = [k(1, ['A'], ['Comedy']), k(2, ['B'], ['Horror']), k(3, ['C', 'D'], ['Comedy']), k(4, ['E'], ['Horror'])];
+    const past = (x) => x.m.genres.includes('Horror');
+    // eerst wat twee gasten voordroegen, dan wat bij het genre past
+    expect(kiesVoordrachten(lijst, 2, { past, rnd: () => 0.5 }).map((x) => x.id)).toEqual([3, 2]);
+    expect(kiesVoordrachten(lijst, 9, { past })).toHaveLength(4);
+    expect(kiesVoordrachten(lijst, 0)).toEqual([]);
+    // verder het lot
+    const lot = [0.9, 0.1];
+    expect(kiesVoordrachten([k(1, ['A'], []), k(2, ['B'], [])], 1, { rnd: () => lot.shift() }).map((x) => x.id)).toEqual([2]);
+    expect(filmVoorZaal({ key: 'heat|1995', name: 'Heat', year: 1995 }, { id: 949, poster: '/h.jpg' }, null, ['Anna'])).toMatchObject({ id: 949, voor: ['Anna'] });
+    expect(filmVoorZaal({ key: 'heat|1995', name: 'Heat', year: 1995 }, null).voor).toBeUndefined();
+  });
+
+  it('worker: gasten dragen een film voor als het scherm dat toestaat, tot de films op tafel liggen; en welke trailer er draait', async () => {
+    const { kv, SESSIONS } = nepKV();
+    const vraag = vraagAan(await laadWorker(), { SESSIONS, TMDB_KEY: 'x' });
+    const { code: C, geheim } = await (await vraag('/zaal/new', {})).json();
+    const zet = async (staat) => (await vraag(`/zaal/${C}/zet`, { geheim, staat })).json();
+    const draag = (naam, token, film) => vraag(`/zaal/${C}/voordracht`, { naam, token, film });
+    await vraag(`/zaal/${C}/meedoen`, { naam: 'Anna', token: tA });
+    await vraag(`/zaal/${C}/meedoen`, { naam: 'Bram', token: tB });
+    const parasite = { id: 496243, name: 'Parasite', year: 2019, poster: '/p.jpg', plot: 'blijft weg' };
+    // zonder toestemming van het scherm kan het niet
+    expect((await (await draag('Anna', tA, parasite)).json()).error).toBe('GEEN_VOORDRACHT');
+    expect((await zet({ fase: 'lobby', ronde: 0, vd: 2 })).zaal.vd).toBe(2);
+    expect((await zet({ fase: 'lobby', ronde: 0, vd: 7 })).zaal.vd).toBe(3);
+    expect((await zet({ fase: 'lobby', ronde: 0, vd: 2 })).zaal.vd).toBe(2);
+    // alleen met je eigen token, en alleen een film met een nummer en een titel
+    expect((await draag('Anna', tB, parasite)).status).toBe(403);
+    expect((await draag('Anna', tA, { name: 'Zonder nummer' })).status).toBe(400);
+    expect(await (await draag('Anna', tA, { ...parasite, poster: 'javascript:x' })).json()).toEqual({ ok: true, film: { id: 496243, name: 'Parasite', year: 2019, poster: null } });
+    expect((await draag('Anna', tA, parasite)).status).toBe(200);
+    expect((await draag('Bram', tB, { id: 1, name: 'Zodiac', year: 2007 })).status).toBe(200);
+    // een eigen sleutel, los van je stem: nooit een botsing
+    expect(JSON.parse(kv.get(`z:${C}:d:anna`))).toEqual({ id: 496243, name: 'Parasite', year: 2019, poster: '/p.jpg' });
+    expect(JSON.parse(kv.get(`z:${C}:p:anna`)).vd).toBeUndefined();
+    // alleen het scherm leest ze, en alleen als het erom vraagt
+    expect((await (await vraag(`/zaal/${C}/stand`, { geheim })).json()).voordrachten).toBeUndefined();
+    expect((await (await vraag(`/zaal/${C}/stand`, { geheim, voordrachten: true })).json()).voordrachten).toEqual({
+      Anna: { id: 496243, name: 'Parasite', year: 2019, poster: '/p.jpg' }, Bram: { id: 1, name: 'Zodiac', year: 2007, poster: null },
+    });
+    // intrekken
+    expect((await vraag(`/zaal/${C}/voordracht`, { naam: 'Bram', token: tB, uit: true })).status).toBe(200);
+    expect(Object.keys((await (await vraag(`/zaal/${C}/stand`, { geheim, voordrachten: true })).json()).voordrachten)).toEqual(['Anna']);
+    // tijdens het genre kan het nog; de toestemming blijft staan
+    expect((await zet({ fase: 'genre', ronde: 1, opties: [{ id: 'Drama', naam: 'Drama', n: 4 }] })).zaal.vd).toBe(2);
+    expect((await draag('Bram', tB, { id: 2, name: 'Heat', year: 1995 })).status).toBe(200);
+    // de films op tafel, met het TMDB-nummer en wie hem voordroeg; en de trailer die draait
+    const films = [
+      { key: 'a|2000', name: 'A', year: 2000, id: 11, trailer: 'trailerAAA' },
+      { key: 'parasite|2019', name: 'Parasite', year: 2019, id: 496243, trailer: 'trailerPPP', voorgedragen: true, voor: ['Anna', ' '] },
+    ];
+    const tr = await zet({ fase: 'trailers', ronde: 1, films, nu: { key: 'parasite|2019', i: 2, n: 2 } });
+    expect(tr.zaal.films[0]).toMatchObject({ id: 11 });
+    expect(tr.zaal.films[0].voorgedragen).toBeUndefined();
+    expect(tr.zaal.films[1]).toMatchObject({ id: 496243, voorgedragen: true, voor: ['Anna'] });
+    expect(tr.zaal.nu).toEqual({ key: 'parasite|2019', i: 2, n: 2 });
+    // daarna is het dicht
+    expect((await (await draag('Anna', tA, parasite)).json()).error).toBe('DICHT');
+    // een trailer die niet op tafel ligt, of buiten de trailers: geen nu
+    expect((await zet({ fase: 'trailers', ronde: 1, films, nu: { key: 'x|1', i: 1, n: 2 } })).zaal.nu).toBeUndefined();
+    expect((await zet({ fase: 'film', ronde: 2, films, nu: { key: 'a|2000', i: 1, n: 2 } })).zaal.nu).toBeUndefined();
+  });
+
+  it('het scherm: gasten dragen films voor, die komen op tafel met hun naam, en de telefoons zien welke trailer draait', async () => {
+    const { kv, SESSIONS } = nepKV();
+    const tmdb = (u) => {
+      const m = u.match(/\/movie\/(\d+)\?/);
+      if (m?.[1] === '777') return tmdbFilm(777, 'Gastfilm', 2015);
+      if (m?.[1] === '778') return tmdbFilm(778, 'Andere Gastfilm', 2016);
+      return null;
+    };
+    global.fetch = via(await laadWorker(), { SESSIONS, TMDB_KEY: 'x' }, tmdb);
+    const { doeMee, stuurVoordracht, stuurStem, haalZaal } = await import('./src/lib/zaalstemming.js');
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    Object.values(meta).forEach((m, i) => { m.trailer = `https://www.youtube.com/watch?v=trailer${i}xyz`; });
+    localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
+      fireEvent.click(screen.getByText('Open de zaal'));
+      expect(await screen.findByText('Pak je telefoon')).toBeTruthy();
+      const code = document.querySelector('.zs-code').textContent;
+      const spel = screen.getByRole('group', { name: 'Zo speelt de zaal' });
+      // standaard staat voordragen uit
+      expect(within(spel).getByRole('button', { name: 'Geen voordrachten van gasten' }).getAttribute('aria-pressed')).toBe('true');
+      fireEvent.click(within(spel).getByText('Meteen naar de films'));
+      fireEvent.click(within(spel).getByRole('button', { name: 'Geen aanraders van buiten de lijst' }));
+      fireEvent.click(within(spel).getByText('Niet vragen'));
+      fireEvent.click(within(spel).getByText('Sluiten met de hand'));
+      fireEvent.click(within(spel).getByRole('button', { name: '1 voordracht van gasten' }));
+      expect(within(spel).getByText(/Elke gast kan op de telefoon zelf een film voordragen/)).toBeTruthy();
+      await waitFor(() => expect(JSON.parse(kv.get(`z:${code}`)).vd).toBe(1));
+
+      await doeMee(code, 'Anna', tA);
+      await doeMee(code, 'Bram', tB);
+      await doeMee(code, 'Cas', tC);
+      await stuurVoordracht(code, 'Anna', tA, { id: 777, name: 'Gastfilm', year: 2015 });
+      await stuurVoordracht(code, 'Bram', tB, { id: 778, name: 'Andere Gastfilm', year: 2016 });
+      await stuurVoordracht(code, 'Cas', tC, { id: 777, name: 'Gastfilm', year: 2015 });
+      await peil();
+      // het scherm laat zien wie wat voordraagt
+      await waitFor(() => expect(document.querySelector('.zs-namen').textContent).toContain('Annadraagt Gastfilm voor'));
+      expect(document.querySelector('.zs-namen').textContent).toContain('Bramdraagt Andere Gastfilm voor');
+
+      fireEvent.click(await screen.findByText('Begin met 3 spelers'));
+      expect(await screen.findByText('Het wordt alles door elkaar')).toBeTruthy();
+      // één plek: wat twee gasten voordroegen, gaat voor
+      expect(document.body.textContent).toContain('Plus 1 voorgedragen door een gast.');
+      expect(document.body.textContent).toContain('Er waren 2 voordrachten voor 1 plek.');
+      const groepen = [...document.querySelectorAll('.zs-filmgroep')];
+      expect(groepen).toHaveLength(2);
+      expect(groepen[1].textContent).toContain('Voorgedragen door gasten');
+      expect(groepen[1].textContent).toContain('Voorgedragen door Anna en Cas.');
+      const z = await haalZaal(code);
+      expect(z.films.filter((f) => f.voorgedragen)).toEqual([expect.objectContaining({ key: 'gastfilm|2015', id: 777, voor: ['Anna', 'Cas'], trailer: 'trailer777' })]);
+      expect(z.films.filter((f) => !f.voorgedragen).every((f) => f.id)).toBe(true);
+
+      // de trailers: de zaal weet welke er draait
+      fireEvent.click(screen.getByText(`Bekijk de ${z.films.length} trailers`));
+      await waitFor(async () => expect((await haalZaal(code)).nu).toEqual({ key: z.films[0].key, i: 1, n: z.films.length }));
+      fireEvent.click(screen.getByText('Volgende trailer'));
+      await waitFor(async () => expect((await haalZaal(code)).nu).toEqual({ key: z.films[1].key, i: 2, n: z.films.length }));
+      fireEvent.click(screen.getByText('Sluiten'));
+      await waitFor(async () => expect((await haalZaal(code)).nu).toBeUndefined());
+      fireEvent.click(screen.getByText('Nu stemmen'));
+      expect(await screen.findByText('Welke wordt het?')).toBeTruthy();
+      const ronde = (await haalZaal(code)).ronde;
+      expect((await haalZaal(code)).fase).toBe('film');
+
+      // de voorgedragen film wint: het kaartje, en de filmdata gaat mee
+      await stuurStem(code, 'Anna', tA, ronde, ['gastfilm|2015', null]);
+      await stuurStem(code, 'Bram', tB, ronde, ['gastfilm|2015', null]);
+      await stuurStem(code, 'Cas', tC, ronde, [z.films[0].key, 'gastfilm|2015']);
+      await peil();
+      fireEvent.click(await screen.findByText('Sluit de stemming'));
+      expect(await screen.findByText('Pak het kaartje')).toBeTruthy();
+      expect(document.querySelector('.zs-uitslag-titel').textContent).toBe('Gastfilm');
+      fireEvent.click(screen.getByText('Pak het kaartje'));
+      await waitFor(() => expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes'))[0]).toMatchObject({ key: 'gastfilm|2015', bron: 'zaal', personen: 3, poster: '/p777.jpg' }));
+    } finally {
+      delete global.fetch;
+      delete document.hidden;
+    }
+  });
+
+  it('de telefoon: zelf een film voordragen, meekijken met de trailers en alvast stemmen, en het kaartje mee naar huis', async () => {
+    const { kv, SESSIONS } = nepKV();
+    const w = await laadWorker();
+    const env = { SESSIONS, TMDB_KEY: 'x' };
+    const vraag = vraagAan(w, env);
+    const tmdb = (u) => {
+      if (u.includes('/search/movie')) {
+        return { results: u.includes('eve') ? [licht(tmdbFilm(5, 'Parasite Eve', 1997))] : [licht(tmdbFilm(496243, 'Parasite', 2019)), licht(tmdbFilm(5, 'Parasite Eve', 1997))] };
+      }
+      const m = u.match(/\/movie\/(\d+)\?/);
+      if (m?.[1] === '949') return tmdbFilm(949, 'Heat', 1995, { director: 'Michael Mann' });
+      return null;
+    };
+    global.fetch = via(w, env, tmdb);
+    const { code, geheim } = await (await vraag('/zaal/new', {})).json();
+    const zet = (staat) => vraag(`/zaal/${code}/zet`, { geheim, staat });
+    const zoekVeld = () => screen.getByLabelText('Zoek een film om voor te dragen');
+    try {
+      localStorage.clear();
+      localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
+      await zet({ fase: 'lobby', ronde: 0, vd: 2 });
+      history.pushState({}, '', `?zaal=${code}`);
+      render(<App />);
+      fireEvent.change(await screen.findByLabelText('Je naam'), { target: { value: 'Pim' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Doe mee' }));
+      expect(await screen.findByText('Je zit erin, Pim.')).toBeTruthy();
+
+      // voordragen: zoeken en aantikken
+      expect(screen.getByText('Zelf een film voordragen')).toBeTruthy();
+      expect(document.body.textContent).toContain('Er is plek voor 2 voordrachten.');
+      fireEvent.change(zoekVeld(), { target: { value: 'parasite' } });
+      fireEvent.click(await screen.findByRole('button', { name: 'Draag Parasite (2019) voor' }));
+      expect(await screen.findByText('Jij draagt voor')).toBeTruthy();
+      expect(JSON.parse(kv.get(`z:${code}:d:pim`))).toEqual({ id: 496243, name: 'Parasite', year: 2019, poster: '/p496243.jpg' });
+      // een andere film, en intrekken
+      fireEvent.click(screen.getByText('Een andere film'));
+      fireEvent.change(zoekVeld(), { target: { value: 'parasite eve' } });
+      fireEvent.click(await screen.findByRole('button', { name: 'Draag Parasite Eve (1997) voor' }));
+      await waitFor(() => expect(JSON.parse(kv.get(`z:${code}:d:pim`)).id).toBe(5));
+      fireEvent.click(await screen.findByText('Trek in'));
+      await waitFor(() => expect(JSON.parse(kv.get(`z:${code}:d:pim`))).toEqual({ uit: true }));
+      expect(zoekVeld()).toBeTruthy();
+      fireEvent.change(zoekVeld(), { target: { value: 'parasite' } });
+      fireEvent.click(await screen.findByRole('button', { name: 'Draag Parasite (2019) voor' }));
+      expect(await screen.findByText('Jij draagt voor')).toBeTruthy();
+
+      // de trailers: wat er nu draait, en alvast stemmen (nog niets de deur uit)
+      const films = [
+        { key: 'heat|1995', name: 'Heat', year: 1995, id: 949, poster: '/h.jpg', runtime: 170, trailer: 'trailerHH1' },
+        { key: 'clue|1985', name: 'Clue', year: 1985, trailer: 'trailerCC1' },
+        { key: 'parasite|2019', name: 'Parasite', year: 2019, id: 496243, trailer: 'trailerPP1', voorgedragen: true, voor: ['Pim'] },
+      ];
+      const genre = { namen: [], wijze: 'vrij' };
+      await zet({ fase: 'trailers', ronde: 1, genre, films, nu: { key: 'clue|1985', i: 2, n: 3 } });
+      await peil();
+      expect(await screen.findByText('Nu op het scherm: trailer 2 van 3')).toBeTruthy();
+      expect(screen.getByText('Je voordracht ligt op tafel.')).toBeTruthy();
+      expect(document.body.textContent).toContain('Voorgedragen door gasten');
+      expect(document.body.textContent).toContain('Voorgedragen door Pim.');
+      expect(screen.queryByText('Jij draagt voor')).toBeNull();
+      expect(screen.getAllByRole('button', { name: 'Eerste keus: Clue' })).toHaveLength(1);
+      fireEvent.click(screen.getByRole('button', { name: 'Eerste keus: Clue' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Tweede keus: Heat' }));
+      expect(await screen.findByText('Jouw stem: 1e Clue, 2e Heat. Hij telt zodra het stemmen begint.')).toBeTruthy();
+      expect(JSON.parse(kv.get(`z:${code}:p:pim`)).stemmen).toEqual({});
+      // de stemming gaat open: de stem gaat meteen de deur uit
+      await zet({ fase: 'film', ronde: 2, genre, films });
+      await peil();
+      expect(await screen.findByText('Jouw stem: 1e Clue, 2e Heat.')).toBeTruthy();
+      await waitFor(() => expect(JSON.parse(kv.get(`z:${code}:p:pim`)).stemmen).toEqual({ 2: ['clue|1985', 'heat|1995'] }));
+
+      // de uitslag: het kaartje met iedereen erop, mee naar huis
+      await zet({ fase: 'uitslag', ronde: 2, films, uitslag: { key: 'heat|1995', wijze: 'meeste', punten: { 'heat|1995': 3 } } });
+      await peil();
+      const kaartje = await screen.findByRole('article', { name: 'Bioscoopkaartje voor Heat' });
+      await waitFor(() => expect(kaartje.textContent).toContain('Een film van Michael Mann'));
+      expect(kaartje.textContent).toContain('TMDB 949');
+      expect(kaartje.textContent).toContain('PIM');
+      fireEvent.click(screen.getByText('Bewaar in mijn kaartjesdoos'));
+      expect(await screen.findByText('In je kaartjesdoos')).toBeTruthy();
+      await waitFor(() => expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes'))[0]).toMatchObject({ key: 'heat|1995', bron: 'zaal', personen: 1, namen: ['Pim'], poster: '/h.jpg' }));
+      expect(screen.getByText('Deel als plaatje')).toBeTruthy();
+      // na herladen weet de telefoon het nog
+      cleanup();
+      render(<App />);
+      expect(await screen.findByText('In je kaartjesdoos')).toBeTruthy();
+    } finally {
+      delete global.fetch;
+      delete document.hidden;
+      history.pushState({}, '', '/');
     }
   });
 

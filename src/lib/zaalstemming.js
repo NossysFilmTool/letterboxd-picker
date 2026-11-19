@@ -8,7 +8,8 @@
 // lib/aanraders.js), de zaal kijkt de trailers, en dan kiest iedereen een
 // 1e en een 2e film. Een 1e keus is 2 punten, een 2e keus 1 punt. Gelijkspel
 // lossen de regels hieronder op, zonder dat iemand hoeft te overleggen.
-// Gasten kunnen hun eigen Letterboxd laten meetellen (lib/zaalgasten.js).
+// Gasten kunnen hun eigen Letterboxd laten meetellen (lib/zaalgasten.js),
+// en als de gastheer dat wil zelf een film voordragen (hieronder).
 import { PROXY_URL } from './tmdb.js';
 import { nossyScore, pickWinner } from './pick.js';
 import { metZaal } from './zaalgasten.js';
@@ -56,6 +57,9 @@ export const zetVraag = (code, geheim, films) => vraag(`/zaal/${code}/vraag`, { 
 // s: { key: [score, gezien, wil zien] }; v 0 met lege s: meedoen zonder oordeel
 export const stuurSmaak = (code, naam, token, v, s) => vraag(`/zaal/${code}/smaak`, { naam, token, v, s });
 export const trekSmaakIn = (code, naam, token) => vraag(`/zaal/${code}/smaak`, { naam, token, uit: true });
+// Zelf een film voordragen: { id, name, year, poster }; een nieuwe vervangt de vorige
+export const stuurVoordracht = (code, naam, token, film) => vraag(`/zaal/${code}/voordracht`, { naam, token, film });
+export const trekVoordrachtIn = (code, naam, token) => vraag(`/zaal/${code}/voordracht`, { naam, token, uit: true });
 
 // Stemmen gaan één voor één de deur uit, en alleen de nieuwste wacht. Tik je
 // snel een 1e en een 2e keus, dan kan de eerste stem anders als laatste
@@ -114,17 +118,44 @@ export function youtubeId(url) {
 
 // Wat de telefoons van een film te zien krijgen. Een aanrader (niet van de
 // lijst) draagt waarom: bij hoeveel films op de lijst TMDB hem aanraadt, of
-// dat het een parel is (hoog cijfer, weinig stemmen).
-export function filmVoorZaal(f, m, aanrader = null) {
+// dat het een parel is (hoog cijfer, weinig stemmen). Het TMDB-nummer gaat
+// mee voor het kaartje op de telefoons; voor: wie hem voordroeg.
+export function filmVoorZaal(f, m, aanrader = null, voor = null) {
   const film = {
-    key: f.key, name: f.name, year: f.year || null,
+    key: f.key, name: f.name, year: f.year || null, id: m?.id || null,
     poster: m?.poster || null, runtime: m?.runtime || null,
     trailer: youtubeId(m?.trailer), score: nossyScore(m),
   };
   if (aanrader) {
     Object.assign(film, { aanrader: true, bronnen: aanrader.bronnen || 0, via: (aanrader.via || []).slice(0, 2), parel: !!aanrader.parel, votes: m?.votes || null });
   }
+  if (voor?.length) film.voor = voor.slice(0, 12);
   return film;
+}
+
+// De voordrachten van de gasten per film, met wie hem voordroeg:
+// [{ id, name, year, poster, voor: [namen] }]
+//   voordrachten: { naam: { id, name, year, poster } } (uit standZaal)
+export function voordrachtenPerFilm(voordrachten) {
+  const per = new Map();
+  Object.entries(voordrachten || {}).forEach(([naam, f]) => {
+    if (!f?.id || !f.name) return;
+    const x = per.get(f.id) || { id: f.id, name: f.name, year: f.year || null, poster: f.poster || null, voor: [] };
+    x.voor.push(naam);
+    per.set(f.id, x);
+  });
+  return [...per.values()];
+}
+
+// Zijn er meer voordrachten dan plek, dan gaat voor wat meer gasten
+// voordroegen, dan wat bij het gekozen genre past, en verder beslist het lot.
+//   past(film): past hij bij het genre
+export function kiesVoordrachten(lijst, ruimte, { past = () => true, rnd = Math.random } = {}) {
+  return (lijst || [])
+    .map((f) => ({ f, p: past(f) ? 1 : 0, r: rnd() }))
+    .sort((a, b) => (b.f.voor.length - a.f.voor.length) || (b.p - a.p) || (a.r - b.r))
+    .slice(0, Math.max(0, ruimte))
+    .map(({ f }) => f);
 }
 
 const heeft = (meta, f, g) => (meta[f.key]?.genres || []).includes(g);

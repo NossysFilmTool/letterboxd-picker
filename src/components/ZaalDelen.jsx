@@ -86,8 +86,8 @@ export function aanraderReden(film, tr) {
   return tr('zaal.r_aanrader');
 }
 
-// Een film zoals de zaal hem ziet: poster, titel, jaar, lengte, cijfer, en
-// bij een aanrader waarom
+// Een film zoals de zaal hem ziet: poster, titel, jaar, lengte, cijfer, bij
+// een aanrader waarom, en wie hem voordroeg
 export function ZaalFilmInhoud({ film, badge }) {
   const { t: tr } = useT();
   const gegevens = [film.year, film.runtime ? tr('zaal.minuten', { n: film.runtime }) : null, film.score != null ? `Nossy ${fmtScore(film.score)}` : null].filter(Boolean);
@@ -101,6 +101,7 @@ export function ZaalFilmInhoud({ film, badge }) {
         <span className="zs-film-titel">{film.name}</span>
         <span className="zs-film-sub">{gegevens.map((g) => <span key={g}>{g}</span>)}</span>
         {film.aanrader && <span className="zs-film-reden">{aanraderReden(film, tr)}</span>}
+        {film.voor?.length > 0 && <span className="zs-film-reden">{tr('zaal.voorVan', { namen: lijstje(film.voor, tr) })}</span>}
       </span>
     </>
   );

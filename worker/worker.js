@@ -197,6 +197,11 @@ export default {
     // de telefoon: het scherm zet de films klaar die op tafel kunnen komen
     // (/vraag), de telefoon geeft per film alleen terug of je hem al zag, of
     // hij op je watchlist staat en hoe goed hij bij je past (/smaak).
+    //
+    // Gasten kunnen ook zelf een film voordragen (/voordracht), als het scherm
+    // dat toestaat (vd: hoeveel voordrachten er op tafel kunnen). Elke
+    // voordracht staat in een eigen sleutel, zodat hij nooit botst met een
+    // stem of een oordeel van dezelfde telefoon.
     if (url.pathname.startsWith('/zaal')) {
       const json = (obj, status = 200) => new Response(JSON.stringify(obj), {
         status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -234,7 +239,7 @@ export default {
         return json({ code, geheim, versie: 1 });
       }
 
-      const z = url.pathname.match(/^\/zaal\/([A-Z]{4})(\/zet|\/stand|\/meedoen|\/stem|\/vraag|\/smaak)?$/);
+      const z = url.pathname.match(/^\/zaal\/([A-Z]{4})(\/zet|\/stand|\/meedoen|\/stem|\/vraag|\/smaak|\/voordracht)?$/);
       if (!z) return json({ error: 'NOT_FOUND' }, 404);
       const sleutel = `z:${z[1]}`;
       const zaal = await lees(sleutel);
@@ -242,6 +247,7 @@ export default {
       const spelerSleutel = (naam) => `${sleutel}:p:${slug(naam)}`;
       const vraagSleutel = `${sleutel}:k`;
       const smaakSleutel = (naam) => `${sleutel}:s:${slug(naam)}`;
+      const voordrachtSleutel = (naam) => `${sleutel}:d:${slug(naam)}`;
 
       if (!z[2] && request.method === 'GET') return json(openbaar(zaal));
       // De films ter beoordeling: net zo openbaar als de zaal zelf
@@ -255,9 +261,11 @@ export default {
         if (z[2] === '/stand') {
           // gasten: wie de eigen Letterboxd meetelt, en welke vraag die
           // beantwoordde (v) over hoeveel films (n). Met oordeel: true ook
-          // de oordelen zelf (s), voor het kiezen.
+          // de oordelen zelf (s), voor het kiezen. Met voordrachten: true ook
+          // de films die gasten voordragen.
           const stemmen = {};
           const gasten = {};
+          const voordrachten = {};
           await Promise.all((zaal.spelers || []).map(async (naam) => {
             const p = await lees(spelerSleutel(naam));
             stemmen[naam] = p?.stemmen || {};
@@ -268,8 +276,12 @@ export default {
                 gasten[naam].s = o && !o.uit ? o.s || {} : {};
               }
             }
+            if (body.voordrachten === true && zaal.vd) {
+              const d = await lees(voordrachtSleutel(naam));
+              if (d?.id) voordrachten[naam] = d;
+            }
           }));
-          return json({ zaal: openbaar(zaal), stemmen, gasten });
+          return json({ zaal: openbaar(zaal), stemmen, gasten, ...(body.voordrachten === true ? { voordrachten } : {}) });
         }
         // Films erbij zetten. De vraag groeit (hooguit 400 films, de nieuwste
         // blijven), zodat een gast die later aanhaakt alles in één keer krijgt.
@@ -308,6 +320,9 @@ export default {
         // vraag (zie /vraag): die blijven staan tot het scherm iets anders zegt
         if (typeof s.lb === 'boolean' ? s.lb : zaal.lb === true) nieuw.lb = true;
         if (zaal.vraag) nieuw.vraag = zaal.vraag;
+        // Hoeveel voordrachten van gasten er op tafel kunnen (0 tot 3)
+        const vd = s.vd != null ? heel(s.vd, 0, 3) : zaal.vd;
+        if (vd) nieuw.vd = vd;
         if (Array.isArray(s.opties)) {
           nieuw.opties = s.opties.slice(0, 12)
             .map((o) => ({ id: tekst(o?.id, 40), naam: tekst(o?.naam, 40), n: heel(o?.n, 0, 9999) ?? 0 }))
@@ -320,13 +335,15 @@ export default {
             punten: heel(s.genre.punten, 0, 99),
           };
         }
-        // Vijf films van de lijst en tot drie aanraders van buiten
+        // Vijf films van de lijst, tot drie aanraders van buiten en tot drie
+        // voordrachten van gasten (voor: wie hem voordroeg)
         if (Array.isArray(s.films)) {
-          nieuw.films = s.films.slice(0, 8).map((f) => {
+          nieuw.films = s.films.slice(0, 12).map((f) => {
             const film = {
               key: tekst(f?.key, 120),
               name: tekst(f?.name, 120),
               year: heel(f?.year, 1870, 2100),
+              id: heel(f?.id, 1, 1e9),
               poster: typeof f?.poster === 'string' && /^\/[\w.-]{1,60}$/.test(f.poster) ? f.poster : null,
               runtime: heel(f?.runtime, 1, 999),
               trailer: typeof f?.trailer === 'string' && /^[\w-]{6,20}$/.test(f.trailer) ? f.trailer : null,
@@ -341,8 +358,17 @@ export default {
                 votes: heel(f.votes, 0, 1e7),
               });
             }
+            const voor = (Array.isArray(f?.voor) ? f.voor : []).slice(0, 12).map(naamVan).filter(Boolean);
+            if (voor.length) film.voor = voor;
+            if (f?.voorgedragen === true) film.voorgedragen = true;
             return film;
           }).filter((f) => f.key && f.name);
+        }
+        // Welke trailer er nu op het scherm draait (i van n), zodat de
+        // telefoons meekijken. Alleen bij de trailers, en alleen een film op tafel.
+        if (nieuw.fase === 'trailers' && nieuw.films && s.nu && typeof s.nu === 'object' && nieuw.films.some((f) => f.key === s.nu.key)) {
+          const n = heel(s.nu.n, 1, 12);
+          nieuw.nu = { key: s.nu.key, i: Math.min(heel(s.nu.i, 1, 12) ?? 1, n ?? 12), n };
         }
         if (s.uitslag && typeof s.uitslag === 'object' && nieuw.films) {
           const keys = new Set(nieuw.films.map((f) => f.key));
@@ -354,7 +380,7 @@ export default {
             punten: telling(s.uitslag.punten),
             lijstjes: telling(s.uitslag.lijstjes),
             eersten: telling(s.uitslag.eersten),
-            kandidaten: (Array.isArray(s.uitslag.kandidaten) ? s.uitslag.kandidaten : []).filter((k) => keys.has(k)).slice(0, 8),
+            kandidaten: (Array.isArray(s.uitslag.kandidaten) ? s.uitslag.kandidaten : []).filter((k) => keys.has(k)).slice(0, 12),
           };
         }
         if (!(await schrijf(sleutel, nieuw))) return druk();
@@ -412,6 +438,29 @@ export default {
         const lb = { v, n: Object.keys(oordeel).length };
         if ((speler.lb?.v !== lb.v || speler.lb?.n !== lb.n) && !(await schrijf(spelerSleutel(naam), { ...speler, lb }))) return druk();
         return json({ ok: true, ...lb });
+      }
+
+      // Een gast draagt zelf een film voor: alleen als het scherm dat toestaat,
+      // en alleen tot de films op tafel komen (in de lobby en bij het genre).
+      // Eén film per gast; een nieuwe vervangt de vorige. { uit: true } trekt
+      // hem in. Alleen wat de zaal van een film laat zien: id, titel, jaar, poster.
+      if (z[2] === '/voordracht') {
+        if (!zaal.vd) return json({ error: 'GEEN_VOORDRACHT' }, 409);
+        if (zaal.fase !== 'lobby' && zaal.fase !== 'genre') return json({ error: 'DICHT' }, 409);
+        if (body.uit === true) {
+          if (!(await schrijf(voordrachtSleutel(naam), { uit: true }))) return druk();
+          return json({ ok: true });
+        }
+        const f = body.film && typeof body.film === 'object' ? body.film : {};
+        const film = {
+          id: heel(f.id, 1, 1e9),
+          name: tekst(f.name, 120).trim(),
+          year: heel(f.year, 1870, 2100),
+          poster: typeof f.poster === 'string' && /^\/[\w.-]{1,60}$/.test(f.poster) ? f.poster : null,
+        };
+        if (!film.id || !film.name) return json({ error: 'BAD_FILM' }, 400);
+        if (!(await schrijf(voordrachtSleutel(naam), film))) return druk();
+        return json({ ok: true, film });
       }
 
       if (zaal.fase !== 'genre' && zaal.fase !== 'film') return json({ error: 'DICHT' }, 409);

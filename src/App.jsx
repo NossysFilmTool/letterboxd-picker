@@ -794,7 +794,7 @@ export default function App() {
 
   const needsKey = watchlist.length > 0 && !tmdbKey;
 
-  if (zaalCodeNu) return <ZaalTelefoon key={zaalCodeNu} code={zaalCodeNu} onWeg={uitDeZaal} onCode={naarZaal} />;
+  if (zaalCodeNu) return <ZaalTelefoon key={zaalCodeNu} code={zaalCodeNu} onWeg={uitDeZaal} onCode={naarZaal} onKaartje={geefKaartje} />;
   if (avondCode) return <RemoteVote code={avondCode} />;
   if (samenCode) return <SamenGast code={samenCode} />;
 

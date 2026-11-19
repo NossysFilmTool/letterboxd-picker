@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../lib/i18n.js';
-import { IMG, getRegion } from '../lib/tmdb.js';
-import { useLS, leesOpslag } from '../lib/storage.js';
+import { IMG, getRegion, fetchDetailById } from '../lib/tmdb.js';
+import { useLS, leesOpslag, filmKey } from '../lib/storage.js';
 import { usePoll } from '../lib/usePoll.js';
 import { useFilmkleur } from '../lib/filmkleur.js';
 import {
   haalZaal, zetZaal, standZaal, zetVraag, doeMee, stuurStem, stemRij, nieuwToken, doetMee, keuzesIn,
-  genreOpties, genreBasis, uitslagGenre, kiesFilms, uitslagFilm, filmVoorZaal,
+  genreOpties, genreBasis, uitslagGenre, kiesFilms, uitslagFilm, filmVoorZaal, voordrachtenPerFilm, kiesVoordrachten,
 } from '../lib/zaalstemming.js';
 import { zoekAanraders, onthoudGetoond, dienstIdsVoor } from '../lib/aanraders.js';
 import { vraagUitPot, zaalOordeel, zaalSturing, MAX_VRAAG } from '../lib/zaalgasten.js';
@@ -17,7 +17,9 @@ import ZaalTrailers from './ZaalTrailers.jsx';
 // Het scherm van de zaalstemming (Filmavond): dit toestel heeft de watchlist,
 // staat waar iedereen het ziet, zet de rondes en telt de stemmen. De
 // telefoons stemmen (ZaalTelefoon.jsx). Wie hier zit, kan zelf meedoen.
-// Gasten kunnen hun eigen Letterboxd laten meetellen (lib/zaalgasten.js).
+// Gasten kunnen hun eigen Letterboxd laten meetellen (lib/zaalgasten.js) en,
+// als de gastheer dat wil, zelf een film voordragen. Tijdens de trailers
+// zien de telefoons welke trailer er draait.
 //   zaal: { code, geheim } uit maakZaal
 //   filters, diensten: de avondfilters, ook voor de aanraders
 //   onWinnaar(film, namen, filmdata van een aanrader)
@@ -28,9 +30,10 @@ const wacht = (ms) => new Promise((r) => setTimeout(r, ms));
 //   genreRonde: eerst samen een genre kiezen; lijst: films van de lijst (3
 //   tot 5); aanraders: films van buiten de lijst (0 tot 3); gasten: gasten
 //   mogen hun Letterboxd laten meetellen, met gezienWeg (wat iemand al zag
-//   valt af) en smaakMee (hun smaak weegt mee); vanzelf: een ronde sluit
+//   valt af) en smaakMee (hun smaak weegt mee); voordragen: hoeveel films
+//   gasten zelf op tafel kunnen zetten (0 tot 3); vanzelf: een ronde sluit
 //   vanzelf als iedereen gestemd heeft
-const SPEL = { genreRonde: true, lijst: 5, aanraders: 3, gasten: true, gezienWeg: true, smaakMee: true, vanzelf: true };
+const SPEL = { genreRonde: true, lijst: 5, aanraders: 3, gasten: true, gezienWeg: true, smaakMee: true, voordragen: 0, vanzelf: true };
 // Wie de aanraders eerder uitzette (de oude schakelaar), houdt ze uit
 const spelVan = (bewaard) => ({ ...SPEL, aanraders: leesOpslag('zaalAanraders', true) === false ? 0 : SPEL.aanraders, ...(bewaard || {}) });
 // Heeft iedereen gestemd, dan sluit de ronde vanzelf na SLUIT_MS; heeft
@@ -52,6 +55,8 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   const zetSpel = (k, v) => setSpelBewaard((oud) => ({ ...spelVan(oud), [k]: v }));
   const [gasten, setGasten] = useState({}); // { naam: { v, n } }: wie de eigen Letterboxd meetelt
   const [lbKan, setLbKan] = useState(true); // false: de Worker kent het meetellen nog niet
+  const [voordrachten, setVoordrachten] = useState({}); // { naam: film }: wat gasten voordragen
+  const [vdKan, setVdKan] = useState(true); // false: de Worker kent het voordragen nog niet
   const [wachtOp, setWachtOp] = useState([]); // gasten met Letterboxd die nog moeten antwoorden
   const lobbyZet = useRef(null);
   const lbGezet = useRef(false);
@@ -64,7 +69,11 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   if (!token.current) token.current = nieuwToken();
   const stuurHier = useRef(null);
   if (!stuurHier.current) stuurHier.current = stemRij(stuurStem);
-  const aanraderMeta = useRef({});
+  const aanraderMeta = useRef({}); // filmdata van films van buiten de lijst (aanraders, voordrachten)
+  const trailerRij = useRef(Promise.resolve());
+  const nuGewenst = useRef(null);
+  const nuGezet = useRef(null);
+  const naarStemmen = useRef(false);
   const [mijnKeuze, setMijnKeuze] = useState(null); // { ronde, keuze }
   const [trailersOpen, setTrailersOpen] = useState(false);
   const [lot, setLot] = useState(null); // { kandidaten, winnaar, i }
@@ -73,16 +82,18 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   const { fase, ronde, spelers = [] } = staat;
   const stemt = fase === 'genre' || fase === 'film';
 
-  // Wie er in de zaal zit (lobby), wie de eigen Letterboxd meetelt, en wat
-  // er gestemd is (in een ronde)
+  // Wie er in de zaal zit (lobby), wie de eigen Letterboxd meetelt, wat er
+  // voorgedragen is (tot de films op tafel komen), en wat er gestemd is
   usePoll(async () => {
     try {
-      if (fase === 'lobby' && !spel.gasten) {
+      if (fase === 'lobby' && !spel.gasten && !spel.voordragen) {
         const z = await haalZaal(zaal.code);
         setStaat((s) => (s.fase === 'lobby' ? { ...s, spelers: z.spelers || [] } : s));
       } else {
-        const r = await standZaal(zaal.code, zaal.geheim);
+        const metVd = spel.voordragen > 0 && (fase === 'lobby' || fase === 'genre');
+        const r = await standZaal(zaal.code, zaal.geheim, metVd ? { voordrachten: true } : {});
         setGasten(r.gasten || {});
+        if (metVd) setVoordrachten(r.voordrachten || {});
         if (fase === 'lobby') setStaat((s) => (s.fase === 'lobby' ? { ...s, spelers: r.zaal?.spelers || s.spelers } : s));
         else {
           setStemmen(r.stemmen || {});
@@ -92,21 +103,26 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
     } catch { /* de volgende keer */ }
   }, fase === 'lobby' ? Math.max(pollMs, 2500) : pollMs, fase === 'lobby' || stemt);
 
-  // Mogen gasten hun Letterboxd laten meetellen? Dat hoort de zaal meteen,
-  // zodat de telefoons het kunnen vragen. Kent de Worker het nog niet, dan
-  // zegt het scherm dat bij de keuze.
+  // Mogen gasten hun Letterboxd laten meetellen, en zelf een film
+  // voordragen? Dat hoort de zaal meteen, zodat de telefoons het kunnen
+  // vragen. Kent de Worker het nog niet, dan zegt het scherm dat bij de keuze.
   const inLobby = fase === 'lobby';
   useEffect(() => {
-    if (!inLobby || (!spel.gasten && !lbGezet.current)) return undefined;
+    if (!inLobby || (!spel.gasten && !spel.voordragen && !lbGezet.current)) return undefined;
     let weg = false;
     lbGezet.current = true;
     const aan = !!spel.gasten;
-    lobbyZet.current = zetZaal(zaal.code, zaal.geheim, { fase: 'lobby', ronde: 0, lb: aan })
-      .then((r) => { if (!weg) setLbKan(!aan || r?.zaal?.lb === true); })
+    const vd = spel.voordragen || 0;
+    lobbyZet.current = zetZaal(zaal.code, zaal.geheim, { fase: 'lobby', ronde: 0, lb: aan, vd })
+      .then((r) => {
+        if (weg) return;
+        setLbKan(!aan || r?.zaal?.lb === true);
+        setVdKan(!vd || r?.zaal?.vd === vd);
+      })
       .catch(() => {});
     return () => { weg = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spel.gasten, inLobby]);
+  }, [spel.gasten, spel.voordragen, inLobby]);
 
   // Films bij de vraag aan de gasten zetten (alleen wat ze nog niet kregen),
   // één keer tegelijk. Geeft de versie van de vraag.
@@ -152,6 +168,42 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
     const r = await standZaal(zaal.code, zaal.geheim, { oordeel: true });
     const alle = r.gasten || {};
     return { oordeel: zaalOordeel(alle), namen: Object.keys(alle).filter((n) => alle[n].n > 0) };
+  };
+
+  // De voordrachten van de gasten bij de films op tafel. Staat een
+  // voorgedragen film al op tafel, dan krijgt die de namen erbij; de rest
+  // komt erbij, zoveel als de gastheer toestond. Zijn het er meer, dan gaat
+  // voor wat meer gasten voordroegen, dan wat bij het genre past, en verder
+  // beslist het lot. Geeft { films, totaal }.
+  const voordrachtenOpTafel = async (genre, lijst) => {
+    const r = await standZaal(zaal.code, zaal.geheim, { voordrachten: true });
+    const per = voordrachtenPerFilm(r.voordrachten);
+    if (!per.length) return { films: [], totaal: 0 };
+    // Staat de film op de lijst van de gastheer, dan met diens sleutel en filmdata
+    const sleutelVan = new Map(Object.entries(meta).filter(([, m]) => m?.id).map(([k, m]) => [m.id, k]));
+    const rest = [];
+    per.forEach((v) => {
+      const key = sleutelVan.get(v.id) || filmKey(v.name, v.year);
+      const op = lijst.find((f) => (f.id && f.id === v.id) || f.key === key);
+      if (op) op.voor = v.voor;
+      else rest.push({ v, key });
+    });
+    const namen = genre?.namen || [];
+    const kandidaten = await Promise.all(rest.map(async ({ v, key }) => {
+      let m = meta[key] || null;
+      if (!m) { try { m = await fetchDetailById(v.id, app.tmdbKey); } catch { m = null; } }
+      const film = meta[key]
+        ? (pool.find((f) => f.key === key) || (app.watchlist || []).find((f) => f.key === key) || { key, name: v.name, year: v.year })
+        : { key, name: v.name, year: m?.year || v.year };
+      return { film, m: m || { id: v.id, poster: v.poster, year: v.year }, voor: v.voor, opLijst: !!meta[key] };
+    }));
+    const past = ({ m }) => !namen.length || (m.genres || []).some((g) => namen.includes(g));
+    const gekozen = kiesVoordrachten(kandidaten, spel.voordragen, { past });
+    gekozen.forEach(({ film, m, opLijst }) => { if (!opLijst) aanraderMeta.current[film.key] = m; });
+    return {
+      films: gekozen.map(({ film, m, voor }) => ({ ...filmVoorZaal(film, m, null, voor), voorgedragen: true })),
+      totaal: kandidaten.length,
+    };
   };
 
   // Een ronde zetten: alles wat de telefoons in die ronde nodig hebben
@@ -215,11 +267,19 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
         const wat = spel.gezienWeg && spel.smaakMee ? 'zaal.gastenBeide' : spel.gezienWeg ? 'zaal.gastenGezien' : 'zaal.gastenSmaak';
         noten.push(tr(wat, { namen: lijstje(mee.namen, tr) }));
       }
+      let voor = { films: [], totaal: 0 };
+      if (spel.voordragen > 0 && vdKan) {
+        try { voor = await voordrachtenOpTafel(genre, lijst); } catch { voor = { films: [], totaal: 0 }; }
+        if (voor.totaal > voor.films.length) noten.push(tr('zaal.vdTeVeel', { n: voor.totaal, count: voor.films.length }));
+      }
       let extra = [];
       if (spel.aanraders > 0) {
+        // Geen aanrader die iemand al voordroeg
+        const uit = bekend();
+        voor.films.forEach((f) => { if (f.id) uit.ids.add(f.id); uit.keys.add(f.key); });
         try {
           const gevonden = await zoekAanraders({
-            sleutel: app.tmdbKey, meta, genre, filters, diensten, uit: bekend(), smaak: app.taste, aantal: spel.aanraders,
+            sleutel: app.tmdbKey, meta, genre, filters, diensten, uit, smaak: app.taste, aantal: spel.aanraders,
             stemmen, tafel: lijst.map((f) => f.key), getoond, ...gastheer(),
             zaal: mee ? { oordeel: async (k) => (await vraagGasten(k))?.oordeel || {}, gezienWeg: spel.gezienWeg, smaakMee: spel.smaakMee } : null,
           });
@@ -232,7 +292,9 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
         }
       }
       setNoot(noten.join(' '));
-      return await zet({ fase: 'trailers', ronde: r, genre, films: [...lijst, ...extra] });
+      naarStemmen.current = false;
+      nuGezet.current = null;
+      return await zet({ fase: 'trailers', ronde: r, genre, films: [...lijst, ...extra, ...voor.films] });
     } finally {
       setZoekt(false);
     }
@@ -299,7 +361,28 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
     } finally { sluitend.current = false; }
   };
 
-  const startStemmen = () => zet({ fase: 'film', ronde: ronde + 1, genre: staat.genre, films: staat.films });
+  // Welke trailer er nu draait, voor de telefoons (nu: { key, i, n }, of
+  // null als de trailers dicht gaan). Eén tegelijk, en alleen de laatste
+  // stand: wie snel doortikt, stuurt niet elke trailer apart.
+  const zetNu = (nu) => {
+    nuGewenst.current = nu;
+    const doe = async () => {
+      const gewenst = nuGewenst.current;
+      if (naarStemmen.current || JSON.stringify(gewenst) === JSON.stringify(nuGezet.current)) return;
+      try {
+        await zetZaal(zaal.code, zaal.geheim, { fase: 'trailers', ronde, genre: staat.genre, films: staat.films, ...(gewenst ? { nu: gewenst } : {}) });
+        nuGezet.current = gewenst;
+      } catch { /* dan zien de telefoons het net niet */ }
+    };
+    trailerRij.current = trailerRij.current.then(doe, doe);
+  };
+
+  // Eerst de laatste trailerstand af, anders kan die de stemming overschrijven
+  const startStemmen = async () => {
+    naarStemmen.current = true;
+    await trailerRij.current;
+    return zet({ fase: 'film', ronde: ronde + 1, genre: staat.genre, films: staat.films });
+  };
 
   const sluitFilm = async () => {
     if (sluitend.current) return;
@@ -414,7 +497,13 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
           <h2 className="zs-rubriek">{tr('zaal.inDeZaal')} <sup>{aantal}</sup></h2>
           {spelers.length || (zelfMee && naamHier) ? (
             <ul className="zs-namen">
-              {spelers.map((n) => <li key={n}>{n}{gasten[n] && <span className="zs-namen-lb">{tr('zaal.lbMerk')}</span>}</li>)}
+              {spelers.map((n) => (
+                <li key={n}>
+                  {n}
+                  {gasten[n] && <span className="zs-namen-lb">{tr('zaal.lbMerk')}</span>}
+                  {spel.voordragen > 0 && voordrachten[n] && <span className="zs-namen-lb">{tr('zaal.draagtVoor', { titel: voordrachten[n].name })}</span>}
+                </li>
+              ))}
               {zelfMee && naamHier && !doetMee(spelers, naamHier) && <li className="hier">{naamHier}</li>}
             </ul>
           ) : <p className="zs-leeg">{tr('zaal.nogNiemand')}</p>}
@@ -428,7 +517,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
                 placeholder={tr('zaal.tNaamPlaceholder')} aria-label={tr('zaal.jouwNaam')} />
             )}
           </div>
-          <ZaalSpel spel={spel} zetSpel={zetSpel} lbKan={lbKan} />
+          <ZaalSpel spel={spel} zetSpel={zetSpel} lbKan={lbKan} vdKan={vdKan} />
           <button type="button" className="btn primary big zs-begin" onClick={begin} disabled={bezig || zoekt || aantal < 1}>
             {aantal ? tr('zaal.begin', { count: aantal }) : tr('zaal.wachtOpSpelers')}
           </button>
@@ -468,7 +557,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
     const pak = () => onWinnaar(
       pool.find((f) => f.key === film.key) || { key: film.key, name: film.name, year: film.year },
       spelers,
-      film.aanrader ? aanraderMeta.current[film.key] : null,
+      aanraderMeta.current[film.key] || null,
     );
     return (
       <ZaalUitslag staat={staat} film={film} meta={{ ...meta, ...aanraderMeta.current }}
@@ -480,8 +569,15 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   const films = staat.films || [];
   const filmRonde = fase === 'film';
   const metTrailer = films.filter((f) => f.trailer).length;
-  const vanLijst = films.filter((f) => !f.aanrader);
+  const vanLijst = films.filter((f) => !f.aanrader && !f.voorgedragen);
   const aanraders = films.filter((f) => f.aanrader);
+  const voorgedragen = films.filter((f) => f.voorgedragen);
+  // Van de lijst, aanraders en voordrachten, elk met een kopje als er meer zijn
+  const groepen = [
+    { kop: tr('zaal.vanLijst'), films: vanLijst },
+    { kop: tr('zaal.aanradersKop'), films: aanraders },
+    { kop: tr('zaal.voordrachtenKop'), films: voorgedragen },
+  ].filter((g, i) => i === 0 || g.films.length);
   const badge = (f) => {
     if (lot || !filmRonde) return null;
     if (hierGekozen?.[0] === f.key) return tr('zaal.favoriet');
@@ -517,21 +613,18 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
           <p className="zs-sub">
             {genreZin(staat.genre, tr)} {tr('zaal.gekozenLijst', { count: vanLijst.length })}
             {aanraders.length > 0 && <> {tr('zaal.plusAanraders', { count: aanraders.length })}</>}
+            {voorgedragen.length > 0 && <> {tr('zaal.plusVoordrachten', { count: voorgedragen.length })}</>}
             {noot && <> {noot}</>}
           </p>
         </>
       )}
-      <div className={`zs-filmgroepen${aanraders.length ? ' met-aanraders' : ''}`} style={{ '--kolommen': `minmax(0, ${vanLijst.length || 1}fr) minmax(0, ${aanraders.length || 1}fr)` }}>
-        <div className="zs-filmgroep">
-          {aanraders.length > 0 && <p className="label-breed zs-groep">{tr('zaal.vanLijst')}</p>}
-          {rij(vanLijst, 0)}
-        </div>
-        {aanraders.length > 0 && (
-          <div className="zs-filmgroep">
-            <p className="label-breed zs-groep">{tr('zaal.aanradersKop')}</p>
-            {rij(aanraders, vanLijst.length)}
+      <div className={`zs-filmgroepen${groepen.length > 1 ? ' met-groepen' : ''}`} style={{ '--kolommen': groepen.map((g) => `minmax(0, ${g.films.length || 1}fr)`).join(' ') }}>
+        {groepen.map((g, gi) => (
+          <div key={g.kop} className="zs-filmgroep">
+            {groepen.length > 1 && <p className="label-breed zs-groep">{g.kop}</p>}
+            {rij(g.films, groepen.slice(0, gi).reduce((n, x) => n + x.films.length, 0))}
           </div>
-        )}
+        ))}
       </div>
       {filmRonde ? wie : (
         <div className="zs-acties">
@@ -541,7 +634,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
         </div>
       )}
       {trailersOpen && (
-        <ZaalTrailers films={films} onSluit={() => setTrailersOpen(false)}
+        <ZaalTrailers films={films} onNu={zetNu} onSluit={() => { setTrailersOpen(false); zetNu(null); }}
           onKlaar={() => { setTrailersOpen(false); startStemmen(); }} />
       )}
       {voet}
@@ -551,7 +644,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
 
 // Zo speelt de zaal: wat de gastheer kiest voor de avond begint. Onthouden
 // op dit toestel; elke rij is een keuze, alles staat open.
-function ZaalSpel({ spel, zetSpel, lbKan }) {
+function ZaalSpel({ spel, zetSpel, lbKan, vdKan }) {
   const { t: tr } = useT();
   const rij = (label, inhoud) => (
     <div className="af-rij">
@@ -575,6 +668,11 @@ function ZaalSpel({ spel, zetSpel, lbKan }) {
         <Chip key={n} aan={spel.aanraders === n} onClick={() => zetSpel('aanraders', n)}
           label={n ? tr('zaal.spelAanradersN', { count: n }) : tr('zaal.spelGeenAanraders')}>{n || tr('zaal.spelGeen')}</Chip>
       )))}
+      {rij(tr('zaal.spelVoordragen'), [0, 1, 2, 3].map((n) => (
+        <Chip key={n} aan={spel.voordragen === n} onClick={() => zetSpel('voordragen', n)}
+          label={n ? tr('zaal.spelVoordragenN', { count: n }) : tr('zaal.spelGeenVoordrachten')}>{n || tr('zaal.spelGeen')}</Chip>
+      )))}
+      {spel.voordragen > 0 && <p className="zs-spel-noot">{vdKan ? tr('zaal.spelVoordragenUitleg') : tr('zaal.spelVdWorkerOud')}</p>}
       {rij(tr('zaal.spelGasten'), (
         <>
           <Chip aan={spel.gasten} onClick={() => zetSpel('gasten', true)}>{tr('zaal.spelGastenJa')}</Chip>

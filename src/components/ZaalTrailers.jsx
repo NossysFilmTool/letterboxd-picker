@@ -5,10 +5,11 @@ import { useT } from '../lib/i18n.js';
 // De trailers van de drie films, echt van YouTube, op het grote scherm. Na
 // de laatste trailer begint de stemming vanzelf (onKlaar). YouTube meldt het
 // einde van een trailer via postMessage zodra we laten weten dat we
-// luisteren; zonder dat seintje tik je zelf door.
+// luisteren; zonder dat seintje tik je zelf door. onNu hoort welke trailer
+// er draait ({ key, i, n }), voor de telefoons.
 const YOUTUBE = /^https:\/\/www\.youtube(-nocookie)?\.com$/;
 
-export default function ZaalTrailers({ films, onKlaar, onSluit }) {
+export default function ZaalTrailers({ films, onKlaar, onSluit, onNu }) {
   const { t: tr } = useT();
   const lijst = films.filter((f) => f.trailer);
   const [i, setI] = useState(0);
@@ -24,6 +25,12 @@ export default function ZaalTrailers({ films, onKlaar, onSluit }) {
   sluitRef.current = onSluit;
   const nuRef = useRef(null);
   nuRef.current = film ? `${i}|${film.trailer}` : null;
+  const meldRef = useRef(onNu);
+  meldRef.current = onNu;
+  useEffect(() => {
+    if (film) meldRef.current?.({ key: film.key, i: i + 1, n: lijst.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i, film?.key]);
 
   useEffect(() => {
     const opBericht = (e) => {
