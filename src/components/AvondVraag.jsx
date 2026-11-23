@@ -10,7 +10,8 @@ import { useT } from '../lib/i18n.js';
 //   onAntwoord: (key | null, sterren | null)
 //   onLater:    de vraag tot later wegleggen (optioneel)
 //   kort:       de rustige vorm onder de kassa, zonder eigen vlak
-export default function AvondVraag({ avond, meta, onAntwoord, onLater, kort = false }) {
+//   anker:      het anker voor de rondleiding (data-uitleg)
+export default function AvondVraag({ avond, meta, onAntwoord, onLater, kort = false, anker }) {
   const { t: tr, lang } = useT();
   const vlak = kort ? 'followup-card kassa-vraag' : 'card followup-card';
   const ruimte = kort ? undefined : { marginBottom: 18 };
@@ -44,7 +45,7 @@ export default function AvondVraag({ avond, meta, onAntwoord, onLater, kort = fa
 
   if (gekozen) {
     return (
-      <section className={vlak} style={ruimte} aria-label={avond.length === 1 ? tr('pick.followupTitle') : tr('pick.followupAvondTitel')}>
+      <section className={vlak} style={ruimte} aria-label={avond.length === 1 ? tr('pick.followupTitle') : tr('pick.followupAvondTitel')} data-uitleg={anker}>
         {poster(gekozen) ? <img className="fu-poster" src={poster(gekozen)} alt="" /> : <div className="fu-poster" aria-hidden="true" />}
         <div style={{ flex: 1, minWidth: 200 }}>
           <p className="label" style={{ marginBottom: 2 }}>{avond.length === 1 ? tr('pick.followupTitle') : tr('pick.followupAvondTitel')}, {wanneer}</p>
@@ -56,7 +57,7 @@ export default function AvondVraag({ avond, meta, onAntwoord, onLater, kort = fa
   }
 
   return (
-    <section className={vlak} style={ruimte} aria-label={tr('pick.followupAvondTitel')}>
+    <section className={vlak} style={ruimte} aria-label={tr('pick.followupAvondTitel')} data-uitleg={anker}>
       <div style={{ flex: '1 1 100%' }}>
         <p className="label" style={{ marginBottom: 2 }}>{tr('pick.followupAvondTitel')}, {wanneer}</p>
         <p style={{ color: 'var(--paper)', fontSize: 15.5, fontWeight: 600 }}>{tr('pick.followupAvondQ', { n: avond.length })}</p>

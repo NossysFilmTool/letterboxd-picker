@@ -65,9 +65,9 @@ export default function SnelBeoordelen({ kandidaten, seededOnRatings, onWil, onN
   };
 
   return (
-    <div className="snel">
+    <div className="snel" data-uitleg="snel" data-uitleg-toetsen="">
       <div className="snel-kop">
-        <button type="button" className="btn ghost" onClick={onSluit}><ArrowLeft size={15} /> {tr('verken.snelKlaar')}</button>
+        <button type="button" className="btn ghost" onClick={onSluit} data-uitleg="snel-klaar"><ArrowLeft size={15} /> {tr('verken.snelKlaar')}</button>
         <span className="snel-teller">{tr('verken.snelTeller', { count: gedaan })}</span>
       </div>
       <p className="snel-uitleg">{tr('verken.snelUitleg')}</p>

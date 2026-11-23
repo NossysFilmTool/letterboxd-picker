@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { Upload, Sparkles, Download } from 'lucide-react';
 import { parseLetterboxdFiles } from '../lib/csv.js';
-import { demoWatchlist } from '../lib/extra.js';
 import { useT } from '../lib/i18n.js';
 import { PROXY_URL } from '../lib/tmdb.js';
 import { importDiff } from '../lib/csv.js';
@@ -21,8 +20,12 @@ export default function ImportPanel({ app, hero }) {
     setBusy(true);
     try {
       const res = await parseLetterboxdFiles(Array.from(files));
+      // Je eigen lijst na de demo: wat je in de demo deed, gaat eerst weg,
+      // en het verslag telt alles als nieuw
+      const naDemo = app.demoMode && res.watchlist?.length > 0;
+      if (naDemo) app.vervangDemo();
       // Diff t.o.v. de huidige staat, vóórdat we iets vervangen.
-      const diff = importDiff({ watchlist: app.watchlist, watchedLb: app.watchedLb, ratings: app.lbRatings }, res);
+      const diff = importDiff(naDemo ? {} : { watchlist: app.watchlist, watchedLb: app.watchedLb, ratings: app.lbRatings }, res);
       const found = [];
       if (res.watchlist?.length) { app.setWatchlist(res.watchlist); found.push(`${res.watchlist.length} watchlist-films`); }
       if (res.watched?.length) {
@@ -53,19 +56,16 @@ export default function ImportPanel({ app, hero }) {
     setBusy(false);
   };
 
-  const loadDemo = () => {
-    const demo = demoWatchlist();
-    app.setWatchlist(demo);
-    app.setDemoMode(true);
-    if (app.tmdbKey) app.startEnrich(demo);
-  };
+  // De demo alleen voor wie nog geen eigen lijst heeft: anders zou hij die
+  // vervangen
+  const demoMag = !app.watchlistAll?.length || app.demoMode;
 
   const inner = (
     <div
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
-      className="card"
+      className="card" data-uitleg="import"
       style={{ borderStyle: 'dashed', borderColor: dragOver ? 'var(--paper)' : 'var(--line-strong)', textAlign: 'center', padding: '28px 20px' }}
     >
       <Upload size={22} strokeWidth={1.6} style={{ color: 'var(--fog)' }} aria-hidden="true" />
@@ -93,7 +93,7 @@ export default function ImportPanel({ app, hero }) {
         <button className="btn primary" onClick={() => inputRef.current?.click()} disabled={busy}>
           <Upload size={15} /> {busy ? tr('imp.busy') : tr('imp.chooseFiles')}
         </button>
-        <button className="btn" onClick={loadDemo}><Sparkles size={15} /> {tr('imp.tryDemo')}</button>
+        {demoMag && <button className="btn" onClick={app.laadDemo} data-uitleg="import-demo"><Sparkles size={15} /> {tr('imp.tryDemo')}</button>}
       </div>
       <input
         ref={inputRef} type="file" multiple accept=".zip,.csv" hidden
@@ -117,7 +117,7 @@ export default function ImportPanel({ app, hero }) {
       </div>
       {/* Wie hier binnenkomt om mee te stemmen, hoeft niets te laden */}
       {zaalBeschikbaar() && app.naarZaal && (
-        <div className="zs-start">
+        <div className="zs-start" data-uitleg="zaal-code">
           <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.startKop')} />
         </div>
       )}

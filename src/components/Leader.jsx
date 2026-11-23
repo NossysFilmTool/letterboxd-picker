@@ -52,7 +52,7 @@ export default function Leader({ onDone }) {
   // Portal naar <body>: geen enkele ouder-animatie (tab-crossfade e.d.) kan de
   // fixed-positionering dan nog kapen — gegarandeerd schermvullend.
   return createPortal(
-    <div className={`leader ${flash ? 'flash' : ''}`} role="status" aria-label={tr('pick.aftellenAria')}>
+    <div className={`leader ${flash ? 'flash' : ''}`} data-uitleg-moment="" role="status" aria-label={tr('pick.aftellenAria')}>
       <div className="flick" aria-hidden="true" />
       <div className="frame">
         <div className="cross-h" />

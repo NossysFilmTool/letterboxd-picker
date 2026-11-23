@@ -13,8 +13,9 @@ const TABS = [
   { id: 'inzicht', key: 'inzicht' },
 ];
 
-// Zes eigen pictogrammen: gevulde vormen, één gewicht. Het kaartje, de
-// filmspoel, het gevouwen programma, twee stoelen, het jaarboek, de sleutel.
+// Zeven eigen pictogrammen: gevulde vormen, één gewicht. Het kaartje, de
+// filmspoel, het gevouwen programma, twee stoelen, het jaarboek, de sleutel,
+// en de zaklamp van de ouvreuse (de rondleiding).
 export function Pictogram({ naam, size = 24 }) {
   const gat = { stroke: 'var(--ink)', strokeWidth: 1.6, fill: 'none' };
   return (
@@ -24,12 +25,13 @@ export function Pictogram({ naam, size = 24 }) {
       {naam === 'verken' && (<><path d="M3.5 5.5l7.5 2v13l-7.5-2z" /><path d="M13 7.5l7.5-2v13l-7.5 2z" /></>)}
       {naam === 'avond' && (<><path d="M2.5 20v-7.5a4 4 0 0 1 8 0V20z" /><path d="M13.5 20v-7.5a4 4 0 0 1 8 0V20z" /></>)}
       {naam === 'inzicht' && (<><path d="M5 3.5h11.5a2.5 2.5 0 0 1 2.5 2.5v14.5H7.5A2.5 2.5 0 0 1 5 18z" /><path d="M8 17.2h11" {...gat} /></>)}
+      {naam === 'uitleg' && (<><path d="M4.5 2.5h15l-3 6.5h-9z" /><path d="M8.8 10.5h6.4v9.5a1.5 1.5 0 0 1-1.5 1.5h-3.4a1.5 1.5 0 0 1-1.5-1.5z" /><circle cx="12" cy="14.3" r="1.25" fill="var(--ink)" /></>)}
       {naam === 'setup' && (<path fillRule="evenodd" d="M8 4.5a5 5 0 0 1 4.7 3.3H21v3.4h-2v2.6h-3v-2.6h-3.3A5 5 0 1 1 8 4.5zm0 3.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" />)}
     </svg>
   );
 }
 
-export default function Shell({ tab, setTab, children }) {
+export default function Shell({ tab, setTab, onUitleg, children }) {
   const { t, lang } = useT();
   const datum = new Intl.DateTimeFormat(lang, { weekday: 'short', day: 'numeric', month: 'long' }).format(new Date());
   const knop = (id, key, klasse, metPictogram) => {
@@ -46,11 +48,17 @@ export default function Shell({ tab, setTab, children }) {
     <div className="shell">
       <header className="kop">
         <span className="kop-naam">{t('nav.huis')}</span>
-        <nav className="kop-nav" aria-label={t('nav.navLabel')}>
+        <nav className="kop-nav" aria-label={t('nav.navLabel')} data-uitleg="navigatie">
           {TABS.map(({ id, key }) => knop(id, key, 'kop-knop', false))}
         </nav>
         <span className="kop-rechts">
           <span className="label-breed kop-datum">{datum}</span>
+          {onUitleg && (
+            <button type="button" className="kop-setup kop-uitleg" onClick={onUitleg} aria-label={t('uitleg.knop')} data-uitleg="uitleg-knop">
+              <Pictogram naam="uitleg" size={20} />
+              <span>{t('uitleg.knop')}</span>
+            </button>
+          )}
           <button type="button" className={`kop-setup ${tab === 'instellingen' ? 'active' : ''}`} onClick={() => setTab('instellingen')}
             aria-label={t('nav.setup')} aria-current={tab === 'instellingen' ? 'page' : undefined}>
             <Pictogram naam="setup" size={20} />
@@ -61,7 +69,7 @@ export default function Shell({ tab, setTab, children }) {
       <main className="main">
         <div className="content">{children}</div>
       </main>
-      <nav className="bottombar" aria-label={t('nav.navLabel')}>
+      <nav className="bottombar" aria-label={t('nav.navLabel')} data-uitleg="navigatie">
         {TABS.map(({ id, key }) => knop(id, key, 'nav-btn', true))}
       </nav>
     </div>

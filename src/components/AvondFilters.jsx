@@ -20,7 +20,8 @@ export function Chip({ aan, onClick, children, className = '', title, label, dis
 //   actie: een knop in de kop (de kassa: Klaar); afwijkt: eigen "wijkt af"
 //   kopId: id van de kop, voor een dialoog die ernaar verwijst
 //   minimum: onder dit aantal een waarschuwing (een ronde wil er vier)
-export default function AvondFilters({ filters, onChange, aantal, genres, decennia, diensten = [], voor = null, na = null, actie = null, afwijkt, kopId, className = '', minimum = 4 }) {
+//   uitleg: anker voor de rondleiding
+export default function AvondFilters({ filters, onChange, aantal, genres, decennia, diensten = [], voor = null, na = null, actie = null, afwijkt, kopId, className = '', minimum = 4, uitleg }) {
   const { t: tr } = useT();
   const f = metStandaard(filters);
   const zet = (patch) => onChange({ ...f, ...patch });
@@ -28,7 +29,7 @@ export default function AvondFilters({ filters, onChange, aantal, genres, decenn
   const anders = afwijkt ?? afwijkend(f);
 
   return (
-    <div className={`card avond-filters ${className}`}>
+    <div className={`card avond-filters ${className}`} data-uitleg={uitleg}>
       <div className="af-kop">
         <p className="label" id={kopId} style={{ margin: 0 }}>{tr('avond.opTafel')}</p>
         <span className="af-telling">{tr('avond.opTafelTelling', { count: aantal })}</span>

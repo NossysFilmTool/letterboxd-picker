@@ -10,6 +10,10 @@ import Ontdekt from './components/Ontdekt.jsx';
 import SimilarOverlay from './components/SimilarOverlay.jsx';
 import Meldingen from './components/Meldingen.jsx';
 import Premiere from './components/Premiere.jsx';
+import Rondleiding, { UitlegWelkom } from './components/Rondleiding.jsx';
+import UitlegProgramma from './components/UitlegProgramma.jsx';
+import { uitlegAutomatisch, metGezien, metBezig, vindHoofdstuk } from './lib/rondleiding.js';
+import { demoWatchlist } from './lib/extra.js';
 import { meld } from './lib/melding.js';
 import { premiereAutomatisch, PREMIERE_VERSIE } from './lib/premiere.js';
 import { buildTaste } from './lib/taste.js';
@@ -123,6 +127,8 @@ export default function App() {
   const [enrich, setEnrich] = useState({ running: false, done: 0, total: 0, errors: 0 });
   const [extEnrich, setExtEnrich] = useState({ running: false, done: 0, total: 0, ok: 0, lastError: null, ranOnce: false });
   const stopRef = useRef(false);
+  const enrichBezig = useRef(false);
+  const enrichDaarna = useRef(null);
   const metaRef = useRef(meta);
   useEffect(() => { metaRef.current = meta; }, [meta]);
   // Jouw Nossy-recept doorvoeren in de rekenmodule (ook voor Bieb-sortering, moods, slimme pick)
@@ -185,6 +191,32 @@ export default function App() {
     setIgnored([]);
     setDemoMode(false);
     setTab('pick');
+  };
+
+  // Een echte import na de demo: wat je in de demo deed, gaat weg. De
+  // filmdata blijft staan: die hoort bij de films, niet bij jou.
+  const vervangDemo = () => {
+    stopRef.current = true; // de filmdata van de demo hoeft niet verder
+    setWatchedLb([]);
+    setWatchedFilms([]);
+    setRatings({});
+    setRatedFilms([]);
+    setOwnRatings({});
+    setFollowups({});
+    setKaartjes([]);
+    setGezienOp({});
+    setGezienWeg({});
+    setDiary([]);
+    setLbLists([]);
+    setSeen([]);
+    setHistory([]);
+    setShortlist([]);
+    setSkipped([]);
+    setSmaakModel(null);
+    setIgnored([]);
+    setVondsten({});
+    setVraagLater(null);
+    setDemoMode(false);
   };
 
   const seenSet = useMemo(() => new Set([...watchedLb, ...seen]), [watchedLb, seen]);
@@ -467,9 +499,13 @@ export default function App() {
     const key = tmdbKey;
     // Nooit verrijken vóór de cache uit IndexedDB geladen is: anders lijkt
     // alles 'ontbrekend' en halen we honderden films dubbel op.
-    if (!key || enrich.running || !metaReady) return;
-    const todo = force ? films : films.filter((f) => !(f.key in meta));
+    if (!key || !metaReady) return;
+    // Loopt er al een ronde (de demo, terwijl je eigen export binnenkomt):
+    // dan is deze lijst de volgende
+    if (enrichBezig.current) { enrichDaarna.current = { films, force }; return; }
+    const todo = force ? films : films.filter((f) => !(f.key in metaRef.current));
     if (!todo.length) return;
+    enrichBezig.current = true;
     stopRef.current = false;
     setEnrich({ running: true, done: 0, total: todo.length, errors: 0 });
     try {
@@ -483,8 +519,12 @@ export default function App() {
       if (e.message === 'KEY_INVALID') meld(tr('app.tmdbKeyRejected'), { soort: 'fout' });
       else meld(tr('app.enrichFailed', { msg: e.message }), { soort: 'fout' });
     }
+    enrichBezig.current = false;
     setEnrich((e) => ({ ...e, running: false }));
-    if (omdbKeys.length) startExtEnrich(films);
+    const daarna = enrichDaarna.current;
+    enrichDaarna.current = null;
+    if (daarna) setTimeout(() => startEnrichRef.current?.(daarna.films, daarna.force), 0);
+    else if (omdbKeys.length) startExtEnrich(films);
   };
 
   // OMDb-sleutels: nieuw meervoud (omdbKeys), met migratie van de oude enkele sleutel
@@ -739,6 +779,55 @@ export default function App() {
     setTab('pick');
   };
 
+  // De rondleiding (lib/rondleiding.js): de stand (welk hoofdstuk, welke
+  // stap), het programma, en het welkom op een leeg apparaat. De voortgang
+  // staat in de instellingen en reist mee met sync.
+  const [uitlegStand, setUitlegStand] = useState(null); // { h, s }
+  const [programmaOpen, setProgrammaOpen] = useState(false);
+  const [welkomOpen, setWelkomOpen] = useState(false);
+  const zetUitleg = (fn) => setSettings((s) => ({ ...s, uitleg: fn(s.uitleg || {}) }));
+  const startUitleg = (h, stap = 0) => {
+    setProgrammaOpen(false);
+    setWelkomOpen(false);
+    setUitlegStand({ h, s: stap });
+    zetUitleg((u) => metBezig(u, h, stap));
+  };
+  // openUitleg(): het programma; openUitleg('zaal'): dat hoofdstuk;
+  // openUitleg('extras', 'sync'): meteen bij die stap ("Hoe werkt dit?")
+  const openUitleg = (h, stap) => {
+    if (!h) { setProgrammaOpen(true); return; }
+    const i = stap ? (vindHoofdstuk(h)?.stappen.findIndex((x) => x.id === stap) ?? -1) : 0;
+    startUitleg(h, Math.max(i, 0));
+  };
+  const stopUitleg = () => setUitlegStand(null);
+  const uitlegGekeken = useRef(false);
+  useEffect(() => {
+    if (!metaReady || uitlegGekeken.current) return;
+    uitlegGekeken.current = true;
+    const p = new URLSearchParams(location.search);
+    if (p.has('uitleg')) {
+      p.delete('uitleg');
+      window.history.replaceState(null, '', `${location.pathname}${p.toString() ? `?${p}` : ''}${location.hash}`);
+      if (watchlist.length) setProgrammaOpen(true); else setWelkomOpen(true);
+      return;
+    }
+    const versie = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+    const wat = uitlegAutomatisch({ versie, uitleg: settings.uitleg, watchlist: watchlist.length, demoMode });
+    if (wat === 'welkom') setWelkomOpen(true);
+    // Wie de tool al gebruikte: één keer een melding, niet tijdens de première
+    if (wat === 'melding' && !premiereAutomatisch({ versie, gezien: settings.premiere, nieuwHier, watchlist: watchlist.length, demoMode })) {
+      zetUitleg((u) => ({ ...u, welkom: 'melding' }));
+      meld(tr('uitleg.nieuw'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metaReady]);
+  const laadDemo = () => {
+    const demo = demoWatchlist();
+    setWatchlist(demo);
+    setDemoMode(true);
+    if (tmdbKey) startEnrich(demo);
+  };
+
   // De vraag na een avond: welk kaartje heb je gebruikt? Op Pick staat hij
   // onder de kassa, op de andere schermen bovenaan.
   const vraagNu = (() => {
@@ -759,6 +848,7 @@ export default function App() {
     vraag,
     naarDeDoos,
     openPremiere: () => setPremiereOpen(true),
+    openUitleg, laadDemo, vervangDemo,
     settings, setSettings,
     watchlist: watchlist.filter((f) => !ignoredSet.has(f.key)),
     watchlistAll: watchlist,
@@ -802,18 +892,39 @@ export default function App() {
     <>
     <Meldingen />
     {premiereOpen && <Premiere app={app} onKlaar={sluitPremiere} />}
+    {welkomOpen && !uitlegStand && (
+      <UitlegWelkom
+        onRondleiding={() => { zetUitleg((u) => ({ ...u, welkom: 'rondleiding' })); startUitleg('welkom', 0); }}
+        onZelf={() => { setWelkomOpen(false); zetUitleg((u) => ({ ...u, welkom: 'zelf' })); }}
+        onCode={(code) => { setWelkomOpen(false); zetUitleg((u) => ({ ...u, welkom: 'gast' })); naarZaal(code); }} />
+    )}
+    {programmaOpen && !uitlegStand && (
+      <UitlegProgramma app={app} tab={tab} uitleg={settings.uitleg} onStart={startUitleg} onSluit={() => setProgrammaOpen(false)} />
+    )}
+    {uitlegStand && (
+      <Rondleiding app={app} tab={tab} setTab={setTab} stand={uitlegStand} gezien={settings.uitleg?.gezien || []}
+        onStand={(h, stap) => { setUitlegStand({ h, s: stap }); zetUitleg((u) => metBezig(u, h, stap)); }}
+        onStop={stopUitleg}
+        onGezien={(h) => zetUitleg((u) => metGezien(u, h))}
+        onKlaar={(h, { volgende, programma } = {}) => {
+          zetUitleg((u) => metGezien(u, h));
+          setUitlegStand(null);
+          if (volgende) startUitleg(volgende, 0);
+          else if (programma) setProgrammaOpen(true);
+        }} />
+    )}
     {similarSeed && (
       <SimilarOverlay seed={similarSeed.film} seedMeta={similarSeed.meta || meta[similarSeed.film.key] || {}}
         app={app} onClose={() => setSimilarSeed(null)} />
     )}
-    <Shell tab={tab} setTab={setTab}>
+    <Shell tab={tab} setTab={setTab} onUitleg={() => setProgrammaOpen(true)}>
       {storageBroken && (
         <div className="notice warn" role="alert" style={{ marginBottom: 18 }}>
           {tr('app.storageBroken')}
         </div>
       )}
       {enrich.running && (
-        <div style={{ marginBottom: 18 }}>
+        <div style={{ marginBottom: 18 }} data-uitleg="filmdata" data-uitleg-klaar={enrich.done} data-uitleg-totaal={enrich.total}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--fog)', marginBottom: 6 }}>
             <span>{tr('app.enriching', { done: enrich.done, total: enrich.total })}{enrich.errors ? tr('app.enrichErrCount', { count: enrich.errors }) : ''}</span>
             <button className="btn ghost" style={{ padding: '2px 8px', fontSize: 12 }} onClick={app.stopEnrich}>{tr('app.pause')}</button>
@@ -822,7 +933,7 @@ export default function App() {
         </div>
       )}
       {demoMode && watchlist.length > 0 && (
-        <div className="notice" style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div className="notice" data-uitleg="demo-banner" style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span dangerouslySetInnerHTML={{ __html: tr('app.demoBanner') }} />
           <button className="btn" style={{ flexShrink: 0 }} onClick={resetLibrary}>{tr('app.demoReset')}</button>
         </div>

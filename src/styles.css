@@ -1382,3 +1382,88 @@ button.zs-film { cursor: pointer; }
   .zs-uitslag-titel { font-size: 68px; }
 }
 @media (prefers-reduced-motion: reduce) { .zs-namen li, .zs-films li { animation: none; } .zs-film { transition: none; } }
+/* ---------- De rondleiding (DESIGN.md, "De rondleiding") ----------
+   De ouvreuse met de zaklamp: het scherm dimt, een zachte bundel valt op
+   het echte onderdeel (een SVG-masker, geen schaduw of matglas), en de
+   uitleg staat op een tussentitel zoals in de stomme film: een donkere
+   kaart met een dubbel kader. Op een telefoon onderin, boven de navigatie. */
+.uitleg { position: fixed; inset: 0; z-index: 160; pointer-events: none; }
+[data-uitleg] { scroll-margin: 14px; }
+.uitleg-donker { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.uitleg-donker-vlak { fill: rgba(8, 7, 6, 0.74); }
+.uitleg-vang { position: fixed; pointer-events: auto; background: transparent; }
+.uitleg-rand { position: fixed; border: 1px solid rgba(236, 230, 220, 0.38); border-radius: 12px; pointer-events: none; }
+.uitleg-titel { position: fixed; pointer-events: auto; box-sizing: border-box; width: 380px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 14px 18px 16px; background: var(--ink); border: 3px double var(--line-strong); border-radius: var(--radius); color: var(--paper); animation: uitleg-in 0.22s ease-out both; }
+.uitleg-titel.midden { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(480px, calc(100vw - 32px)); animation-name: ko-in; }
+.uitleg-boven { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.uitleg-boven .label-breed { white-space: pre-wrap; }
+.uitleg-teller { margin-left: 0.9em; white-space: nowrap; }
+.uitleg-stop { flex-shrink: 0; font-size: 13px; color: var(--fog); }
+.uitleg-kop { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 31px; line-height: 0.95; outline: none; }
+.uitleg-titel.welkom .uitleg-kop { font-size: 44px; }
+.uitleg-lijf p { margin-top: 10px; font-size: 15px; line-height: 1.5; }
+.uitleg-tekst { color: var(--paper); }
+.uitleg-vb { padding-top: 8px; border-top: 1px solid var(--line); color: var(--paper); font-variant-numeric: tabular-nums; }
+.uitleg-doe { font-weight: 600; color: var(--paper); }
+.uitleg-doe.gedaan { color: var(--dot-g); }
+.uitleg-klein { font-size: 12.5px; color: var(--fog-dim); }
+.uitleg-welkom-code { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.uitleg-knoppen { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.uitleg-knoppen .btn { min-height: 44px; }
+.uitleg-overslaan { margin-left: auto; min-height: 44px; font-size: 13.5px; color: var(--fog); }
+@keyframes uitleg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.uitleg.stil .uitleg-titel { animation: none; }
+@media (prefers-reduced-motion: reduce) { .uitleg-titel, .uitleg-programma, .uitleg-programma-achter { animation: none; } }
+@media (max-width: 720px) {
+  .uitleg-titel.dock-onder, .uitleg-titel.dock-boven { left: 12px; right: 12px; width: auto; max-width: none; max-height: 46dvh; }
+  .uitleg-titel.dock-onder { bottom: calc(78px + env(safe-area-inset-bottom)); }
+  .uitleg-titel.dock-boven { top: calc(12px + env(safe-area-inset-top)); }
+  .uitleg-kop { font-size: 27px; }
+  .uitleg-titel.welkom .uitleg-kop { font-size: 38px; }
+  .uitleg-lijf p { font-size: 14.5px; }
+}
+
+/* Het programma van de rondleiding: een la met programmaregels */
+.uitleg-programma-achter { position: fixed; inset: 0; z-index: 158; background: rgba(0, 0, 0, 0.62); animation: ko-in 0.2s ease-out both; }
+.uitleg-programma { position: fixed; z-index: 159; left: 50%; bottom: 0; transform: translateX(-50%); width: min(640px, 100%); max-height: 88dvh; overflow-y: auto; box-sizing: border-box; padding: 8px 18px calc(18px + env(safe-area-inset-bottom)); background: var(--char); border: 1px solid var(--line-strong); border-bottom: none; border-radius: 3px 3px 0 0; outline: none; animation: la-op 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.uitleg-programma-kop { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.uitleg-programma-kop h2 { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 44px; line-height: 0.9; }
+.uitleg-programma-kop .linkbtn { min-height: 44px; }
+.uitleg-programma-sub { margin-top: 6px; font-size: 14px; line-height: 1.45; color: var(--fog); }
+.uitleg-verder { margin-top: 14px; min-height: 44px; }
+.uitleg-zoek { max-width: none; }
+.uitleg-regels { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--line-strong); }
+.uitleg-regels li { border-bottom: 1px solid var(--line); }
+.uitleg-regel { display: grid; grid-template-columns: minmax(36px, auto) minmax(0, 1fr) auto; column-gap: 14px; align-items: baseline; width: 100%; min-height: 52px; padding: 12px 0; background: none; border: none; color: var(--paper); font: inherit; text-align: left; cursor: pointer; }
+.uitleg-regel-titel { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 23px; line-height: 1.05; }
+.uitleg-regel:hover .uitleg-regel-titel { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.uitleg-regel:focus-visible { outline: 2px solid var(--paper); outline-offset: 2px; }
+.uitleg-regel-meta { display: flex; gap: 10px; white-space: nowrap; }
+.uitleg-regel-onder { grid-column: 2 / -1; margin-top: 3px; font-size: 13px; color: var(--fog); }
+.uitleg-programma-niets { margin-top: 16px; color: var(--fog); }
+@media (max-width: 720px) {
+  .uitleg-programma-kop h2 { font-size: 38px; }
+  .uitleg-regel { grid-template-columns: minmax(30px, auto) minmax(0, 1fr); }
+  .uitleg-regel-meta { grid-column: 2; margin-top: 3px; }
+}
+
+/* Oefenen met stemmen (StemOefening): in de tussentitel van de rondleiding
+   en op de telefoon in de lobby. Dezelfde 1e- en 2e-knoppen als in de zaal. */
+.stem-oefening { margin-top: 12px; }
+.stem-oefening p { margin: 0; }
+.stem-oefening .so-intro { font-size: 14px; line-height: 1.45; color: var(--fog); }
+.so-opties { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.so-optie { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.so-naam { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 24px; line-height: 1; overflow-wrap: anywhere; }
+.so-telling { font-family: var(--font-display); font-stretch: 100%; font-weight: 400; font-size: 13px; color: var(--fog); font-variant-numeric: tabular-nums; }
+.so-stemmen { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 2px; font-size: 13.5px; color: var(--fog); }
+.so-stemmen .jij { color: var(--paper); }
+.so-uitslag { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.stem-oefening .so-kop { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 26px; line-height: 1; }
+.stem-oefening .so-zin { margin-top: 4px; font-size: 14px; line-height: 1.45; }
+.zs-t-oefen { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.zs-t-oefen > .linkbtn { min-height: 44px; font-size: 14.5px; color: var(--paper); }
+.zs-t-oefen .zs-t-sub { margin-top: 10px; }
+
+/* "Hoe werkt dit?": een stil linkje achter de uitleg van een kaart */
+.hoe-werkt { font-size: 12.5px; font-weight: 400; color: var(--fog); white-space: nowrap; }

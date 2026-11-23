@@ -9,7 +9,7 @@ export default function DienstKiezer({ keuze, gekozen = [], onOpslaan, onLater }
   const [sel, setSel] = useState(gekozen);
   const wissel = (naam) => setSel((s) => (s.includes(naam) ? s.filter((x) => x !== naam) : [...s, naam]));
   return (
-    <section className="card dienst-kiezer" aria-label={tr('verken.servicesPickTitle')}>
+    <section className="card dienst-kiezer" aria-label={tr('verken.servicesPickTitle')} data-uitleg="dienst-kiezer">
       <p className="label" style={{ marginBottom: 6 }}><Tv size={14} style={{ verticalAlign: -2 }} /> {tr('verken.servicesPickTitle')}</p>
       <p style={{ fontSize: 13.5, color: 'var(--fog)', marginBottom: 12 }}>{tr('verken.servicesPickHint')}</p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>

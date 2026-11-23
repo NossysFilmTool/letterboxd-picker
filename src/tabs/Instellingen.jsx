@@ -15,6 +15,7 @@ import MatchPicker from '../components/MatchPicker.jsx';
 import LetterboxdLive from '../components/LetterboxdLive.jsx';
 import SyncApparaten from '../components/SyncApparaten.jsx';
 import { meld, bevestig } from '../lib/melding.js';
+import HoeWerktDit from '../components/HoeWerktDit.jsx';
 
 export default function Instellingen({ app }) {
   const { t: tr, lang } = useT();
@@ -77,7 +78,7 @@ export default function Instellingen({ app }) {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-tmdb">
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.tmdbKeyLabel')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>
           {PROXY_URL ? tr('setup.tmdbViaProxy') : <>{tr('setup.tmdbIntro1')}<a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer">themoviedb.org/settings/api</a>{tr('setup.tmdbIntro2')}</>}
@@ -98,7 +99,7 @@ export default function Instellingen({ app }) {
         {app.settings.tmdbKey && keyState === 'idle' && <p style={{ color: 'var(--fog-dim)', fontSize: 13, marginTop: 10 }}>{tr('setup.tmdbWorking')}</p>}
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-omdb">
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.omdbLabel')}</p>
         {app.omdbKeys.length > 0 && !editKeys ? (
           <>
@@ -140,7 +141,7 @@ export default function Instellingen({ app }) {
         ) : (
           <>
             <ScoresPreview />
-            <p style={{ color: 'var(--paper)', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{tr('setup.scoresPitch')}</p>
+            <p style={{ color: 'var(--paper)', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{tr('setup.scoresPitch')} <HoeWerktDit app={app} h="extras" stap="omdb" /></p>
             <ol style={{ color: 'var(--fog)', fontSize: 13.5, margin: '0 0 12px 18px', display: 'grid', gap: 6 }}>
               <li>{tr('setup.wizStep1')}<a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noreferrer">omdbapi.com/apikey.aspx</a>{tr('setup.wizStep1b')}</li>
               <li><strong style={{ color: 'var(--paper)' }}>{tr('setup.wizStep2')}</strong></li>
@@ -229,7 +230,7 @@ export default function Instellingen({ app }) {
       {PROXY_URL && <SyncApparaten app={app} />}
       {PROXY_URL && <LetterboxdLive app={app} />}
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-laden">
         <p className="label" style={{ marginBottom: 12 }}>{tr('setup.reloadData')}</p>
         <ImportPanel app={app} />
         {app.watchlistAll.length > 0 && (
@@ -250,7 +251,7 @@ export default function Instellingen({ app }) {
               });
               if (!jaarGevallen.length) return null;
               return (
-                <button className="btn" style={{ borderColor: 'var(--dot-o)' }} onClick={() => setPicker(jaarGevallen)} disabled={app.enrich.running}>
+                <button className="btn" style={{ borderColor: 'var(--dot-o)' }} onClick={() => setPicker(jaarGevallen)} disabled={app.enrich.running} data-uitleg="setup-match">
                   {tr('setup.wrongFilms', { count: jaarGevallen.length })}
                 </button>
               );
@@ -291,10 +292,10 @@ export default function Instellingen({ app }) {
         )}
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-recept">
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.nossyRecipe')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>
-          {tr('setup.nossyExplain')}
+          {tr('setup.nossyExplain')} <HoeWerktDit app={app} h="extras" stap="recept" />
         </p>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           {[['imdb', 'IMDb'], ['mc', 'Metacritic'], ['tmdb', 'TMDB']].map(([id, label]) => (
@@ -313,7 +314,7 @@ export default function Instellingen({ app }) {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-taal">
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.language')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('setup.languageHint')}</p>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -327,7 +328,7 @@ export default function Instellingen({ app }) {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-regio">
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.region')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('setup.regionHint')}</p>
         <select
@@ -347,7 +348,7 @@ export default function Instellingen({ app }) {
         </select>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-thema">
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.themeEmphasis')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>
 {tr('setup.themeExplain')}
@@ -366,7 +367,7 @@ export default function Instellingen({ app }) {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-profielen">
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.profiles')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('setup.profilesHint')}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
@@ -389,7 +390,7 @@ export default function Instellingen({ app }) {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-backup">
         <p className="label" style={{ marginBottom: 12 }}>{tr('setup.backup')}</p>
         <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginBottom: 12 }}>
           {tr('setup.storageUsage', { mb: (storageUsage() / 1024 / 1024).toFixed(1).replace('.', lang === 'nl' ? ',' : '.') })}
@@ -402,7 +403,7 @@ export default function Instellingen({ app }) {
           </button>
           <button className="btn" onClick={() => fileRef.current?.click()}><Upload size={15} /> {tr('setup.restoreBackup')}</button>
           <input ref={fileRef} type="file" accept=".json" hidden onChange={(e) => { restore(e.target.files); e.target.value = ''; }} />
-          <button className="btn" onClick={terugNaarStart}>
+          <button className="btn" onClick={terugNaarStart} data-uitleg="setup-start">
             <Trash2 size={15} /> {tr('setup.terugNaarStart')}
           </button>
           <button className="btn" style={{ borderColor: 'var(--line-strong)', color: 'var(--dot-o)' }} onClick={wipe}>
@@ -411,7 +412,7 @@ export default function Instellingen({ app }) {
         </div>
       </div>
 
-      <p style={{ color: 'var(--fog-dim)', fontSize: 12.5 }}>
+      <p style={{ color: 'var(--fog-dim)', fontSize: 12.5 }} data-uitleg="setup-versie">
         {tr('setup.versionLine', { v: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev' })}
         {app.watchlist.length > 0 && !app.demoMode && (
           <>

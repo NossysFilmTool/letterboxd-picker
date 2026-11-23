@@ -7,14 +7,14 @@ import Sterren from './Sterren.jsx';
 // Eén aanbeveling als poster-tegel. Klik opent de filmkaart; plus, oog en kruis geven
 // direct feedback (shortlist / al gezien, met sterren / niet voor mij),
 // waarna de volgende film uit dezelfde rij vanzelf op deze plek schuift.
-export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, onOpen, onShortlist, onSkip, onGezien }) {
+export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, uitleg = false, onOpen, onShortlist, onSkip, onGezien }) {
   const { t: tr, lang } = useT();
   const [sterrenOpen, setSterrenOpen] = useState(false);
   const score = r.vote ? (lang === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote)) : null;
   // Waar is hij nu te streamen? Bij voorkeur op een van jouw diensten, anders de eerste.
   const prov = r.flat?.length ? (r.flat.find((p) => voorkeur.includes(p)) || r.flat[0]) : null;
   return (
-    <div className="rec-tile" style={{ '--i': Math.min(i, 12) }}>
+    <div className="rec-tile" style={{ '--i': Math.min(i, 12) }} data-uitleg={uitleg ? 'voorjou-tegel' : undefined}>
       <div className="poster">
         <button type="button" className="tile-open" onClick={() => onOpen(r)} aria-label={tr('common.openAria', { title: r.title })}>
           {r.poster

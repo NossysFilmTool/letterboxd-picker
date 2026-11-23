@@ -79,7 +79,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
   })();
 
   return (
-    <section className={`winner${kaartje ? ' met-kaartje' : ''}`} style={{ '--film': kleur }} aria-label={tr('winner.chosenAria', { name: film.name })}>
+    <section className={`winner${kaartje ? ' met-kaartje' : ''}`} style={{ '--film': kleur }} aria-label={tr('winner.chosenAria', { name: film.name })} data-uitleg="winner">
       {kaartje ? (
         // Een pick: je krijgt een kaartje
         <>
@@ -121,7 +121,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
         {cijfers}
       </div>
       )}
-      <div className="wonder">
+      <div className="wonder" data-uitleg="winner-acties">
           {(() => {
             // Een opgeblazen TMDB-cijfer (fans of bots): zeg het eerlijk. Met
             // IMDb als tweede mening: bevestigd (niets melden) of rechtgezet.

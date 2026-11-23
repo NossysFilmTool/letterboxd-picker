@@ -472,15 +472,15 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   const voet = (
     <div className="zs-voet">
       {fout && <p className="zs-melding" role="alert">{fout}</p>}
-      <button type="button" className="linkbtn zs-sluit" onClick={onStop}>{tr('zaal.stop')}</button>
+      <button type="button" className="linkbtn zs-sluit" onClick={onStop} data-uitleg="zaal-sluit">{tr('zaal.stop')}</button>
     </div>
   );
 
   // ---------- de lobby ----------
   if (fase === 'lobby') {
     return (
-      <section className="zs zs-lobby" aria-label={tr('zaal.titel')}>
-        <div className="zs-lobby-code">
+      <section className="zs zs-lobby" aria-label={tr('zaal.titel')} data-uitleg="zaal-lobby">
+        <div className="zs-lobby-code" data-uitleg="zaal-scan" data-uitleg-code={zaal.code}>
           <p className="label-breed zs-boven">{tr('zaal.titel')}</p>
           <h1 className="zs-kop">{tr('zaal.pakTelefoon')}</h1>
           <p className="zs-code" aria-label={tr('zaal.codeAria', { code: zaal.code.split('').join(' ') })}>{zaal.code}</p>
@@ -507,7 +507,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
               {zelfMee && naamHier && !doetMee(spelers, naamHier) && <li className="hier">{naamHier}</li>}
             </ul>
           ) : <p className="zs-leeg">{tr('zaal.nogNiemand')}</p>}
-          <div className="zs-zelf">
+          <div className="zs-zelf" data-uitleg="zaal-zelf">
             <button type="button" className={`switch-row ${zelfMee ? 'on' : ''}`} aria-pressed={zelfMee} onClick={() => setZelfMee(!zelfMee)}>
               <span className="switch" aria-hidden="true"><span className="knob" /></span>
               {tr('zaal.zelfMee')}
@@ -518,7 +518,7 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
             )}
           </div>
           <ZaalSpel spel={spel} zetSpel={zetSpel} lbKan={lbKan} vdKan={vdKan} />
-          <button type="button" className="btn primary big zs-begin" onClick={begin} disabled={bezig || zoekt || aantal < 1}>
+          <button type="button" className="btn primary big zs-begin" onClick={begin} disabled={bezig || zoekt || aantal < 1} data-uitleg="zaal-begin" data-uitleg-n={aantal}>
             {aantal ? tr('zaal.begin', { count: aantal }) : tr('zaal.wachtOpSpelers')}
           </button>
           {zoekt && <p className="zs-leeg" role="status">{wachtOp.length ? tr('zaal.wachtOpLb', { namen: lijstje(wachtOp, tr) }) : tr('zaal.kiezen')}</p>}
@@ -653,7 +653,7 @@ function ZaalSpel({ spel, zetSpel, lbKan, vdKan }) {
     </div>
   );
   return (
-    <div className="zs-spel" role="group" aria-label={tr('zaal.spelKop')}>
+    <div className="zs-spel" role="group" aria-label={tr('zaal.spelKop')} data-uitleg="zaal-spel">
       <h3 className="zs-spel-kop">{tr('zaal.spelKop')}</h3>
       {rij(tr('zaal.spelGenre'), (
         <>

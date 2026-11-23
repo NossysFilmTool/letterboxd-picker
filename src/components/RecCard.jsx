@@ -9,7 +9,7 @@ import Sterren from './Sterren.jsx';
 
 // De uitgebreide aanbevelingskaart van "Alles bekijken": waarom de film er
 // staat, de match met het uitklapbare recept, en alle acties.
-export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdbKey, voorkeur = [], receptOpen, onToggleRecept, onOpen, onShortlist, onSkip, onSimilar, onGezien }) {
+export default function RecCard({ r, i = 0, uitleg, sterk, seededOnRatings, detail, tmdbKey, voorkeur = [], receptOpen, onToggleRecept, onOpen, onShortlist, onSkip, onSimilar, onGezien }) {
   const { t: tr, lang } = useT();
   const fmt = (v) => (lang === 'nl' ? String(v).replace('.', ',') : String(v));
   const [sterrenOpen, setSterrenOpen] = useState(false);
@@ -21,7 +21,7 @@ export default function RecCard({ r, i = 0, sterk, seededOnRatings, detail, tmdb
   const extra = (r.redenen || []).filter((x) => x !== themeReason);
 
   return (
-    <div className="card rec rise-in" style={{ '--i': Math.min(i, 16) }}>
+    <div className="card rec rise-in" style={{ '--i': Math.min(i, 16) }} data-uitleg={uitleg} data-uitleg-match={uitleg && r.recept && r.match != null ? r.match : undefined}>
       <button className="rposter" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => onOpen(r)} aria-label={tr('common.openAria', { title: r.title })}>
         <div className="poster">
           {r.poster ? <img src={IMG(r.poster, 'w342')} alt={tr('common.posterAlt', { name: r.title })} loading="lazy" /> : <Clapperboard size={22} strokeWidth={1.4} aria-hidden="true" />}

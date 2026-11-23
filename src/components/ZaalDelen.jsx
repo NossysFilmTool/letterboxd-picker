@@ -107,8 +107,8 @@ export function ZaalFilmInhoud({ film, badge }) {
   );
 }
 
-// Meedoen met een code, voor wie de link niet heeft
-export function ZaalCodeInvoer({ onCode, kop }) {
+// Meedoen met een code, voor wie de link niet heeft (uitleg: anker voor de rondleiding)
+export function ZaalCodeInvoer({ onCode, kop, uitleg }) {
   const { t: tr } = useT();
   const id = useId();
   const [waarde, setWaarde] = useState('');
@@ -121,7 +121,7 @@ export function ZaalCodeInvoer({ onCode, kop }) {
     onCode(code);
   };
   return (
-    <form className="zs-code-invoer" onSubmit={verstuur}>
+    <form className="zs-code-invoer" onSubmit={verstuur} data-uitleg={uitleg}>
       <label className="label-breed" htmlFor={id}>{kop || tr('zaal.codeLabel')}</label>
       <div className="zs-code-rij">
         <input id={id} className="field zs-code-veld" value={waarde} onChange={(e) => setWaarde(e.target.value)}

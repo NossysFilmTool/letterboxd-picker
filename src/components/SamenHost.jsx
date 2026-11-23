@@ -6,6 +6,7 @@ import { useLS } from '../lib/storage.js';
 import { createSamen, getSession, closeSession } from '../lib/session.js';
 import { usePoll } from '../lib/usePoll.js';
 import { kiesKandidaten, scoorKandidaten, groepsRanglijst } from '../lib/samen.js';
+import HoeWerktDit from './HoeWerktDit.jsx';
 
 // "Voor ons" voor de gastheer (Avond): een avond klaarzetten met films uit
 // je watchlist, de link delen, en zien wat het best bij iedereen past. Jouw
@@ -60,7 +61,7 @@ export default function SamenHost({ app, pool, meta, onKies, pollMs = 8000 }) {
       </h2>
       {!avond ? (
         <>
-          <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('samen.hostUitleg')}</p>
+          <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('samen.hostUitleg')} <HoeWerktDit app={app} h="samen" stap="voorons" /></p>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
             <input className="field" style={{ maxWidth: 180 }} placeholder={tr('remote.namePlaceholder')} value={naam} onChange={(e) => setNaam(e.target.value)} aria-label={tr('remote.yourName')} />
             <button type="button" className="btn primary" onClick={start} disabled={bezig || pool.length < 2}>

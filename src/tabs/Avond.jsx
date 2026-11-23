@@ -17,6 +17,7 @@ import { meld } from '../lib/melding.js';
 import ZaalScherm from '../components/ZaalScherm.jsx';
 import { ZaalCodeInvoer } from '../components/ZaalDelen.jsx';
 import { maakZaal, zaalBeschikbaar } from '../lib/zaalstemming.js';
+import HoeWerktDit from '../components/HoeWerktDit.jsx';
 
 function Tile({ film, meta, onClick, struck, label, index = 0, onInfo }) {
   const { t: tr } = useT();
@@ -240,7 +241,7 @@ export default function Avond({ app }) {
         </div>
         {zaalBeschikbaar() && (
           <div className="card zs-kaart" style={{ marginTop: 16 }}>
-            <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.meedoenKop')} />
+            <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.meedoenKop')} uitleg="zaal-meedoen" />
           </div>
         )}
       </div>
@@ -256,7 +257,7 @@ export default function Avond({ app }) {
   if (info) {
     return (
       <div>
-        <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setInfo(null)}>
+        <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setInfo(null)} data-uitleg="avond-terug">
           <ArrowLeft size={15} /> {tr('avond.terugNaarRonde')}
         </button>
         <Winner film={info} meta={meta[info.key]} context={tr('avond.peek')} />
@@ -270,7 +271,7 @@ export default function Avond({ app }) {
       <div>
         <div className="toprow">
           <div><h1 className="page-title">{tr('avond.title')}</h1><p className="page-sub">{tr('avond.groupSpoke')}</p></div>
-          <button className="btn" onClick={reset}><RotateCcw size={15} /> {tr('avond.nieuweRonde')}</button>
+          <button className="btn" onClick={reset} data-uitleg="avond-nieuw"><RotateCcw size={15} /> {tr('avond.nieuweRonde')}</button>
         </div>
         <Winner
           film={champion} meta={meta[champion.key]}
@@ -361,13 +362,13 @@ export default function Avond({ app }) {
   return (
     <div>
       <div className="toprow">
-        <div>
+        <div data-uitleg="avond-kop" data-uitleg-n={basePool.length}>
           <h1 className="page-title">{tr('avond.title')}</h1>
           <p className="page-sub">{tr('avond.pageSub', { count: basePool.length })}</p>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="avond-pot">
         <p className="label" style={{ marginBottom: 10 }}>{tr('avond.pot')}</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className={`chip ${!useOverlap ? 'on-g' : ''}`} onClick={() => setUseOverlap(false)}>{tr('avond.myWatchlist')}</button>
@@ -390,38 +391,38 @@ export default function Avond({ app }) {
         )}
       </div>
 
-      <AvondFilters filters={filters} onChange={zetFilters} aantal={basePool.length} genres={genresAvail} decennia={decadesAvail} diensten={diensten} />
+      <AvondFilters filters={filters} onChange={zetFilters} aantal={basePool.length} genres={genresAvail} decennia={decadesAvail} diensten={diensten} uitleg="avond-filters" />
 
       {zaalBeschikbaar() && (
-        <section className="card zs-kaart" aria-label={tr('zaal.titel')}>
+        <section className="card zs-kaart" aria-label={tr('zaal.titel')} data-uitleg="zaal-kaart">
           <div className="zs-kaart-tekst">
             <h2 className="zs-kaart-kop">{tr('zaal.titel')}</h2>
-            <p>{tr('zaal.uitleg')}</p>
+            <p>{tr('zaal.uitleg')} <HoeWerktDit app={app} h="zaal" /></p>
             <div className="zs-kaart-knoppen">
-              <button type="button" className="btn primary" onClick={openZaal} disabled={zaalBezig || basePool.length < 3}>
+              <button type="button" className="btn primary" onClick={openZaal} disabled={zaalBezig || basePool.length < 3} data-uitleg="zaal-open">
                 {zaalBezig ? tr('zaal.openen') : tr('zaal.open')}
               </button>
               {basePool.length < 3 && <span className="zs-melding">{tr('zaal.teWeinig')}</span>}
               {zaalMelding && <span className="zs-melding" role="alert">{zaalMelding}</span>}
             </div>
           </div>
-          <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.meedoenKop')} />
+          <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.meedoenKop')} uitleg="zaal-meedoen" />
         </section>
       )}
 
       {remoteAvailable() && (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 16 }} data-uitleg="samen-host">
           <SamenHost app={app} pool={basePool} meta={meta} onKies={kiesSamen} />
         </div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
         {remoteAvailable() && (
-          <div className="card">
+          <div className="card" data-uitleg="afstand">
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Send size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.remoteTitle')}</h2>
             {!remote && (
               <>
-                <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('avond.remoteExplain')}</p>
+                <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('avond.remoteExplain')} <HoeWerktDit app={app} h="samen" stap="afstand" /></p>
                 <ol style={{ color: 'var(--fog)', fontSize: 13, margin: '10px 0 0 18px', display: 'grid', gap: 5 }}>
                   <li>{tr('avond.remoteHow1')}</li>
                   <li>{tr('avond.remoteHow2')}</li>
@@ -474,7 +475,7 @@ export default function Avond({ app }) {
             )}
           </div>
         )}
-        <div className="card">
+        <div className="card" data-uitleg="avond-veto">
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Ban size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.vetoTitel')}</h2>
           <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
             {tr('avond.vetoExplain', { count: Math.min(8, basePool.length) })}
@@ -486,12 +487,12 @@ export default function Avond({ app }) {
             </select>
             <button className="btn primary" onClick={startVeto} disabled={basePool.length < 4}><Users size={15} /> {tr('avond.startVeto')}</button>
           </div>
-          <button type="button" className={`chip ${pitchAan ? 'on' : ''}`} style={{ marginTop: 12, fontSize: 12.5 }} aria-pressed={pitchAan}
+          <button type="button" className={`chip ${pitchAan ? 'on' : ''}`} style={{ marginTop: 12, fontSize: 12.5 }} aria-pressed={pitchAan} data-uitleg="avond-trailers"
             title={tr('avond.pitchAanTitel')} onClick={() => app.setSettings((s) => ({ ...s, vetoPitch: !(s.vetoPitch !== false) }))}>
             <Clapperboard size={13} style={{ verticalAlign: -2 }} /> {tr('avond.pitchAan')}
           </button>
         </div>
-        <div className="card">
+        <div className="card" data-uitleg="avond-bracket">
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Swords size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.bracketTitel')}</h2>
           <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
             {basePool.length >= 8 ? tr('avond.bracketUitleg8') : tr('avond.bracketUitleg4')}

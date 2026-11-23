@@ -49,11 +49,11 @@ export default function EigenRijMaker({
   };
 
   return (
-    <section className="card eigen-maker" aria-label={start ? tr('verken.eigenBewerkTitel') : tr('verken.eigenTitel')}>
+    <section className="card eigen-maker" aria-label={start ? tr('verken.eigenBewerkTitel') : tr('verken.eigenTitel')} data-uitleg="eigen-maker">
       <p className="label" style={{ marginBottom: 10 }}>{start ? tr('verken.eigenBewerkTitel') : tr('verken.eigenTitel')}</p>
 
       {!start && voorstellen.length > 0 && (
-        <div className="eigen-sectie">
+        <div className="eigen-sectie" data-uitleg="eigen-voorstellen">
           <p className="eigen-kop"><Wand2 size={13} style={{ verticalAlign: -2 }} /> {tr('verken.eigenVoorstellen')}</p>
           <div className="eigen-chips">
             {voorstellen.map((v) => (
@@ -65,7 +65,7 @@ export default function EigenRijMaker({
         </div>
       )}
 
-      <div className="eigen-sectie">
+      <div className="eigen-sectie" data-uitleg="eigen-basis">
         <p className="eigen-kop">{tr('verken.eigenBasis')}</p>
         <div className="eigen-chips" role="radiogroup" aria-label={tr('verken.eigenBasis')}>
           {[['criteria', 'eigenBasisCriteria'], ['film', 'eigenBasisFilm'], ['maker', 'eigenBasisMaker']].map(([v, k]) => (
@@ -102,7 +102,7 @@ export default function EigenRijMaker({
         )}
       </div>
 
-      <div className="eigen-sectie">
+      <div className="eigen-sectie" data-uitleg="eigen-bouwstenen">
         <p className="eigen-kop">{tr('verken.eigenGenres')}</p>
         <div className="eigen-chips">
           {GENRES.map((g) => (
@@ -158,15 +158,15 @@ export default function EigenRijMaker({
         <button type="button" className={`chip ${b.kort ? 'on-o' : ''}`} onClick={() => zet('kort', !b.kort)} aria-pressed={b.kort}>{tr('verken.filterShort')}</button>
       </div>
 
-      <div className="eigen-sectie">
+      <div className="eigen-sectie" data-uitleg="eigen-naam">
         <p className="eigen-kop">{tr('verken.eigenNaam')}</p>
         <input className="field" value={naam} onChange={(e) => setNaam(e.target.value)} placeholder={isBruikbaar(b) ? naamVoor(b) : tr('verken.eigenNaamLeeg')} aria-label={tr('verken.eigenNaam')} />
       </div>
 
       {melding && <p style={{ color: 'var(--dot-o)', fontSize: 13, marginBottom: 10 }}>{melding}</p>}
-      <div className="eigen-knoppen">
+      <div className="eigen-knoppen" data-uitleg="eigen-knoppen">
         <button type="button" className="btn green" onClick={opslaan}>{tr('verken.eigenOpslaan')}</button>
-        <button type="button" className="btn ghost" onClick={onAnnuleer}>{tr('verken.eigenAnnuleer')}</button>
+        <button type="button" className="btn ghost" onClick={onAnnuleer} data-uitleg="eigen-annuleer">{tr('verken.eigenAnnuleer')}</button>
         {start && (
           <span className="eigen-beheer">
             {onOmhoog && <button type="button" className="btn ghost" onClick={onOmhoog} aria-label={tr('verken.eigenOmhoog')} title={tr('verken.eigenOmhoog')}><ArrowUp size={14} /></button>}

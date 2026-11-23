@@ -73,7 +73,7 @@ export default function Premiere({ app, onKlaar }) {
   ].filter(Boolean);
 
   return createPortal(
-    <div className="premiere" role="dialog" aria-modal="true" aria-label={tr('premiere.aria')}>
+    <div className="premiere" data-uitleg-moment="" role="dialog" aria-modal="true" aria-label={tr('premiere.aria')}>
       <div className="premiere-top">
         <button type="button" className="linkbtn" onClick={() => klaarRef.current()}>{tr('premiere.overslaanKort')}</button>
       </div>

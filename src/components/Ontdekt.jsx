@@ -34,7 +34,7 @@ export default function Ontdekt({ item, meer = 0, poster, onKlaar, onBekijk }) {
   const kop = k.bron === 'gevonden' ? `${bronTekst(k, tr)}. ${bewijsKop}` : bewijsKop;
 
   return createPortal(
-    <div className="kaartje-ontdekt" role="status" aria-live="polite" onClick={() => onKlaar()}>
+    <div className="kaartje-ontdekt" data-uitleg-moment="" role="status" aria-live="polite" onClick={() => onKlaar()}>
       <p className="kaartje-ontdekt-kop">{kop}</p>
       <div className="kaartje-ontdekt-ticket">
         <div className="kaartje-ontdekt-body">

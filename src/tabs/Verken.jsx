@@ -138,6 +138,8 @@ export default function Verken({ app }) {
   // Je eigen rijen staan direct onder Top voor jou, in jouw volgorde
   const eigen = useMemo(() => bouwEigenRijen(voorRijen, eigenRijen, { mijnDiensten }), [voorRijen, eigenRijen, mijnDiensten]);
   const weergaveRijen = rijen[0]?.type === 'top' ? [rijen[0], ...eigen, ...rijen.slice(1)] : [...eigen, ...rijen];
+  // De eerste rij met films (voor de rondleiding)
+  const eersteRij = weergaveRijen.findIndex((rij) => !(rij.type === 'eigen' && rij.films.length === 0));
   const voorstellen = useMemo(
     () => stelRijenVoor({ seeds, meta, taste, regisseurs, bestaande: eigenRijen }),
     [seeds, meta, taste, regisseurs, eigenRijen],
@@ -432,7 +434,7 @@ export default function Verken({ app }) {
       const f = light.lijstFilm;
       return (
         <div>
-          <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setOpenFilm(null)}>
+          <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setOpenFilm(null)} data-uitleg="voorjou-terug">
             <ArrowLeft size={15} /> {tr('verken.backToVerken')}
           </button>
           <Winner
@@ -447,7 +449,7 @@ export default function Verken({ app }) {
     }
     return (
       <div>
-        <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setOpenFilm(null)}>
+        <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setOpenFilm(null)} data-uitleg="voorjou-terug">
           <ArrowLeft size={15} /> {tr('verken.backToVerken')}
         </button>
         <Winner
@@ -468,7 +470,7 @@ export default function Verken({ app }) {
 
   // De lijst met uitgebreide kaarten (Alles bekijken, of de kleine-poel-weergave)
   const lijstWeergave = (
-    <div style={{ display: 'grid', gap: 14 }}>
+    <div style={{ display: 'grid', gap: 14 }} data-uitleg="voorjou-lijst">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         {alles
           ? <h2 className="fy-alles-title">{rijTitel(alles)} <span className="cnt">{lijst.length}</span></h2>
@@ -479,7 +481,7 @@ export default function Verken({ app }) {
       </div>
       {lijst.slice(0, shown).map((r, i) => (
         <RecCard
-          key={r.id} r={r} i={i} sterk={taste.sterk} seededOnRatings={seededOnRatings}
+          key={r.id} r={r} i={i} uitleg={i === 0 ? 'voorjou-kaart' : undefined} sterk={taste.sterk} seededOnRatings={seededOnRatings}
           detail={detailCache.current.get(r.id) || (r.jwLink || r.imdbId ? { jwLink: r.jwLink, imdbId: r.imdbId } : undefined)}
           tmdbKey={tmdbKey} voorkeur={voorkeur}
           receptOpen={receptOpen === r.id} onToggleRecept={(id) => setReceptOpen(receptOpen === id ? null : id)}
@@ -537,7 +539,7 @@ export default function Verken({ app }) {
     if (alles) {
       return (
         <div>
-          <button className="btn ghost" style={{ marginBottom: 12 }} onClick={() => setAlles(null)}>
+          <button className="btn ghost" style={{ marginBottom: 12 }} onClick={() => setAlles(null)} data-uitleg="voorjou-terug">
             <ArrowLeft size={15} /> {tr('verken.backToForYou')}
           </button>
           {lijstWeergave}
@@ -546,7 +548,7 @@ export default function Verken({ app }) {
     }
     return (
       <div>
-        <div className="fy-toolbar">
+        <div className="fy-toolbar" data-uitleg="voorjou-filters">
           <select className="field" style={{ width: 'auto' }} value={genre} onChange={(e) => setGenre(e.target.value)} aria-label={tr('verken.genreFilter')}>
             <option value="">{tr('verken.allGenres')}</option>
             {GENRES.map((g) => <option key={g.id} value={g.id}>{lang === 'nl' ? g.nl : g.en}</option>)}
@@ -564,13 +566,17 @@ export default function Verken({ app }) {
             </button>
           )}
           {tmdbKey && (
-            <button className={`btn ghost ${maker === 'nieuw' ? 'actief' : ''}`} onClick={() => setMaker(maker === 'nieuw' ? null : 'nieuw')} aria-expanded={maker === 'nieuw'}>
+            <button className={`btn ghost ${maker === 'nieuw' ? 'actief' : ''}`} onClick={() => setMaker(maker === 'nieuw' ? null : 'nieuw')} aria-expanded={maker === 'nieuw'} data-uitleg="eigen-nieuw">
               <Plus size={14} /> {tr('verken.eigenNieuw')}
             </button>
           )}
-          <button className="btn ghost" onClick={() => { setSnel(true); setLaatsteSkip(null); topRef.current?.scrollIntoView?.({ block: 'start' }); }} title={tr('verken.snelUitleg')}>
+          <button className="btn ghost" onClick={() => { setSnel(true); setLaatsteSkip(null); topRef.current?.scrollIntoView?.({ block: 'start' }); }} title={tr('verken.snelUitleg')} data-uitleg="snel-knop">
             <Layers size={14} /> {tr('verken.snelKnop')}
           </button>
+          {/* Zei je eerder Niet nu: hier kies je je diensten alsnog */}
+          {tmdbKey && dienstenKeuze.length > 0 && !mijnDiensten.length && kiezerWeg && !kiesDiensten && (
+            <button className="btn ghost" onClick={() => setKiesDiensten(true)}>{tr('verken.servicesPick')}</button>
+          )}
           {(blendBusy || wachtOpDetails) && (
             <span className="fy-busy">{wachtOpDetails ? tr('verken.detailsLoadingFilter') : tr('verken.blending')}</span>
           )}
@@ -596,13 +602,13 @@ export default function Verken({ app }) {
                   <section className="rec-row">
                     <div className="rec-row-head">
                       <h3>{rij.naam}</h3>
-                      <button type="button" className="row-actie" onClick={() => setMaker(rij.id)}>{tr('verken.eigenBewerk')}</button>
+                      <button type="button" className="row-actie" onClick={() => setMaker(rij.id)} data-uitleg="rij-actie" data-uitleg-label={tr('verken.eigenBewerk')}>{tr('verken.eigenBewerk')}</button>
                     </div>
                     <p className="rij-leeg">{eigenGeladen(rij.id) && !wachtOpDetails ? tr('verken.eigenLeeg') : tr('verken.eigenLaden')}</p>
                   </section>
                 ) : (
                   <RecRow
-                    titel={rijTitel(rij)} rij={rij} totaal={totaalVan(rij)} voorkeur={voorkeur} actie={kopActie(rij)}
+                    uitleg={i === eersteRij} titel={rijTitel(rij)} rij={rij} totaal={totaalVan(rij)} voorkeur={voorkeur} actie={kopActie(rij)}
                     onAlles={openAlles} onOpen={openDetail} onShortlist={addToShortlist} onSkip={skip} onGezien={gezien}
                   />
                 )}
@@ -625,7 +631,7 @@ export default function Verken({ app }) {
       {detailOverlay}
       <div style={openFilm ? { display: 'none' } : undefined}>
         <div className="toprow">
-          <div>
+          <div data-uitleg="voorjou-kop" data-uitleg-aantal={recs.length}>
             <h1 className="page-title">{tr('verken.title')}</h1>
             <p className="page-sub">
               {mode === 'zoeken'
@@ -634,7 +640,7 @@ export default function Verken({ app }) {
             </p>
           </div>
           {shortlist.length > 0 && (
-            <button className={`chip ${shortOpen ? 'on-b' : ''}`} onClick={() => setShortOpen((v) => !v)} aria-expanded={shortOpen}>
+            <button className={`chip ${shortOpen ? 'on-b' : ''}`} onClick={() => setShortOpen((v) => !v)} aria-expanded={shortOpen} data-uitleg="voorjou-shortlist" data-uitleg-n={shortlist.length}>
               {tr('verken.shortlistToggle', { count: shortlist.length })}
             </button>
           )}
@@ -666,12 +672,12 @@ export default function Verken({ app }) {
         )}
 
         <div className="modus-tabs">
-          <button type="button" className={`modus-tab ${mode === 'voorJou' ? 'actief' : ''}`} aria-pressed={mode === 'voorJou'} onClick={() => setMode('voorJou')}>{tr('verken.tabForYou')}</button>
-          <button type="button" className={`modus-tab ${mode === 'zoeken' ? 'actief' : ''}`} aria-pressed={mode === 'zoeken'} onClick={() => setMode('zoeken')}>{tr('verken.tabSearch')}</button>
+          <button type="button" className={`modus-tab ${mode === 'voorJou' ? 'actief' : ''}`} aria-pressed={mode === 'voorJou'} onClick={() => setMode('voorJou')} data-uitleg="voorjou-tab">{tr('verken.tabForYou')}</button>
+          <button type="button" className={`modus-tab ${mode === 'zoeken' ? 'actief' : ''}`} aria-pressed={mode === 'zoeken'} onClick={() => setMode('zoeken')} data-uitleg="zoek-tab">{tr('verken.tabSearch')}</button>
           {/* Verberg al gezien: Voor jou doet dat altijd, in Zoeken kies je zelf */}
           <button
             className={`chip verberg-gezien ${mode === 'voorJou' || verbergGezien ? 'on-g' : ''}`}
-            aria-pressed={mode === 'voorJou' || verbergGezien}
+            aria-pressed={mode === 'voorJou' || verbergGezien} data-uitleg="verberg-gezien"
             title={mode === 'voorJou' ? tr('verken.gezienAltijdWeg') : tr('verken.verbergGezienTitel')}
             onClick={() => (mode === 'voorJou' ? setNudge(tr('verken.gezienAltijdWeg')) : setVerbergGezien((v) => !v))}
           >
@@ -730,7 +736,7 @@ export default function Verken({ app }) {
 
         {skippedObjects.length > 0 && (
           <div style={{ marginTop: 22 }}>
-            <button className="btn ghost" onClick={() => setShowSkipped(!showSkipped)} aria-expanded={showSkipped}>
+            <button className="btn ghost" onClick={() => setShowSkipped(!showSkipped)} aria-expanded={showSkipped} data-uitleg="voorjou-afgewezen">
               <X size={14} /> {tr('verken.rejected', { count: skippedObjects.length, action: showSkipped ? tr('verken.rejHide') : tr('verken.rejShow') })}
             </button>
             {showSkipped && (

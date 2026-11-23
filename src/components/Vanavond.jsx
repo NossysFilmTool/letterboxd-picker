@@ -26,7 +26,7 @@ export default function Vanavond({ keuze, detail, seededOnRatings, onOpen, onSho
   const backdrop = detail?.backdrop || r.backdrop || null;
 
   return (
-    <section className="vanavond" style={{ '--film': kleur }} aria-label={tr('verken.vanavondAria', { title: r.title })}>
+    <section className="vanavond" style={{ '--film': kleur }} aria-label={tr('verken.vanavondAria', { title: r.title })} data-uitleg="voorjou-vanavond" data-uitleg-titel={r.title}>
       {/* Met een filmbeeld: dat als doek bovenaan, in plaats van de poster */}
       {backdrop && (
         <button type="button" className="vdoek" onClick={() => onOpen(r)} aria-label={tr('common.openAria', { title: r.title })}>

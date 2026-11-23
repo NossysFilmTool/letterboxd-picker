@@ -79,7 +79,7 @@ function La({ onSluit, children }) {
   return createPortal(
     <>
       <div className="kassa-la-achter" aria-hidden="true" onClick={onSluit} />
-      <div ref={ref} tabIndex={-1} className="kassa-la" role="dialog" aria-modal="true" aria-labelledby="kassa-la-kop">
+      <div ref={ref} tabIndex={-1} className="kassa-la" role="dialog" aria-modal="true" aria-labelledby="kassa-la-kop" data-uitleg="kassa-la" data-uitleg-toetsen="">
         <span className="kassa-la-greep" aria-hidden="true" />
         {children}
       </div>
@@ -260,7 +260,7 @@ export default function Pick({ app }) {
             onWantScores={!app.omdbKeys.length ? app.goSetup : undefined}
             kaartje={1} onKijken={() => kaartjeDoorgeklikt(winner.key)}
           />
-          <button type="button" className="btn ghost kassa-terug" onClick={() => setPhase('idle')}>{tr('pick.terugNaarKassa')}</button>
+          <button type="button" className="btn ghost kassa-terug" onClick={() => setPhase('idle')} data-uitleg="kassa-terug">{tr('pick.terugNaarKassa')}</button>
         </div>
       </div>
     );
@@ -271,12 +271,12 @@ export default function Pick({ app }) {
     : <h1 className="page-title">{tr('pick.title')}</h1>;
 
   const vraagBlok = vraag && (
-    <AvondVraag kort key={vraag.avond[0].id} avond={vraag.avond} meta={meta} onAntwoord={vraag.onAntwoord} onLater={vraag.onLater} />
+    <AvondVraag kort anker="avond-vraag" key={vraag.avond[0].id} avond={vraag.avond} meta={meta} onAntwoord={vraag.onAntwoord} onLater={vraag.onLater} />
   );
 
   const kassaBlok = (
     <Rubriek kop={tr('voorpagina.kassaKop')} sub={<span className="label-breed">{tr('voorpagina.kassaSub')}</span>}>
-          <section className="kassa-moods" aria-label={tr('pick.zinIn')}>
+          <section className="kassa-moods" aria-label={tr('pick.zinIn')} data-uitleg="kassa-moods" data-uitleg-kort={moodTelling.kort}>
             <div className="kassa-chips">
               <Chip aan={!mood} onClick={() => setMood(null)}>{tr('pick.alles')}</Chip>
               {MOODS.map((m) => (
@@ -289,7 +289,7 @@ export default function Pick({ app }) {
           </section>
 
           <div className="kassa-blok">
-            <section className="kassa" aria-label={tr('pick.kassaAria')}>
+            <section className="kassa" aria-label={tr('pick.kassaAria')} data-uitleg="kassa" data-uitleg-aantal={pot.length}>
               <div className="kassa-pot">
                 <p className="kassa-aantal" aria-live="polite">
                   <span className="n">{pot.length}</span> <span className="lbl">{tr('pick.potLabel', { count: pot.length })}</span>
@@ -298,7 +298,7 @@ export default function Pick({ app }) {
               </div>
               <div className="kassa-samenvatting">
                 {delen.map((d, i) => <span key={i}>{d}</span>)}
-                <button type="button" className="linkbtn kassa-aanpassen" onClick={() => setLaOpen(true)} aria-haspopup="dialog">
+                <button type="button" className="linkbtn kassa-aanpassen" onClick={() => setLaOpen(true)} aria-haspopup="dialog" data-uitleg="kassa-aanpassen">
                   <SlidersHorizontal size={15} aria-hidden="true" /> {tr('pick.aanpassen')}
                 </button>
               </div>
@@ -307,11 +307,11 @@ export default function Pick({ app }) {
             </section>
 
             {/* Met een hoofdfilm is "Pak dit kaartje" de hoofdknop; dan is het lot de tweede keus */}
-            <button type="button" className={`btn big kassa-knop ${keuze ? 'tweede' : 'primary'}`} disabled={phase !== 'idle' || !pot.length} onClick={() => runPick(pot)}>
+            <button type="button" className={`btn big kassa-knop ${keuze ? 'tweede' : 'primary'}`} disabled={phase !== 'idle' || !pot.length} onClick={() => runPick(pot)} data-uitleg="kassa-lot">
               {tr('pick.pickFilm')}
             </button>
 
-            <div className="kassa-schakelaars">
+            <div className="kassa-schakelaars" data-uitleg="kassa-schakelaars">
               {schakelaar(trailerAan, tr('pick.trailerEerst'), () => setSettings((s) => ({ ...s, pickTrailer: !(s.pickTrailer !== false) })), tr('pick.trailerEerstTitel'))}
               {schakelaar(smart, tr('pick.slimKiezen'), () => setSmart(!smart), tr('pick.smartTitle'))}
             </div>
@@ -320,13 +320,13 @@ export default function Pick({ app }) {
   );
 
   const binnenBlok = regels.length > 0 && (
-    <Rubriek kop={tr('voorpagina.binnenKop')} sub={<span className="label-breed">{tr(diensten.length ? 'voorpagina.binnenSub' : 'voorpagina.binnenSubAlle')}</span>}>
+    <Rubriek uitleg="net-binnen" kop={tr('voorpagina.binnenKop')} sub={<span className="label-breed">{tr(diensten.length ? 'voorpagina.binnenSub' : 'voorpagina.binnenSubAlle')}</span>}>
       <Programmaregels regels={regels} meta={meta} onKies={alsHoofdfilm} />
     </Rubriek>
   );
 
   const doosBlok = doos.length > 0 && (
-    <Rubriek kop={tr('voorpagina.doosKop')}
+    <Rubriek uitleg="doos" kop={tr('voorpagina.doosKop')}
       sub={<button type="button" className="linkbtn rubriek-link" onClick={app.naarDeDoos}>{tr('pick.alleKaartjes', { count: doos.length })}</button>}>
       <DoosWaaier kaartjes={doos} meta={meta} onOpen={app.naarDeDoos} />
     </Rubriek>
@@ -350,7 +350,7 @@ export default function Pick({ app }) {
             className="in-la" kopId="kassa-la-kop" minimum={0}
             filters={filters} onChange={zetFilters} aantal={pot.length} genres={genres} decennia={decennia} diensten={diensten}
             afwijkt={anders}
-            actie={<button type="button" className="btn primary kassa-la-klaar" onClick={() => setLaOpen(false)}>{tr('pick.klaar')}</button>}
+            actie={<button type="button" className="btn primary kassa-la-klaar" onClick={() => setLaOpen(false)} data-uitleg="kassa-la-klaar">{tr('pick.klaar')}</button>}
             voor={lbLists.length > 0 && (
               <div className="af-rij">
                 <span className="af-label">{tr('pick.source')}</span>

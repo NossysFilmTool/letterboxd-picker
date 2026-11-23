@@ -13,9 +13,9 @@ import { sterrenTekst } from './Kaartjesdoos.jsx';
 const klok = (d, lang) => new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(d);
 
 // Een rubriek: de kop groot en smal, rechts een klein bijschrift of een link
-export function Rubriek({ kop, sub, children, label }) {
+export function Rubriek({ kop, sub, children, label, uitleg }) {
   return (
-    <section className="rubriek" aria-label={label || kop}>
+    <section className="rubriek" aria-label={label || kop} data-uitleg={uitleg}>
       <div className="rubriek-kop">
         <h2>{kop}</h2>
         {sub}
@@ -70,7 +70,8 @@ export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig }) {
     }
   })();
   return (
-    <section className="hoofdfilm" style={{ '--film': kleur }} aria-labelledby="hoofdfilm-titel">
+    <section className="hoofdfilm" style={{ '--film': kleur }} aria-labelledby="hoofdfilm-titel"
+      data-uitleg="hoofdfilm" data-uitleg-titel={film.name} data-uitleg-reden={redenTekst}>
       {m.backdrop && <img className="hoofdfilm-beeld" src={IMG(m.backdrop, 'w1280')} alt="" />}
       <div className="hoofdfilm-vlak">
         <p className="hoofdfilm-boven label-breed">
@@ -86,7 +87,7 @@ export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig }) {
           {ns != null ? <span>{tr('winner.nossy')} {fmtScore(ns)}</span> : null}
           {dienst ? <span>{tr('voorpagina.nuOp', { p: dienst })}</span> : null}
         </p>
-        <div className="hoofdfilm-acties">
+        <div className="hoofdfilm-acties" data-uitleg="hoofdfilm-acties">
           <button type="button" className="btn primary" onClick={onKaartje} disabled={bezig}>{tr('voorpagina.pakKaartje')}</button>
           <button type="button" className="linkbtn" onClick={onAnder} disabled={bezig}>{tr('voorpagina.ander')}</button>
         </div>

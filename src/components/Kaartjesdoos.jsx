@@ -36,7 +36,7 @@ export function Strook({ k, poster, onOpen }) {
   const kleur = useFilmkleur(poster);
   const d = alsDatum(k.gekekenOp);
   return (
-    <button type="button" className="kaartje-stub" onClick={() => onOpen(k)}
+    <button type="button" className="kaartje-stub" data-uitleg="kaartje-strook" onClick={() => onOpen(k)}
       aria-label={tr('kaartje.stubAria', { name: k.name, datum: new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'long' }).format(d) })}>
       <span className="kaartje-stub-poster" style={{ background: kleur }} aria-hidden="true">
         {poster ? <img src={IMG(poster, 'w185')} alt="" loading="lazy" /> : <Clapperboard size={18} strokeWidth={1.4} />}
@@ -95,7 +95,7 @@ function Filmjaar({ overzicht, meta }) {
     setBezig(false);
   };
   return (
-    <section className="kd-jaar" aria-label={tr('kaartje.jaarTitel', { jaar: overzicht.jaar })}>
+    <section className="kd-jaar" data-uitleg="filmjaar" aria-label={tr('kaartje.jaarTitel', { jaar: overzicht.jaar })}>
       <h3>{tr('kaartje.jaarTitel', { jaar: overzicht.jaar })}</h3>
       <dl className="kd-jaar-cijfers">
         <div><dt>{tr('kaartje.jaarKaartjes')}</dt><dd>{overzicht.aantal}</dd></div>
@@ -131,7 +131,7 @@ export default function Kaartjesdoos({ kaartjes, buiten = [], gelogd = [], meta,
   }, [kaartjes, eigenNaam]);
 
   const buitenLijst = buiten.length > 0 && (
-    <section className="kd-buiten">
+    <section className="kd-buiten" data-uitleg="kaartjes-buiten">
       <button type="button" className="linkbtn" onClick={() => setBuitenOpen((v) => !v)} aria-expanded={buitenOpen}>
         {tr('kaartje.buitenKop', { count: buiten.length })}
       </button>
@@ -154,7 +154,7 @@ export default function Kaartjesdoos({ kaartjes, buiten = [], gelogd = [], meta,
   // Je recente Letterboxd-logs die nog niet in de doos zitten: vond je er
   // een via Nossy, dan voeg je hem hier zelf toe
   const gelogdLijst = gelogd.length > 0 && onGevonden && (
-    <section className="kd-buiten">
+    <section className="kd-buiten" data-uitleg="kaartjes-gelogd">
       <button type="button" className="linkbtn" onClick={() => setGelogdOpen((v) => !v)} aria-expanded={gelogdOpen}>
         {tr('kaartje.gelogdKop', { count: gelogd.length })}
       </button>

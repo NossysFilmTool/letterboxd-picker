@@ -18,9 +18,9 @@ const SORTS = ['nieuw', 'oud', 'titel', 'score', 'kort', 'lang'];
 
 // Een woord in de filterzin: je ziet de keuze als tekst, eroverheen ligt een
 // gewone keuzelijst (dus ook met toetsenbord en schermlezer te bedienen)
-function Zinwoord({ label, value, onChange, opties, tekst }) {
+function Zinwoord({ label, value, onChange, opties, tekst, anker }) {
   return (
-    <span className="zinwoord">
+    <span className="zinwoord" data-uitleg={anker}>
       <span aria-hidden="true">{tekst}</span>
       <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
         {opties.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -153,7 +153,7 @@ export default function Bieb({ app }) {
   if (sel) {
     return (
       <div>
-        <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setSel(null)}>
+        <button className="btn ghost" style={{ marginBottom: 14 }} onClick={() => setSel(null)} data-uitleg="archief-terug">
           <ArrowLeft size={15} /> {tr('bieb.terug')}
         </button>
         {sel.kaartjeId && (() => {
@@ -189,7 +189,7 @@ export default function Bieb({ app }) {
     const ns = nossyScore(m);
     const eigen = ratings[f.key] ?? f.rating; // ratedFilms dragen hun rating zelf mee
     return (
-      <button key={f.key} type="button" className="archief-film" style={{ opacity: busyKey === f.key ? 0.6 : 1 }} onClick={() => open(f)}
+      <button key={f.key} type="button" className="archief-film" data-uitleg="archief-film" style={{ opacity: busyKey === f.key ? 0.6 : 1 }} onClick={() => open(f)}
         aria-label={tr('common.openAria', { title: `${f.name}${f.year ? ` (${f.year})` : ''}` })} disabled={busyKey !== null}>
         <div className="poster">
           {m?.poster ? <img src={IMG(m.poster, 'w342')} alt="" loading={i > 11 ? 'lazy' : undefined} /> : <Clapperboard size={20} strokeWidth={1.4} aria-hidden="true" />}
@@ -222,14 +222,14 @@ export default function Bieb({ app }) {
   return (
     <div>
       <h1 className="page-title">{tr('bieb.title')}</h1>
-      <div className="archief-tabs">
-        <button type="button" className={`archief-tab ${scope === 'watchlist' ? 'actief' : ''}`} aria-pressed={scope === 'watchlist'} onClick={() => { setScope('watchlist'); setSort('nieuw'); }}>{tr('bieb.watchlist')} <sup>{watchlist.length}</sup></button>
-        <button type="button" className={`archief-tab ${scope === 'gezien' ? 'actief' : ''}`} aria-pressed={scope === 'gezien'} onClick={() => { setScope('gezien'); setSort('mijn'); }}>{tr('bieb.tabGezien')} <sup>{gezienList.length}</sup></button>
-        <button type="button" className={`archief-tab ${scope === 'kaartjes' ? 'actief' : ''}`} aria-pressed={scope === 'kaartjes'} onClick={() => setScope('kaartjes')}>{tr('bieb.tabKaartjes')} <sup>{doos.length}</sup></button>
+      <div className="archief-tabs" data-uitleg="archief-tabs" data-uitleg-wl={watchlist.length} data-uitleg-gezien={gezienList.length}>
+        <button type="button" data-uitleg="archief-tab-watchlist" className={`archief-tab ${scope === 'watchlist' ? 'actief' : ''}`} aria-pressed={scope === 'watchlist'} onClick={() => { setScope('watchlist'); setSort('nieuw'); }}>{tr('bieb.watchlist')} <sup>{watchlist.length}</sup></button>
+        <button type="button" data-uitleg="archief-tab-gezien" className={`archief-tab ${scope === 'gezien' ? 'actief' : ''}`} aria-pressed={scope === 'gezien'} onClick={() => { setScope('gezien'); setSort('mijn'); }}>{tr('bieb.tabGezien')} <sup>{gezienList.length}</sup></button>
+        <button type="button" data-uitleg="archief-tab-kaartjes" className={`archief-tab ${scope === 'kaartjes' ? 'actief' : ''}`} aria-pressed={scope === 'kaartjes'} onClick={() => setScope('kaartjes')}>{tr('bieb.tabKaartjes')} <sup>{doos.length}</sup></button>
       </div>
 
       {scope === 'kaartjes' && (
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 20 }} data-uitleg="kaartjesdoos" data-uitleg-n={doos.length}>
           <Kaartjesdoos kaartjes={doos} buiten={buiten} gelogd={gelogd} meta={meta} eigenNaam={samenNaam.trim() || null}
             onOpen={(k) => open({ key: k.key, name: k.name, year: k.year, kaartjeId: k.id })} onTochGekeken={tochGekeken} onGevonden={app.gevondenToevoegen} />
         </div>
@@ -242,9 +242,9 @@ export default function Bieb({ app }) {
         </p>
       )}
 
-      <p className="filterzin">
+      <p className="filterzin" data-uitleg="filterzin">
         {tr('bieb.zToon')}{' '}
-        <Zinwoord label={tr('bieb.genreLabel')} value={genre} onChange={setGenre}
+        <Zinwoord anker="archief-genre" label={tr('bieb.genreLabel')} value={genre} onChange={setGenre}
           tekst={genre ? genre.toLowerCase() : tr('bieb.zAlleGenres')}
           opties={[['', tr('bieb.zAlleGenres')], ...genresAvail.map((g) => [g, g])]} />
         {' '}{tr('bieb.zUit')}{' '}
@@ -273,14 +273,14 @@ export default function Bieb({ app }) {
         {'.'}
       </p>
 
-      <label className="zoekregel">
+      <label className="zoekregel" data-uitleg="archief-zoek">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="square"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5l5 5" /></svg>
         <input type="search" placeholder={tr('bieb.searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('bieb.searchLabel')} />
         <span className="label-breed">{tr('bieb.header', { shown: films.length, count: base.length })}</span>
       </label>
 
       {uitgelicht && (
-        <button type="button" className="uitgelicht" onClick={() => open(uitgelicht.f)} aria-label={tr('common.openAria', { title: uitgelicht.f.name })}>
+        <button type="button" className="uitgelicht" data-uitleg="archief-uitgelicht" onClick={() => open(uitgelicht.f)} aria-label={tr('common.openAria', { title: uitgelicht.f.name })}>
           <img src={IMG(uitgelicht.m.backdrop, 'w1280')} alt="" />
           <span className="uitgelicht-regel">
             <span className="uitgelicht-titel">{uitgelicht.f.name}</span>
@@ -297,7 +297,7 @@ export default function Bieb({ app }) {
         <div className="empty card" style={{ marginTop: 24 }}><p className="big">{tr('bieb.nothingFound')}</p><p>{tr('bieb.noMatch')}</p></div>
       ) : (<>
         {perDecennium ? perDecennium.map((g) => (
-          <section key={g.d ?? 'zonder'} className="decennium" aria-label={g.d != null ? tr('common.decade', { era: String(g.d).slice(2) }) : undefined}>
+          <section key={g.d ?? 'zonder'} className="decennium" data-uitleg="archief-decennium" aria-label={g.d != null ? tr('common.decade', { era: String(g.d).slice(2) }) : undefined}>
             <div className="decennium-kop">
               <h2>{g.d ?? '?'}</h2>
               <span className="label-breed">{tr('bieb.filmsIn', { count: aantalIn(g.d) })}</span>

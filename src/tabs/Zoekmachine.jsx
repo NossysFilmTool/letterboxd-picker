@@ -205,14 +205,14 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
   const chip = (on) => `chip ${on ? 'on' : ''}`;
 
   return (
-    <div>
+    <div data-uitleg="zoekmachine">
       <div className="card" style={{ marginBottom: 18 }}>
         <div style={{ position: 'relative', marginBottom: 12 }}>
           <Search size={16} style={{ position: 'absolute', left: 12, top: 13, color: 'var(--fog-dim)' }} aria-hidden="true" />
           <input
             className="field" style={{ paddingLeft: 38, fontSize: 15 }}
             placeholder={tr('zoek.placeholder')}
-            value={tekst} aria-label={tr('zoek.searchLabel')}
+            value={tekst} aria-label={tr('zoek.searchLabel')} data-uitleg="zoek-veld"
             onChange={(e) => setTekst(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && zoek(1)}
           />
@@ -220,12 +220,12 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: toonFilters ? 14 : 0, alignItems: 'center' }}>
           <button className="btn primary" onClick={() => zoek(1)} disabled={loading}><Search size={15} /> {loading ? tr('zoek.searching') : tr('common.search')}</button>
-          <button className="btn ghost" onClick={() => setToonFilters(!toonFilters)}><SlidersHorizontal size={14} /> {toonFilters ? tr('common.hideFilters') : tr('common.showFilters')}</button>
+          <button className="btn ghost" onClick={() => setToonFilters(!toonFilters)} aria-expanded={toonFilters} data-uitleg="zoek-filters-knop"><SlidersHorizontal size={14} /> {toonFilters ? tr('common.hideFilters') : tr('common.showFilters')}</button>
           <button className="btn ghost" onClick={wis}><X size={14} /> {tr('common.clear')}</button>
         </div>
 
         {toonFilters && (
-          <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+          <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }} data-uitleg="zoek-filters">
             <p className="label" style={{ marginBottom: 8 }}>{tr('zoek.genres')}</p>
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
               {GENRES.map((g) => (
@@ -301,7 +301,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
       )}
 
       {(res || maker) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }} data-uitleg="zoek-resultaten">
           <p style={{ fontSize: 13, color: 'var(--fog)' }}>
             {maker ? (
               <><strong style={{ color: 'var(--paper)' }}>{tr('zoek.filmsByLine', { naam: maker.naam })}</strong>{' \u00b7 '}{tr('zoek.ofCount', { shown: lijst.length, total: maker.films.length })}</>
@@ -312,7 +312,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
           </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {app.omdbKeys.length > 0 && (
-              <button className="btn ghost" style={{ fontSize: 12 }} onClick={laadScores} disabled={scoresLaden} title="Haalt IMDb/Metacritic-scores op voor de zichtbare resultaten (kost OMDb-tegoed)">
+              <button className="btn ghost" style={{ fontSize: 12 }} onClick={laadScores} disabled={scoresLaden} title={tr('zoek.loadNossyTitle')}>
                 {scoresLaden ? tr('zoek.loadingScores') : tr('zoek.loadNossy')}
               </button>
             )}

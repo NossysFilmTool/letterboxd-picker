@@ -11,6 +11,7 @@ import { lijstje, genreKop, genreZin, uitslagZin, stemTekst, ZaalFilmInhoud, Zaa
 import ZaalLetterboxd, { useZaalLetterboxd } from './ZaalLetterboxd.jsx';
 import ZaalVoordracht, { useZaalVoordracht } from './ZaalVoordracht.jsx';
 import Kaartje from './Kaartje.jsx';
+import StemOefening from './StemOefening.jsx';
 
 // De telefoon bij een zaalstemming (?zaal=CODE): een naam, en dan per ronde
 // een 1e en een 2e keus, die je kunt wisselen of terugnemen. Geen watchlist
@@ -153,6 +154,7 @@ export default function ZaalTelefoon({ code, onWeg, onCode, onKaartje, pollMs = 
         {zaal.spelers?.length > 1 && <p className="zs-t-sub">{tr('zaal.tMet', { namen: lijstje(zaal.spelers.filter((n) => n !== ik.naam), tr) })}</p>}
         <ZaalVoordracht vd={vd} />
         <ZaalLetterboxd lb={lb} />
+        <OefenKaart />
       </>,
     );
   }
@@ -267,6 +269,26 @@ export default function ZaalTelefoon({ code, onWeg, onCode, onKaartje, pollMs = 
         </li>
       ))}
     </>,
+  );
+}
+
+// Terwijl je wacht: oefenen met stemmen, met verzonnen gasten
+// (StemOefening.jsx). Dicht tot je erop tikt; er gaat niets naar de zaal.
+function OefenKaart() {
+  const { t: tr } = useT();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="zs-t-oefen">
+      <button type="button" className="linkbtn" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? tr('oefen.sluit') : tr('oefen.telefoon')}
+      </button>
+      {open && (
+        <>
+          <StemOefening />
+          <p className="zs-t-sub">{tr('oefen.nietEcht')}</p>
+        </>
+      )}
+    </div>
   );
 }
 

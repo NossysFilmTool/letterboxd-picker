@@ -15,7 +15,7 @@ export default function NetBinnen({ items, meta, eigenDiensten, onOpen }) {
     } catch { return ''; }
   };
   return (
-    <section className="rec-row net-binnen" aria-label={tr(eigenDiensten ? 'verken.netBinnenTitel' : 'verken.netBinnenTitelAlle')}>
+    <section className="rec-row net-binnen" data-uitleg="voorjou-binnen" aria-label={tr(eigenDiensten ? 'verken.netBinnenTitel' : 'verken.netBinnenTitelAlle')}>
       <div className="rec-row-head">
         <h3>{tr(eigenDiensten ? 'verken.netBinnenTitel' : 'verken.netBinnenTitelAlle')}</h3>
       </div>

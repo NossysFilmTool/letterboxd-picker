@@ -341,7 +341,7 @@ export default function Pitch({ films, meta, onKlaar, tmdbKey, geluid = false, o
   };
 
   return createPortal(
-    <div ref={ref} tabIndex={-1} className={`pitch fase-${fase}${pauze ? ' gepauzeerd' : ''}${stil ? ' stil' : ''}`}
+    <div ref={ref} tabIndex={-1} data-uitleg-moment="" className={`pitch fase-${fase}${pauze ? ' gepauzeerd' : ''}${stil ? ' stil' : ''}`}
       role="dialog" aria-modal="true" aria-label={tekst.aria} style={{ '--film': kleur, '--duur': `${plan.totaal}ms` }}>
       <div className="pitch-zaallicht" aria-hidden="true"
         onAnimationEnd={(e) => { if (fase === 'uit' && e.target === e.currentTarget) klaarRef.current(); }} />

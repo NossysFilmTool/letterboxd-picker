@@ -23,6 +23,7 @@ function BarList({ items, color, max }) {
 
 const top = (counter, n) => Object.entries(counter).sort((a, b) => b[1] - a[1]).slice(0, n);
 import { useT, esc, decimaal } from '../lib/i18n.js';
+import HoeWerktDit from '../components/HoeWerktDit.jsx';
 
 export default function Inzicht({ app }) {
   const { t: tr, lang } = useT();
@@ -162,13 +163,13 @@ export default function Inzicht({ app }) {
     stats.avgRuntime ? [tr('inzicht.avgRuntime'), tr('inzicht.min', { m: stats.avgRuntime })] : null,
     stats.totalHours ? [tr('inzicht.totalTime'), tr('inzicht.hours', { h: stats.totalHours })] : null,
     stats.avgVote ? [tr('inzicht.avgTmdb'), stats.avgVote] : null,
-    stats.avgOwn ? [`Jouw gem. rating (${stats.ratingCount})`, `${stats.avgOwn} ★`] : null,
+    stats.avgOwn ? [tr('inzicht.avgOwn', { n: stats.ratingCount }), `${stats.avgOwn} ★`] : null,
   ].filter(Boolean);
 
   return (
     <div>
       {ritme && (
-        <div className="card" style={{ marginBottom: 18 }}>
+        <div className="card" style={{ marginBottom: 18 }} data-uitleg="jaarboek-ritme">
           <p className="label" style={{ marginBottom: 10 }}>{tr('inzicht.rhythm')}</p>
           <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 56, marginBottom: 10 }} aria-hidden="true">
             {ritme.maanden.map((x) => (
@@ -195,7 +196,7 @@ export default function Inzicht({ app }) {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card" style={{ marginBottom: 18 }} data-uitleg="jaarboek-profiel">
         <p className="label" style={{ marginBottom: 10 }}><Sparkles size={14} style={{ verticalAlign: -2 }} /> {tr('inzicht.profileTitle')}</p>
         {!smaak.sterk && (
           <p style={{ color: 'var(--fog)', fontSize: 13, marginBottom: 10 }}>
@@ -228,12 +229,15 @@ export default function Inzicht({ app }) {
       </div>
 
       <div className="card meetlat" style={{ marginBottom: 18 }}>
+        <div data-uitleg="jaarboek-meten">
         <p className="label" style={{ marginBottom: 8 }}>{tr('inzicht.meetTitle')}</p>
         <p style={{ fontSize: 13.5, color: 'var(--fog)' }}>{tr('inzicht.meetUitleg')}</p>
-        {meting && !meting.genoeg && (
+        {meting && (
+        <div data-uitleg="jaarboek-meting" data-uitleg-pct={meting.genoeg ? meting.pct : undefined}>
+        {!meting.genoeg && (
           <p style={{ fontSize: 13.5, color: 'var(--fog)', marginTop: 10 }}>{tr('inzicht.meetTeWeinig', { count: meting.favorieten })}</p>
         )}
-        {meting?.genoeg && (
+        {meting.genoeg && (
           <div style={{ marginTop: 12 }}>
             <p className="meet-score">
               <strong>{meting.pct}%</strong>
@@ -262,15 +266,18 @@ export default function Inzicht({ app }) {
             })()}
           </div>
         )}
+        </div>
+        )}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
-          <button className="btn" onClick={meet}>{meting ? tr('inzicht.meetOpnieuw') : tr('inzicht.meetKnop')}</button>
+          <button className="btn" onClick={meet} data-uitleg="jaarboek-meet-knop">{meting ? tr('inzicht.meetOpnieuw') : tr('inzicht.meetKnop')}</button>
           <span style={{ fontSize: 12, color: 'var(--fog-dim)' }}>{actiefModel ? tr('inzicht.meetMetModel') : tr('inzicht.meetCache')}</span>
+        </div>
         </div>
 
         {/* Fase 8: het geleerde model */}
-        <div className="leer">
+        <div className="leer" data-uitleg="jaarboek-leren">
           <p className="label" style={{ marginBottom: 6 }}>{tr('inzicht.leerTitel')}</p>
-          <p style={{ fontSize: 13.5, color: 'var(--fog)' }}>{tr('inzicht.leerUitleg')}</p>
+          <p style={{ fontSize: 13.5, color: 'var(--fog)' }}>{tr('inzicht.leerUitleg')} <HoeWerktDit app={app} h="jaarboek" stap="leren" /></p>
           {geleerd && !leren && (() => {
             const { basis, model: mt } = geleerd.toets;
             const g = geleerd.gegevens || {};
@@ -320,7 +327,10 @@ export default function Inzicht({ app }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}>
+      <div
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}
+        data-uitleg="jaarboek-cijfers" data-uitleg-n={watchlist.length} data-uitleg-nog={unseen}
+      >
         {metrics.map(([label, val]) => (
           <div className="card" key={label} style={{ padding: '14px 16px' }}>
             <p style={{ color: 'var(--fog-dim)', fontSize: 12 }}>{label}</p>
@@ -329,7 +339,7 @@ export default function Inzicht({ app }) {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }} data-uitleg="jaarboek-lijstjes">
         {stats.genres.length > 0 && (
           <div className="card">
             <p className="label" style={{ marginBottom: 12 }}>{tr('inzicht.genres')}</p>
@@ -357,7 +367,7 @@ export default function Inzicht({ app }) {
       </div>
 
       {history.length > 0 && (
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card" style={{ marginTop: 16 }} data-uitleg="jaarboek-picks">
           <p className="label" style={{ marginBottom: 12 }}><History size={13} style={{ verticalAlign: -2 }} /> {tr('inzicht.laatstePicks')}</p>
           <div style={{ display: 'grid', gap: 4 }}>
             {history.slice(0, 12).map((h, i) => (
@@ -366,7 +376,7 @@ export default function Inzicht({ app }) {
                 style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13.5, background: 'none', border: 'none', borderBottom: i < Math.min(history.length, 12) - 1 ? '1px solid var(--line)' : 'none', padding: '6px 2px 8px', color: 'var(--paper)', textAlign: 'left', cursor: 'pointer' }}
               >
                 <span>{h.name} <span style={{ color: 'var(--fog-dim)' }}>({h.year || '?'})</span>{h.context ? <span style={{ color: 'var(--fog-dim)', fontSize: 12 }}>, {h.context.toLowerCase()}</span> : null}</span>
-                <span style={{ color: 'var(--fog-dim)', flexShrink: 0 }}>{new Date(h.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</span>
+                <span style={{ color: 'var(--fog-dim)', flexShrink: 0 }}>{new Date(h.date).toLocaleDateString(lang, { day: 'numeric', month: 'short' })}</span>
               </button>
             ))}
           </div>

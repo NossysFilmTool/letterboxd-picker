@@ -23,7 +23,7 @@ export default function Afgescheurd({ melding, onSluit, onBekijk }) {
     return () => clearTimeout(t);
   }, [melding]);
   return createPortal(
-    <div className="afgescheurd" role="status">
+    <div className="afgescheurd" data-uitleg-moment="" role="status">
       <div className="afgescheurd-strook" aria-hidden="true">
         <span className="kaartje-stub-poster">
           {k.poster ? <img src={IMG(k.poster, 'w185')} alt="" /> : <Clapperboard size={16} strokeWidth={1.4} />}

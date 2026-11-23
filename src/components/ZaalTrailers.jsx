@@ -62,7 +62,7 @@ export default function ZaalTrailers({ films, onKlaar, onSluit, onNu }) {
   const laatste = i + 1 >= lijst.length;
 
   return createPortal(
-    <div className="zs-trailers" role="dialog" aria-modal="true" aria-label={tr('zaal.trailerAria', { name: film.name })}>
+    <div className="zs-trailers" data-uitleg-moment="" role="dialog" aria-modal="true" aria-label={tr('zaal.trailerAria', { name: film.name })}>
       <div className="zs-trailers-top">
         <p className="label-breed">{tr('zaal.trailerVan', { i: i + 1, n: lijst.length })}</p>
         <p className="zs-trailers-titel">{film.name}{film.year ? <span> {film.year}</span> : null}</p>

@@ -378,6 +378,53 @@ app kunnen zijn? Dan is het nog niet af.
 - Overslaan kan altijd. Met "beperk beweging" ga je van het kaartje meteen
   naar het eindbeeld, zonder geluid. Bij Setup kun je hem nog eens zien.
 
+## De rondleiding
+
+- De ouvreuse met de zaklamp: in de donkere zaal bracht zij je met een
+  lichtbundel naar je stoel. De rondleiding (`Rondleiding.jsx`, de
+  hoofdstukken in `src/lib/rondleiding.js`) doet hetzelfde. Het scherm dimt
+  en een zachte bundel valt op het echte onderdeel. De bundel is een SVG
+  met een masker en een zachte rand, geen schaduw of vervaging van de
+  browser. Alleen wat in het licht staat, kun je aantikken.
+- De uitleg staat op een tussentitel, zoals in de stomme film: een donkere
+  kaart met een dun kader en een kop in `--font-kop`. Op een breed scherm
+  staat hij naast het onderdeel, op een telefoon onderin, als ondertiteling
+  boven de navigatie. Een stap zonder onderdeel staat midden in beeld.
+- Twee soorten stappen. Een kijkstap legt uit, en je gaat verder met
+  Volgende. Een doestap vraagt je iets te doen ("Tik op Aanpassen") en gaat
+  vanzelf verder als je het deed; "Laat zien" tikt de echte knop aan.
+- De voorbeelden zijn je eigen gegevens. Een getal of titel in de uitleg
+  leest de stap van het onderdeel zelf (`data-uitleg-*`), dus de rondleiding
+  zegt wat er op het scherm staat en rekent nooit apart. Zonder eigen lijst
+  oefen je met de demo-lijst. Wat je alleen niet kunt proberen, oefen je
+  met een voorbeeld: de stemoefening rekent met de echte code van de zaal.
+- Geen sporen. De rondleiding pakt geen kaartje, opent geen zaal en wist
+  niets. Een echte pick of een echte zaal is een keuze in de tussentitel,
+  met het gevolg erbij, en Sla over staat ernaast. Ontbreekt een onderdeel
+  (nog geen kaartjes, Net binnen leeg), dan zegt de stap wat er komt, of
+  valt hij weg. Hij loopt nooit vast op een leeg scherm.
+- Momenten gaan voor. Tijdens het aftellen, een trailer, de première, het
+  ontdekmoment of het afscheuren (`data-uitleg-moment`) wacht de
+  rondleiding, en daarna gaat hij verder.
+- De ingang is Uitleg, rechts in de kop; op een telefoon een eigen getekende
+  zaklamp. Daar staat het programma: de hoofdstukken als programmaregels,
+  het hoofdstuk van je scherm bovenaan, en een zoekregel ("Waar wil je
+  uitleg over?"). Bij een paar kaarten met veel opzet staat een stil
+  linkje, Hoe werkt dit?, dat meteen de goede stap opent. Geen banners.
+- Vanzelf alleen in een uitgebrachte versie, en één keer. Een leeg apparaat
+  krijgt een welkom met de vraag of je rondgeleid wilt worden, en met de
+  code voor wie alleen komt meestemmen. Wie de tool al gebruikte, krijgt
+  één rustige melding. Gasten via een link zien niets. De voortgang staat
+  in de instellingen en reist mee met sync.
+- Toegankelijk: de tussentitel is een venster dat de focus krijgt en zijn
+  tekst voorleest; bij een doestap gaat de focus naar de knop zelf. De
+  pijltjes gaan vooruit en terug, Escape stopt en onthoudt waar je was. De
+  teksten zeggen waar iets staat. Met "beperk beweging" schuift er niets:
+  de tussentitel staat er meteen en het scherm springt naar het onderdeel.
+- `smoke.test.jsx` bewaakt dat elk doel een anker heeft en elk anker bij een
+  stap hoort, en dat elke tekst in beide talen bestaat met dezelfde
+  plekhouders.
+
 ## Geluid
 
 - Alleen bij de trailers, en alleen gemaakt in de browser (Web Audio, geen

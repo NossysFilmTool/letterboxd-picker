@@ -3,6 +3,7 @@ import { RefreshCw, Copy, Check, Link2, KeyRound } from 'lucide-react';
 import { useT } from '../lib/i18n.js';
 import { normaliseerCode } from '../lib/sync.js';
 import { bevestig } from '../lib/melding.js';
+import HoeWerktDit from './HoeWerktDit.jsx';
 
 // Setup: sync tussen je apparaten (lib/sync.js). Aanzetten maakt een geheime
 // code; op een ander apparaat vul je die in (of open je de koppellink).
@@ -45,11 +46,11 @@ export default function SyncApparaten({ app }) {
   };
 
   return (
-    <div className="card sync-kaart" style={{ marginBottom: 18 }}>
+    <div className="card sync-kaart" style={{ marginBottom: 18 }} data-uitleg="setup-sync">
       <p className="label" style={{ marginBottom: 6 }}>{tr('sync.titel')}</p>
       {!code ? (
         <>
-          <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('sync.uitleg')}</p>
+          <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('sync.uitleg')} <HoeWerktDit app={app} h="extras" stap="sync" /></p>
           {app.demoMode ? (
             <p className="notice">{tr('sync.nietInDemo')}</p>
           ) : (

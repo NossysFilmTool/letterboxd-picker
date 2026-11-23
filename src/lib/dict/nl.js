@@ -435,6 +435,7 @@ export default {
     players: 'Spelers', playerCount: 'Aantal spelers', min4: 'Minimaal 4 ongekeken films nodig in de pot.',
   },
   inzicht: {
+    avgOwn: 'Jouw gem. rating ({n})',
     laatstePicks: 'Laatste picks, tik om te heropenen',
     meetTitle: 'Hoe goed kent Voor jou je smaak?',
     meetUitleg: 'We verbergen steeds één van je favorieten (4,5★ en hoger) alsof je hem nooit zag, en kijken of Voor jou hem uit zichzelf aanraadt. Hoe meer er terugkomen, hoe beter de aanbevelingen bij je passen.',
@@ -534,7 +535,7 @@ export default {
     rowServices: 'Nu op {services}, voor jou', serviceMine: 'Mijn diensten',
     servicesPickTitle: 'Welke streamingdiensten heb je?',
     servicesPickHint: 'Dan zie je hier een rij met wat daar nu staat en bij je smaak past.',
-    servicesSave: 'Opslaan', servicesLater: 'Niet nu', servicesEdit: 'Diensten wijzigen',
+    servicesSave: 'Opslaan', servicesLater: 'Niet nu', servicesEdit: 'Diensten wijzigen', servicesPick: 'Diensten kiezen',
     whyScore: 'Waarom {score}%?', receptHide: 'Verberg het recept',
     receptIntro: 'Zo is deze match opgebouwd (samen je {score}%):',
     receptQuality: 'Kwaliteit (gedempt op stemmen)', receptTheme: 'Thema\u0027s die je raken',
@@ -586,7 +587,7 @@ export default {
     runtime: 'Speelduur', sortBy: 'Sorteer op', votes: 'Aantal stemmen', min: 'min', max: 'max',
     minVotes: 'Minimaal aantal stemmen', maxVotes: 'Maximaal aantal stemmen',
     excluded: 'Uitgesloten: {genres}', makers: 'Makers:', director: 'regisseur', actor: 'acteur',
-    hideKnown: 'Verberg wat ik al ken', loadNossy: 'Nossy-scores laden', loadingScores: 'Scores laden\u2026',
+    hideKnown: 'Verberg wat ik al ken', loadNossy: 'Nossy-scores laden', loadNossyTitle: 'Haalt IMDb- en Metacritic-scores op voor de zichtbare resultaten (kost OMDb-tegoed)', loadingScores: 'Scores laden\u2026',
     filmsOf: 'Films van {naam}', nothingFound: 'Niets gevonden',
     emptyRetry: 'Geen resultaten. Probeer een andere zoekterm of andere criteria.',
     emptyFiltered: 'Geen film voldoet aan je criteria ({filters}). Versoepel er \u00e9\u00e9n of wis de filters.',
@@ -639,6 +640,7 @@ export default {
     yearUnknown: 'jaar onbekend', votesShort: { one: '{n} stem', other: '{n} stemmen' }, current: 'Huidige koppeling', choose: 'Kies {title}',
   },
   setup: {
+    unignoreTitle: 'Zet terug: dit is wel een film',
     sleutelWerkt: 'Sleutel werkt en is opgeslagen.', themaUit: 'Uit, geen thema’s', themaLicht: 'Licht accent', themaStandaard: 'Standaard', themaNadruk: 'Nadrukkelijk', themaSterk: 'Sterk themagedreven',
     language: 'Taal', languageHint: 'Kies de taal van de tool.',
     region: 'Regio, voor het streamingaanbod', regionAria: 'Streaming-regio',
@@ -723,5 +725,650 @@ export default {
     step2Proxy: 'Optioneel: <strong>gratis OMDb-sleutels</strong> bij Setup voor IMDb-, Rotten Tomatoes- en Metacritic-scores. Kan ook later.',
     step3: '<strong>Pick.</strong> Kies een mood of laat het lot beslissen. Samen kiezen kan bij Filmavond.',
     busy: 'Bezig\u2026', noFiles: 'Geen bruikbare bestanden gevonden. Verwacht: je Letterboxd-export (ZIP) of watchlist.csv / watched.csv / ratings.csv.',
+  },
+  oefen: {
+    kop: 'Oefen het stemmen',
+    uitleg: 'Sam en Noor stemden al. Stem zelf mee, en kijk wat er met de uitslag gebeurt.',
+    genres: { drama: 'Drama', komedie: 'Komedie', thriller: 'Thriller' },
+    lijstjes: { one: 'op 1 lijstje', other: 'op {count} lijstjes' },
+    stem: '{naam}: {stem}.', jij: 'Jij', geenStem: '{naam}: nog geen stem.',
+    telefoon: 'Terwijl je wacht: oefen het stemmen', sluit: 'Klaar met oefenen',
+    nietEcht: 'Dit is een oefening; er gaat niets naar het scherm. Je echte stem geef je zodra de ronde begint.',
+  },
+  uitleg: {
+    knop: 'Uitleg',
+    nieuw: 'Nieuw: Uitleg, rechtsboven. Een rondleiding langs alles wat de tool kan, met voorbeelden.',
+    stop: 'Stop', vorige: 'Vorige', volgende: 'Volgende', klaar: 'Klaar', slaOver: 'Sla over', laatZien: 'Laat zien',
+    hoeWerkt: 'Hoe werkt dit?',
+    gedaan: 'Gelukt. De rondleiding gaat verder.',
+    stapVan: 'stap {nr} van {n}',
+    knopDoe: { demo: 'Oefen met de demo-lijst', pick: 'Kies echt een film', zaal: 'Open echt een zaal' },
+    lijstKop: 'Eerst een paar films',
+    lijstTekst: 'Dit hoofdstuk laat zien wat de tool met je films doet, maar er staat nog geen lijst in. Oefen met de demo-lijst van 24 films, of laad eerst je eigen Letterboxd-export.',
+    lijstDemo: 'Oefen met de demo-lijst', lijstEigen: 'Eerst mijn eigen lijst',
+    lijstLaden: 'Even de filmdata ophalen: {klaar} van {totaal}.', lijstBijna: 'De demo-lijst komt binnen.',
+    eindKop: 'Dat was {titel}',
+    eindTekst: 'Hierna: {titel}. Of kies zelf een hoofdstuk in het programma.',
+    eindAlles: 'Je hebt alle hoofdstukken gezien. Onder Uitleg, rechtsboven, vind je ze altijd terug.',
+    verderMet: 'Verder met {titel}', naarProgramma: 'Naar het programma', klaarStop: 'Stop de rondleiding',
+    welkomKop: 'Welkom in de bioscoop',
+    welkomTekst: 'Deze tool kiest een film uit je Letterboxd-watchlist. Alleen, met z’n tweeën of met een hele zaal. Zal ik je rondleiden? Dat duurt een paar minuten, en je oefent met echte films.',
+    welkomJa: 'Leid me rond', welkomZelf: 'Ik kijk zelf wel rond',
+    welkomCode: 'Kom je alleen meestemmen? Vul de code in.',
+    welkomAltijd: 'De rondleiding staat altijd onder Uitleg, rechtsboven.',
+    pKop: 'Uitleg',
+    pSub: 'Kies een hoofdstuk. Het licht valt steeds op het echte onderdeel, en je oefent met je eigen films.',
+    pVerder: 'Verder waar je was: {titel}',
+    pZoek: 'Zoek in de uitleg', pZoekPlaceholder: 'Waar wil je uitleg over?',
+    pTreffers: 'Gevonden', pNiets: 'Daar staat geen uitleg over. Probeer een ander woord, zoals export, code of sync.',
+    pBij: 'Bij: {kop}', pHier: 'Over dit scherm', pAlle: 'Alle hoofdstukken',
+    pDuur: '{n} min', pBezig: 'bezig', pGezien: 'gezien',
+    h: {
+      welkom: {
+        titel: 'Welkom en je lijst laden',
+        zoek: 'begin starten export exporteren zip csv importeren laden letterboxd watchlist demo voorbeeld filmdata tmdb posters code gast meestemmen navigatie hulp',
+        wat: {
+          kop: 'Wat deze tool doet',
+          tekst: 'Je Letterboxd-watchlist is lang. Deze tool kiest eruit: op je stemming, op wat er vanavond te streamen is, of samen met anderen. Je gegevens blijven in je eigen browser, tenzij je zelf sync aanzet.',
+        },
+        code: {
+          kop: 'Alleen meestemmen?',
+          tekst: 'Heeft iemand een zaal geopend op een tv of laptop? Vul hier de code van vier letters in. Een eigen lijst heb je daar niet voor nodig.',
+        },
+        export: {
+          kop: 'Je Letterboxd-export',
+          tekst: 'Op letterboxd.com: Settings, tabblad Data, Export your data. De link staat ook onderin dit vak. Letterboxd geeft je een zip-bestand met je watchlist, wat je zag en je sterren. Op een telefoon staat het daarna in Bestanden, bij Downloads; op een computer in je map Downloads. Uitpakken hoeft niet.',
+        },
+        kiezen: {
+          kop: 'Laad je export',
+          tekst: 'Sleep het zip-bestand in dit vak, of tik op Kies bestand(en). De tool haalt er zelf je watchlist, je gezien-lijst, je sterren, je dagboek en je eigen lijsten uit.',
+          doe: 'Laad je export. Nog geen export bij de hand? Oefen dan eerst met de demo-lijst.',
+        },
+        bijwerken: {
+          kop: 'Je lijst bijwerken',
+          tekst: 'Op Letterboxd films toegevoegd of gekeken? Maak een nieuwe export en laad hem hier. De tool zegt wat er veranderde: nieuw op je watchlist, nieuw gezien, nieuwe sterren.',
+        },
+        filmdata: {
+          kop: 'Filmdata van TMDB',
+          tekst: 'Zolang deze balk loopt, haalt de tool bij TMDB posters, cijfers, trailers en het streamingaanbod op. Dat gebeurt één keer per film. Met Pauzeer stop je het ophalen.',
+          vb: 'Nu: {klaar} van {totaal} films.',
+          leeg: 'Bij een nieuwe lijst staat hier een balk terwijl de tool bij TMDB posters, cijfers, trailers en het streamingaanbod ophaalt. Dat gebeurt één keer per film. Nu is er niets op te halen.',
+        },
+        demo: {
+          kop: 'De demo-lijst',
+          tekst: 'Je oefent met 24 voorbeeldfilms. Laad je eigen export wanneer je wilt: wat je in de demo deed, zoals kaartjes en sterren, gaat dan weg. Demo wissen en opnieuw beginnen brengt je terug naar het begin.',
+        },
+        plekken: {
+          kop: 'Vijf plekken, en Setup',
+          tekst: 'De navigatie staat bovenin, op een telefoon onderin. Vanavond kiest een film voor je. Archief is alles wat je hebt: watchlist, gezien en kaartjes. Programma vindt nieuwe films op jouw smaak. Filmavond is samen kiezen. Jaarboek laat je kijkjaar zien. Setup, rechtsboven, is voor je gegevens en instellingen.',
+        },
+        knop: {
+          kop: 'Uitleg, altijd bij de hand',
+          tekst: 'Rechtsboven vind je de rondleiding terug, op een telefoon als zaklamp. Hij onthoudt waar je was. Zoek je hulp bij iets, typ dan een woord, zoals export, code of sync.',
+        },
+      },
+      vanavond: {
+        titel: 'Vanavond: de hoofdfilm en de kassa',
+        zoek: 'vanavond hoofdfilm kaartje pakken andere film net binnen streaming vraag gisteren sterren later kassa pot stemming mood korte avond topper parel aanpassen la filters lengte genre taal periode cijfer diensten lijsten gezien eruit standaard lot pick kiezen trailer slim kiezen kans aftellen filmkaart nossy-score delen meer zoals deze opnieuw',
+        hoofdfilm: {
+          kop: 'De hoofdfilm van vanavond',
+          tekst: 'Elke dag kiest de tool één film uit je lijst, met een echte reden: net binnen op een dienst, van een regisseur die je hoog gaf, het hoogste cijfer dat je nog niet zag, of hij is op tijd uit. Die keuze staat de hele dag vast.',
+          vb: 'Vandaag: {titel}. {reden}',
+          leeg: 'Je hoofdfilm staat hier zodra de filmdata van je lijst binnen is. Dan kiest de tool elke dag één film, met een echte reden erbij, en die keuze staat de hele dag vast.',
+        },
+        acties: {
+          kop: 'Pak dit kaartje',
+          tekst: 'Pak dit kaartje geeft je de hoofdfilm: eerst het aftellen, dan de trailer als die aanstaat, dan je kaartje. Liever iets anders? Een andere film schuift door naar de volgende; dat geldt de rest van de dag.',
+        },
+        binnen: {
+          kop: 'Net binnen',
+          tekst: 'Films van je lijst die deze week op een streamingdienst kwamen. Tik op een regel en hij wordt je hoofdfilm van vanavond.',
+          leeg: 'Komen er films van je lijst nieuw op een streamingdienst, dan staan ze hier. Tik op zo’n regel en hij wordt je hoofdfilm van vanavond.',
+        },
+        vraag: {
+          kop: 'De vraag over gisteren',
+          tekst: 'Na een avond met een kaartje vraagt de tool de dag erna of je hem keek. Geef sterren, kies Gezien, geen sterren, of Niet gekeken. Koos je die avond meer films, dan tik je aan welke je keek. Later legt de vraag een halve dag weg.',
+          leeg: 'Pak je een kaartje, dan staat hier de dag erna de vraag of je hem keek. Zeg je ja, dan scheurt het kaartje af en gaat het de doos in.',
+        },
+        kassa: {
+          kop: 'De kassa',
+          tekst: 'Liever het lot? De kassa kiest uit de pot: de films van je lijst die meedoen. Standaard doet alles mee wat je nog niet zag.',
+          vb: 'Nu in de pot: {aantal}.',
+        },
+        stemming: {
+          kop: 'Waar heb je zin in?',
+          tekst: 'Een stemming kiest nog geen film: hij maakt de pot kleiner. Korte avond houdt films tot 105 minuten over, Bewezen topper die met een Nossy-score vanaf 7,4. Het getal erachter is hoeveel er overblijven.',
+          vb: 'Tik je nu op Korte avond, dan blijven er {n} over.',
+        },
+        aanpassen: {
+          kop: 'Aanpassen',
+          tekst: 'Wat er op tafel komt, stel je in bij Aanpassen. Je keuzes worden onthouden, ook voor een volgende keer.',
+          doe: 'Tik op Aanpassen.',
+        },
+        la: {
+          kop: 'De la van de kassa',
+          tekst: 'Per rij: de lengte (geen korte films, of tot anderhalf, twee of tweeënhalf uur), genres waar je zin in hebt of liever niet, de taal, een periode, een minimumcijfer, en alleen wat te streamen is. Heb je eigen Letterboxd-lijsten, dan kies je bovenin waaruit de tool pickt. Gezien eruit houdt wat je al zag buiten de pot. Terug naar standaard zet alles terug.',
+        },
+        schakelaars: {
+          kop: 'Trailer en slim kiezen',
+          tekst: 'Eerst de trailer: je pick krijgt eerst zijn trailer, daarna schuift het kaartje uit de sleuf. Spatie pauzeert, Escape slaat hem over, en het geluid zet je aan of uit. Staat beperk beweging aan op je apparaat, dan valt de trailer weg. Slim kiezen: films met een hoger cijfer maken meer kans, wat je onlangs koos minder.',
+          vb: 'Met slim kiezen maakt een film met een 8 bijna twee keer zoveel kans als een film met een 6. Zonder maakt elke film evenveel kans.',
+        },
+        lot: {
+          kop: 'Laat het lot kiezen',
+          tekst: 'Deze knop trekt een film uit de pot: het aftellen, de trailer, en dan schuift je kaartje uit de sleuf.',
+          doe: 'Probeer het als je wilt. Je krijgt dan een echt kaartje, en de dag erna vraagt de tool of je hem keek. Of sla deze stap over.',
+        },
+        kaart: {
+          kop: 'Je kaartje',
+          tekst: 'Op je kaartje staan de aanvang, het einde en waar je hem kijkt. Eronder de cijfers: de Nossy-score is het gemiddelde van de bronnen die er zijn. Met een OMDb-sleutel tellen IMDb en Metacritic mee.',
+        },
+        knoppen: {
+          kop: 'Wat je met je pick doet',
+          tekst: 'Trailer opent de trailer. Nu op een dienst brengt je via JustWatch naar die dienst; dan staat dit kaartje morgen vooraan in de vraag. Meer zoals deze zoekt films die erop lijken. Gezien markeert hem als gezien, en dan scheurt het kaartje af. Deel maakt er een plaatje van. Pick opnieuw trekt een nieuwe film uit dezelfde pot, met een nieuw kaartje. Terug naar de kassa brengt je weer naar de voorpagina.',
+        },
+      },
+      kaartjes: {
+        titel: 'Je kaartjes en de doos',
+        zoek: 'kaartje kaartjes doos afscheuren afgescheurd gekeken bewijs dagboek diary antwoord gezien verlopen veertien dagen filmjaar delen sterren notitie toch niet gekeken toch gekeken gevonden via nossy gelogd',
+        wat: {
+          kop: 'Een pick is nog geen gekeken film',
+          tekst: 'Elke pick levert een kaartje op. Het scheurt pas af en gaat de doos in als blijkt dat je hem keek: hij staat in je Letterboxd-dagboek, je zegt het zelf bij de vraag de dag erna, of je markeert hem binnen veertien dagen als gezien. Zonder bewijs verloopt het kaartje na veertien dagen, zonder melding.',
+        },
+        momenten: {
+          kop: 'Afscheuren en ontdekken',
+          tekst: 'Zeg je dat je hem keek, dan scheurt het kaartje in beeld af, met zijn nummer in de doos. Vindt de tool het bewijs zelf, in je dagboek of omdat je hem als gezien markeerde, dan laat hij je het kaartje zien zodra hij het ontdekt.',
+        },
+        doos: {
+          kop: 'Uit je doos',
+          tekst: 'Je laatste drie kaartjes staan op de voorpagina. Tik erop en je gaat naar de doos.',
+          leeg: 'Zodra er kaartjes in je doos zitten, staan de laatste drie hier op de voorpagina.',
+        },
+        archief: {
+          kop: 'De doos',
+          tekst: 'In het Archief, onder Kaartjes, staat je hele doos per maand, met je gemiddelde sterren.',
+          vb: 'Nu in de doos: {n}.',
+        },
+        filmjaar: {
+          kop: 'Jouw filmjaar',
+          tekst: 'Je kaartjes van dit jaar: hoeveel, je gemiddelde sterren, je drukste maand, je hoogst gewaardeerde film en met wie je het vaakst keek. Deel je filmjaar maakt er een plaatje van.',
+          leeg: 'Zitten er dit jaar kaartjes in de doos, dan staat hier je filmjaar, met een knop om het te delen.',
+        },
+        beheer: {
+          kop: 'Een kaartje beheren',
+          tekst: 'Tik op een kaartje: daar geef je sterren, schrijf je een notitie (met wie, waar), of haal je hem uit de doos als je hem toch niet keek.',
+          leeg: 'Heb je een kaartje in de doos, tik er dan op: daar geef je sterren, schrijf je een notitie, of haal je hem uit de doos als je hem toch niet keek.',
+        },
+        buiten: {
+          kop: 'Recent gekozen, niet in de doos',
+          tekst: 'Picks zonder bewijs, of waarvan je zei dat je ze niet keek. Keek je er toch een, tik dan op Toch gekeken.',
+          leeg: 'Picks zonder bewijs verschijnen hier. Keek je er toch een, dan zet je hem met Toch gekeken alsnog in de doos.',
+        },
+        gelogd: {
+          kop: 'Recent gelogd, niet in de doos',
+          tekst: 'Films uit je Letterboxd-dagboek zonder kaartje. Vond je er een via de tool, tik dan op Gevonden via Nossy en hij krijgt alsnog een kaartje.',
+          leeg: 'Laad je Letterboxd-export, dan staan hier je recente logs zonder kaartje. Vond je er een via de tool, dan geef je hem met Gevonden via Nossy alsnog een kaartje.',
+        },
+      },
+      archief: {
+        titel: 'Het archief',
+        zoek: 'archief watchlist gezien kaartjes filter filteren zin genre periode decennium lengte dienst sorteren volgorde mijn sterren zoeken titel uitgelicht hoogste cijfer film openen filmkaart vinkje',
+        tabs: {
+          kop: 'Alles wat je hebt',
+          tekst: 'Watchlist is je Letterboxd-watchlist. Gezien is alles wat je op Letterboxd zag, met je sterren. Kaartjes is je doos.',
+          vb: '{wl} op je watchlist, {gezien} gezien.',
+        },
+        uitgelicht: {
+          kop: 'Uitgelicht',
+          tekst: 'Bovenaan staat het hoogste cijfer op je lijst dat je nog niet zag, groot in beeld. Zodra je zoekt of filtert, gaat hij opzij.',
+        },
+        decennia: {
+          kop: 'Per decennium',
+          tekst: 'Op jaar gesorteerd staan je films per decennium, met het jaartal groot erboven. Een vinkje op een poster betekent dat je hem al zag.',
+          leeg: 'Kies je bij het laatste woord van de zin een jaar, nieuwste of oudste eerst, dan staan je films per decennium, met het jaartal groot erboven.',
+        },
+        zoeken: {
+          kop: 'Zoeken',
+          tekst: 'Zoek op titel. Rechts staat hoeveel films er overblijven.',
+        },
+        filter: {
+          kop: 'Filteren met een zin',
+          tekst: 'Filteren gaat hier met een zin. Elk onderstreept woord kun je aantikken.',
+          doe: 'Tik op alle genres en kies er een, bijvoorbeeld Drama.',
+        },
+        zin: {
+          kop: 'De zin past zich aan',
+          tekst: 'Periode, lengte, waar te zien en de volgorde werken net zo. Zonder wat ik zag laat films weg die je al zag. Wil je terug, kies dan weer alle genres.',
+          vb: 'Nu: {zin}',
+        },
+        film: {
+          kop: 'Een film openen',
+          tekst: 'Tik op een film voor de filmkaart: de trailer, waar hij te zien is, de cijfers en het verhaal.',
+          doe: 'Tik op een film.',
+        },
+        kaart: {
+          kop: 'De filmkaart',
+          tekst: 'Hier markeer je hem als gezien, zoek je Meer zoals deze, of deel je hem. Terug naar het archief, bovenaan, brengt je terug.',
+        },
+        sterren: {
+          kop: 'Je eigen sterren',
+          tekst: 'Onder Gezien staan je films op volgorde van je eigen sterren, de hoogste eerst. Bij elke film staat wat je hem gaf.',
+        },
+      },
+      voorjou: {
+        titel: 'Programma: Voor jou',
+        zoek: 'programma voor jou aanraders aanbevelingen suggesties rijen reden vanavond net binnen tegel plusje oog kruisje niet voor mij waarom match recept procent alles bekijken meer ophalen filters genre dienst diensten streaming kort andere suggesties shortlist kopieren exporteren letterboxd import afgewezen terugzetten',
+        wat: {
+          kop: 'Films van buiten je lijst',
+          tekst: 'Programma zoekt films die nog niet op je lijst staan. Voor jou leunt op wat je 4 of 5 sterren gaf (5 sterren weegt zwaarder), op je watchlist en op je smaakprofiel. Wat je 2 sterren of minder gaf, duwt films die erop lijken omlaag. Wat je al zag, komt hier nooit.',
+          vb: 'Nu: {aantal} suggesties.',
+        },
+        vanavond: {
+          kop: 'Vanavond, voor jou',
+          tekst: 'Bovenaan staat één aanrader voor nu. Hij past bij je smaak, staat bij voorkeur op een van je diensten, en je ziet hoe laat hij uit is. Hij blijft staan tot je er iets mee doet: Bekijk de film, Op shortlist, Al gezien, Een andere, of het kruisje voor niet voor mij.',
+          vb: 'Nu: {titel}.',
+          leeg: 'Zodra er suggesties zijn, staat hier één aanrader voor vanavond: passend bij je smaak, bij voorkeur op een van je diensten, met de tijd waarop hij uit is.',
+        },
+        binnen: {
+          kop: 'Net binnen',
+          tekst: 'Films van je eigen watchlist die deze week op een streamingdienst kwamen. Koos je je diensten, dan alleen die. Tik erop voor de filmkaart.',
+          leeg: 'Komt er deze week een film van je watchlist op een streamingdienst, dan staat hij hier.',
+        },
+        rijen: {
+          kop: 'Rijen met een reden',
+          tekst: 'Elke rij zegt waarom hij er is: Top voor jou, Omdat je een film hoog waardeerde, Meer van een regisseur, Verborgen parels, Buiten je bubbel. Welke favoriet en welke regisseur een rij krijgt, wisselt per dag.',
+          vb: 'Bovenaan: {titel}.',
+          leeg: 'De rijen verschijnen zodra de tool genoeg films van buiten je lijst heeft gevonden. Dat gaat via TMDB en duurt de eerste keer even.',
+        },
+        tegel: {
+          kop: 'Een tegel',
+          tekst: 'Het plusje zet een film op je shortlist. Het oog zegt dat je hem al zag, met sterren als je wilt. Het kruisje is niet voor mij; daarna vraagt de tool waarom niet: niet mijn genre, te mainstream, niet van deze regisseur, of al gezien. Eén tik maakt de suggesties gerichter.',
+        },
+        alles: {
+          kop: 'Alles bekijken',
+          tekst: 'Een rij gaat verder dan wat je ziet. Alles bekijken toont de hele rij als lijst, met meer uitleg per film.',
+          doe: 'Tik op Alles bekijken.',
+        },
+        lijst: {
+          kop: 'De hele rij',
+          tekst: 'Sorteer op sterkst aangeraden, beste match, cijfer of jaar. Onderaan toont Toon meer de volgende films, en bij de meeste rijen zoekt Meer ophalen uit TMDB verder.',
+        },
+        kaart: {
+          kop: 'Waarom deze film',
+          tekst: 'Per film staat waarom hij er is en waar hij nu te zien is. Tik op Waarom en het percentage voor het recept: kwaliteit, thema’s die je raken, genre, tijdperk, taal en hoe bekend hij is, elk met zijn punten. Meer zoals deze zoekt films die erop lijken.',
+          vb: 'Deze film: {match}% match.',
+        },
+        filters: {
+          kop: 'Filters en andere suggesties',
+          tekst: 'Filter op genre, op waar hij te zien is (nu te streamen, je eigen diensten of één dienst) en op Kort, tot 1 uur 45. Andere suggesties wisselt de favorieten en regisseurs achter de rijen en haalt verse films op.',
+        },
+        diensten: {
+          kop: 'Je diensten',
+          tekst: 'Kies één keer welke streamingdiensten je hebt. Dan krijg je een rij met wat daar nu staat en bij je past, toont Net binnen alleen je eigen diensten, en noemt elke tegel eerst jouw dienst.',
+          leeg: 'Koos je al diensten, dan wijzig je ze met Diensten wijzigen, in de kop van de rij met wat nu op je diensten staat. Zei je Niet nu, dan staat Diensten kiezen bij de filters.',
+        },
+        shortlist: {
+          kop: 'Je shortlist',
+          tekst: 'Alles met een plusje staat op je shortlist, hier rechtsboven. Open hem om de lijst te kopiëren, of exporteer hem voor Letterboxd: open daar je watchlist en kies Import.',
+          vb: 'Nu op je shortlist: {n}.',
+          leeg: 'Zet je een film op je shortlist, met het plusje of met Op shortlist, dan staat hier rechtsboven Shortlist. Daar kopieer je de lijst of exporteer je hem voor Letterboxd.',
+        },
+        afgewezen: {
+          kop: 'Afgewezen',
+          tekst: 'Wat je afwees, staat onderaan. Tik op Afgewezen en zet een film terug met het pijltje.',
+          leeg: 'Wijs je een film af, dan staat hij onderaan bij Afgewezen. Daar zet je hem terug als je van gedachten verandert.',
+        },
+      },
+      eigenrijen: {
+        titel: 'Programma: eigen rijen en snel beoordelen',
+        zoek: 'eigen rij rijen samenstellen maken criteria lijkt op een film maker regisseur acteur genres onderwerpen land periode kort dienst naam bewerken omhoog omlaag verwijderen vastzetten snel beoordelen vegen swipen pijltjes',
+        nieuw: {
+          kop: 'Een eigen rij',
+          tekst: 'Naast de rijen van de tool maak je er zelf een: op criteria, op een film die je mooi vindt, of op een regisseur of acteur.',
+          doe: 'Tik op Eigen rij.',
+        },
+        voorstellen: {
+          kop: 'Voorstellen',
+          tekst: 'Bovenaan staan voorstellen uit je smaak. Eén tik en de rij staat in Voor jou.',
+          leeg: 'Heeft de tool genoeg van je smaak gezien, dan staan hier voorstellen die je met één tik toevoegt.',
+        },
+        basis: {
+          kop: 'Waar gaat de rij over?',
+          tekst: 'Criteria bouw je zelf op. Lijkt op een film: zoek een film, en de rij vult zich met wat erop lijkt. Van een maker: zoek een regisseur of acteur.',
+        },
+        bouwstenen: {
+          kop: 'De bouwstenen',
+          tekst: 'Kies tot drie genres; ze moeten er allemaal in zitten. Bij criteria zoek je ook onderwerpen op een woord, zoals grief of heist, en kies je een land. Daaronder een periode, een dienst en Kort.',
+        },
+        naam: {
+          kop: 'De naam',
+          tekst: 'Laat je hem leeg, dan maakt de tool een naam uit je bouwstenen, zoals Lijkt op Aftersun.',
+        },
+        opslaan: {
+          kop: 'Opslaan',
+          tekst: 'Rij opslaan zet hem in Voor jou, direct onder Top voor jou. Annuleren sluit de maker zonder iets te bewaren.',
+        },
+        beheer: {
+          kop: 'Rijen beheren',
+          tekst: 'In de kop van een rij staat soms een knop. Bewerk opent je eigen rij weer: daar zet je hem omhoog of omlaag, of verwijder je hem. Vastzetten staat bij rijen over een favoriete film of een regisseur: dan wordt het een eigen rij die niet meer per dag wisselt.',
+          vb: 'Hier: {label}.',
+          leeg: 'Heb je een eigen rij, dan staat Bewerk in zijn kop: daar zet je hem omhoog of omlaag, of verwijder je hem. Bij rijen over een favoriete film of een regisseur staat Vastzetten: dan wisselt die rij niet meer per dag.',
+        },
+        snel: {
+          kop: 'Snel beoordelen',
+          tekst: 'Snel beoordelen laat de sterkste suggesties één voor één zien. Elke keuze leert Voor jou meteen iets over je smaak.',
+          doe: 'Tik op Snel beoordelen.',
+        },
+        vegen: {
+          kop: 'Vegen',
+          tekst: 'Veeg naar rechts: wil ik zien, en hij gaat op je shortlist. Naar links: niet voor mij. Op een computer werken de pijltjes: rechts, links, omlaag voor weet niet, en G voor al gezien. Klaar brengt je terug.',
+        },
+      },
+      zoeken: {
+        titel: 'Programma: zoeken',
+        zoek: 'zoeken zoekmachine titel maker regisseur acteur filmografie filters criteria genres periode decennium taal niet engelstalig cijfer score speelduur stemmen onbekend diep ondergronds breed gezien verberg al gezien wat ik ken nossy scores laden match bewaar als rij tmdb database',
+        tab: {
+          kop: 'Zoeken',
+          tekst: 'Zoeken doorzoekt de hele filmdatabase van TMDB, ook alles wat niet op je lijst staat.',
+          doe: 'Tik op Zoeken.',
+        },
+        veld: {
+          kop: 'Op titel of maker',
+          tekst: 'Typ een titel of een naam en druk op Enter. Is het een regisseur of acteur, dan staat de naam onder Makers: tik erop voor de hele filmografie.',
+          doe: 'Zoek iets, bijvoorbeeld je lievelingsfilm.',
+        },
+        filters: {
+          kop: 'Zoeken op criteria',
+          tekst: 'Laat je het zoekveld leeg, dan zoek je op criteria. Met een titel erbij werken de filters als zeef op de treffers.',
+          doe: 'Tik op Toon filters.',
+        },
+        criteria: {
+          kop: 'De criteria',
+          tekst: 'Tot drie genres, een periode (met een knop per decennium), een taal of Niet-Engelstalig, een minimumcijfer, een speelduur en de volgorde. Het aantal stemmen zegt hoe bekend een film is: van Diep ondergronds tot Breed gezien.',
+        },
+        gezien: {
+          kop: 'Verberg al gezien',
+          tekst: 'Haalt weg wat je al zag: gelogd op Letterboxd, beoordeeld of hier als gezien gemarkeerd. Hij staat standaard aan. In Voor jou staat hij altijd aan.',
+        },
+        resultaten: {
+          kop: 'De resultaten',
+          tekst: 'Bovenaan staat wat je zocht en hoeveel er zijn. Elke film krijgt een match met je smaak zodra je profiel sterk genoeg is. Verberg wat ik al ken laat ook je watchlist weg. Met een OMDb-sleutel haalt Nossy-scores laden IMDb en Metacritic op. Bewaar als rij zet een zoektocht op criteria of een filmografie als eigen rij in Voor jou.',
+          leeg: 'Zoek je iets, dan staat hier boven de resultaten wat je zocht en hoeveel er zijn, met Verberg wat ik al ken, Nossy-scores laden (met een OMDb-sleutel) en Bewaar als rij, voor een zoektocht op criteria of een filmografie.',
+        },
+      },
+      filmavond: {
+        titel: 'Filmavond op één telefoon',
+        zoek: 'filmavond samen kiezen groep vrienden pot watchlist overlap vriend export laden filters op tafel veto veto-rondes spelers telefoon doorgeven trailers pitch spieken info knock-out bracket duel kwartfinale halve finale finale winnaar kaartje',
+        wat: {
+          kop: 'Samen kiezen',
+          tekst: 'Filmavond is kiezen met meer mensen. Dit hoofdstuk gaat over kiezen op één telefoon die je doorgeeft. De zaalstemming en samen kiezen op afstand hebben elk een eigen hoofdstuk.',
+          vb: 'Kandidaten in de pot nu: {n}.',
+        },
+        pot: {
+          kop: 'De pot',
+          tekst: 'In de pot zit je watchlist, zonder wat je al zag. Met Watchlist van vriend laden kies je de export van een vriend (zip of csv): dan blijven alleen de films over die op jullie allebei je lijst staan. Dat kan met meer vrienden tegelijk. Het kruisje bij een naam haalt die lijst weg, en Mijn watchlist zet alles terug.',
+        },
+        filters: {
+          kop: 'Wat er op tafel komt',
+          tekst: 'Net als in de la van de kassa kies je hier de lengte, waar je zin in hebt en liever niet, de taal, de periode, een minimumcijfer en alleen op streaming. Het geldt voor elke manier van samen kiezen op dit scherm, en de tool onthoudt je keuze.',
+        },
+        veto: {
+          kop: 'Veto-rondes',
+          tekst: 'Tot acht films op tafel. Kies hoeveel spelers er zijn. Om de beurt streept iemand een film weg en geeft de telefoon door; de laatste die overblijft, kijken jullie. De i op een poster is even spieken: de filmkaart, zonder dat de ronde stopt. Er moeten minstens vier films in de pot zitten.',
+        },
+        trailers: {
+          kop: 'Eerst de trailers',
+          tekst: 'Staat dit aan, dan krijgt elke film eerst een korte trailer voordat er gestreept wordt. Tik op het doek om verder te gaan, of links voor de vorige; op een computer werken de pijltjes, en de spatie pauzeert. Het luidsprekertje zet het zaalgeluid aan of uit, en Meteen naar de veto slaat de rest over.',
+        },
+        bracket: {
+          kop: 'Knock-out bracket',
+          tekst: 'Acht films in duels, van de kwartfinale tot de finale; met minder dan acht in de pot zijn het er vier. Tik bij elk duel de winnaar aan. Beslis samen, of wissel per duel wie kiest. Ook hier spiek je met de i.',
+        },
+        winnaar: {
+          kop: 'De winnaar',
+          tekst: 'Blijft er één film over, of wint hij de finale, dan staat de filmkaart klaar met een kaartje voor jullie allemaal. Het kaartje gaat in je kaartjesdoos, net als bij Vanavond. Nieuwe ronde begint opnieuw.',
+        },
+      },
+      zaal: {
+        titel: 'De zaalstemming, voor de gastheer',
+        zoek: 'zaal zaalstemming gastheer tv laptop scherm telefoons code qr link delen lobby zelf meedoen zo speelt de zaal genre genreronde van de lijst aanraders voordrachten letterboxd gasten stemming vanzelf hand begin punten 1e 2e keus gelijkspel lijstjes brede steun lot trailers filmronde uitslag kaartje nog een ronde sluiten oefenen',
+        wat: {
+          kop: 'Iedereen stemt mee',
+          tekst: 'Voor een groep in één kamer. Dit toestel is de zaal: zet het op een tv of laptop waar iedereen het ziet. De anderen stemmen op hun eigen telefoon, zonder account of installatie, met hooguit twaalf mensen. Eerst kiezen jullie samen een genre, dan een film.',
+        },
+        open: {
+          kop: 'De zaal openen',
+          tekst: 'Open de zaal maakt een code van vier letters. De zaal haalt de films uit de pot van Filmavond, dus je filters tellen mee. Er moeten minstens drie films in de pot zitten.',
+          doe: 'Probeer het als je wilt. De zaal gaat dan echt open, maar zonder spelers gebeurt er niets, en aan het eind van dit hoofdstuk sluit je hem weer. Of sla deze stap over.',
+        },
+        code: {
+          kop: 'Code, QR en link',
+          tekst: 'Wie meedoet, gaat op de telefoon naar het adres op het scherm en vult de code in, of scant de QR-code met de camera. Deel de link stuurt hem rechtstreeks, bijvoorbeeld in jullie groepsapp. Namen verschijnen onder In de zaal zodra iemand meedoet.',
+          vb: 'Deze zaal: {code}.',
+        },
+        zelf: {
+          kop: 'Zelf meedoen',
+          tekst: 'Zit je zelf ook in de zaal? Zet Ik doe zelf ook mee aan en vul je naam in. Dan stem je op dit scherm, met dezelfde knoppen als op een telefoon.',
+        },
+        spel: {
+          kop: 'Zo speelt de zaal',
+          tekst: 'Hier stel je de avond in. Genre: eerst samen een genre kiezen, of meteen naar de films. Van de lijst: drie, vier of vijf films uit de pot. Aanraders: tot drie films van buiten de lijst die passen bij je lijst en het genre. Dit toestel onthoudt je keuzes.',
+        },
+        gasten: {
+          kop: 'De gasten',
+          tekst: 'Voordrachten: plek voor tot drie films die gasten zelf voordragen, met hun naam erbij. Letterboxd: de telefoons vragen of de gast de eigen Letterboxd laat meetellen; dan valt af wat iemand al zag, en weegt hun smaak mee. Stemming: een ronde sluit vanzelf als iedereen stemde, of met de hand.',
+        },
+        begin: {
+          kop: 'Beginnen',
+          tekst: 'Is iedereen binnen, dan start Begin de eerste ronde. Wie daarna nog komt, kijkt mee op het scherm.',
+          vb: 'Nu in de zaal: {n}.',
+        },
+        genre: {
+          kop: 'Stemmen met punten',
+          tekst: 'Iedereen geeft een 1e keus (2 punten) en een 2e keus (1 punt). Eerst over genres: op tafel liggen de genres met genoeg films in de pot. Probeer het hieronder.',
+        },
+        gelijk: {
+          kop: 'Bij gelijkspel',
+          tekst: 'Gelijk op punten? Dan wint wat op de meeste lijstjes staat: daar staat de zaal het breedst achter. Heeft het genre erna ook brede steun, dan worden het films die allebei zijn. Is het helemaal gelijk, dan films die alle gelijke genres tegelijk zijn, of anders van elk wat. Bij de films beslist dan het lot.',
+        },
+        tafel: {
+          kop: 'De films op tafel',
+          tekst: 'De slimme pick kiest films uit de pot die bij het genre passen: een hoger cijfer geeft meer kans, en films met een trailer gaan voor. Daarbij komen de aanraders, elk met waarom, en de voordrachten van de gasten, met hun naam. Tellen gasten hun Letterboxd mee, dan zit dat er hier al in.',
+        },
+        trailers: {
+          kop: 'De trailers',
+          tekst: 'Bekijk de trailers speelt ze op het scherm. De telefoons zien welke trailer er draait, en wie het al weet, stemt alvast. Nu stemmen slaat de trailers over.',
+        },
+        film: {
+          kop: 'De filmronde',
+          tekst: 'Weer een 1e en een 2e keus, met dezelfde punten. Het scherm laat zien wie al stemde. Heeft iedereen gestemd, dan sluit de ronde na een paar tellen vanzelf; heeft iemand alleen een 1e keus, dan wacht het scherm een kwart minuut. Met Sluit de stemming sluit je hem zelf.',
+        },
+        uitslag: {
+          kop: 'De uitslag',
+          tekst: 'Het scherm zegt welke film het wordt, waarom, en hoeveel punten elke film kreeg. Pak het kaartje geeft een kaartje met alle namen erop, en de gasten krijgen het mee op hun telefoon. Nog een ronde begint opnieuw.',
+        },
+        sluit: {
+          kop: 'De zaal sluiten',
+          tekst: 'Sluit de zaal staat onderaan elk scherm van de zaal en brengt je terug naar Filmavond. Een zaal verdwijnt na twaalf uur vanzelf.',
+          doe: 'Tik op Sluit de zaal.',
+        },
+      },
+      zaalgast: {
+        titel: 'De zaalstemming, voor de gasten',
+        zoek: 'gast gasten meestemmen meedoen telefoon code qr scannen naam letterboxd meetellen export voordragen voordracht film zoeken 1e 2e keus stemmen alvast trailers youtube kaartje bewaren delen plaatje oefenen lobby',
+        code: {
+          kop: 'Meedoen met een code',
+          tekst: 'Wie meestemt, heeft geen eigen lijst of account nodig. Scan de QR-code op het scherm, open de gedeelde link, of vul hier de code van vier letters in.',
+          leeg: 'Wie meestemt, heeft geen eigen lijst of account nodig. Scan de QR-code op het scherm, open de gedeelde link, of vul de code van vier letters in bij Filmavond, onder Meedoen met een code.',
+        },
+        naam: {
+          kop: 'Je naam',
+          tekst: 'Vul op je telefoon je naam in en tik op Doe mee; dan staat je naam op het scherm. Is hij al bezet, kies dan een andere. Begon de avond al, dan kijk je mee op het scherm.',
+        },
+        letterboxd: {
+          kop: 'Je Letterboxd laten meetellen',
+          tekst: 'Wil de gastheer dat, dan vraagt je telefoon of de zaal rekening mag houden met jou. Zeg je ja, dan maak je op Letterboxd een export en kies je het zip-bestand; de telefoon helpt in drie stappen. Gebruik je de tool zelf op die telefoon, of bewaarde je je export daar eerder, dan is het één tik. De export blijft op je telefoon: het scherm krijgt per film alleen of je hem zag, of hij op je watchlist staat en hoe goed hij bij je past.',
+        },
+        voordragen: {
+          kop: 'Zelf een film voordragen',
+          tekst: 'Staat het aan, dan zoek je op je telefoon een film en draag je hem voor, tot de films op tafel komen. Een nieuwe voordracht vervangt de vorige, en Trek in haalt hem weg. Zijn er meer voordrachten dan plek, dan gaat voor wat meer gasten voordroegen, dan wat bij het genre past, en verder beslist het lot.',
+        },
+        stemmen: {
+          kop: 'Stemmen op je telefoon',
+          tekst: 'Tik 1e bij je favoriet en 2e bij je tweede keus. Nog eens tikken haalt hem weg; tik je 1e bij je 2e keus, dan wisselen ze. In de lobby kan je telefoon dit oefenen terwijl je wacht.',
+        },
+        alvast: {
+          kop: 'Alvast stemmen',
+          tekst: 'Tijdens de trailers ziet je telefoon welke trailer er op het scherm draait. Weet je het al, geef dan alvast je 1e en 2e keus: die telt zodra het stemmen begint. Bij elke film met een trailer staat ook een link naar YouTube.',
+        },
+        kaartje: {
+          kop: 'Het kaartje mee naar huis',
+          tekst: 'Na de uitslag staat het kaartje op je telefoon, met iedereen erop. Bewaar in mijn kaartjesdoos zet het in de tool op die telefoon; later vraagt de tool of je hem keek. Deel als plaatje maakt er een afbeelding van.',
+        },
+      },
+      samen: {
+        titel: 'Samen kiezen op afstand',
+        zoek: 'samen kiezen vier manieren welke wanneer bank tv voor ons smaak link vrienden export score ranglijst 45 gemiddelde deze kijken we op afstand stemronde groepsapp code 24 uur stemmen meeste stemmen',
+        welke: {
+          kop: 'Welke manier wanneer',
+          tekst: 'Samen op de bank met één telefoon: een veto-ronde of de knock-out. Een tv en ieders telefoon: de zaalstemming. Kiezen op ieders smaak, met ieders Letterboxd: Voor ons. Ieder thuis op de eigen telefoon: Op afstand.',
+        },
+        voorons: {
+          kop: 'Voor ons',
+          tekst: 'Kies op ieders smaak, en kijk verder dan je watchlist. Vul je naam in; Start Voor ons zet tot zestig films uit de pot klaar en geeft een link. Je vrienden openen die op hun eigen telefoon en laden daar hun Letterboxd-export, die op dat toestel blijft. Alleen per film een score gaat naar jou.',
+        },
+        vrienden: {
+          kop: 'Wat je vrienden doen',
+          tekst: 'Ze kiezen hun export, het zip-bestand, en de telefoon leest daaruit hun smaak; dat duurt meestal minder dan een minuut. Geen export bij de hand? Dan tikken ze zelf aan welke films ze zien zitten.',
+        },
+        rang: {
+          kop: 'De ranglijst',
+          tekst: 'Per film zie je hoe goed hij bij ieder past, en wie hem al zag. Bovenaan staan films die nog niemand zag en waar niemand onder de 45 zit, op het gemiddelde. Zo wint niet de film die twee mensen geweldig vinden en één persoon vreselijk. Deze kijken we geeft een kaartje met alle namen.',
+        },
+        afstand: {
+          kop: 'Op afstand',
+          tekst: 'Start de stemronde, en de tool pakt tot twaalf films uit de pot. Deel de link in jullie groepsapp: iedereen tikt op de eigen telefoon aan welke films ze wel willen zien, zonder account. Laat dit scherm open, het ververst vanzelf. De code is 24 uur geldig.',
+        },
+        winnaar: {
+          kop: 'De winnaar op afstand',
+          tekst: 'Sluit af zodra iedereen stemde. De film met de meeste stemmen wint; staan er films gelijk, dan die met de hoogste Nossy-score. De uitslag verschijnt ook bij wie stemde.',
+        },
+      },
+      jaarboek: {
+        titel: 'Het jaarboek',
+        zoek: 'jaarboek inzicht cijfers statistieken kijkritme dagboek maand herkijken smaakprofiel genres tijdperk thema meten meetlat hoe goed favorieten top 50 diagnose leer mijn smaak model leren gebruik in voor jou decennia regisseurs landen laatste picks geschiedenis',
+        wat: {
+          kop: 'Het jaarboek',
+          tekst: 'Het jaarboek leest je smaak uit je watchlist, je sterren en je Letterboxd-dagboek. Wat de tool hier over je weet, stuurt de aanbevelingen in Voor jou en de matchpercentages.',
+        },
+        ritme: {
+          kop: 'Je kijkritme',
+          tekst: 'Een staafje per maand: hoeveel films je de afgelopen twaalf maanden keek, in welke maand het meest, en hoeveel daarvan herkijken waren. Het komt uit je Letterboxd-dagboek.',
+          leeg: 'Staat je Letterboxd-dagboek erin, dan zie je hier bovenaan per maand hoeveel films je keek. Het dagboek zit in je export, en Letterboxd live in Setup houdt het bij.',
+        },
+        cijfers: {
+          kop: 'De cijfers',
+          tekst: 'Hoeveel films er op je watchlist staan en hoeveel je er nog niet zag, met de gemiddelde speelduur, de totale kijktijd, het gemiddelde TMDB-cijfer en, als je sterren gaf, je eigen gemiddelde.',
+          vb: 'Op je watchlist: {n}. Nog te kijken: {nog}.',
+        },
+        profiel: {
+          kop: 'Je smaakprofiel',
+          tekst: 'Waar je vooral op valt, uit welk tijdperk, welke thema’s steeds terugkomen in wat je hoog waardeert, en wat minder je ding is. Daarop sturen Voor jou en de matchpercentages. Hoe meer sterren je op Letterboxd geeft, hoe scherper het wordt.',
+        },
+        meten: {
+          kop: 'Meten hoe goed Voor jou je kent',
+          tekst: 'De tool verbergt steeds één van je favorieten (4,5 sterren en hoger) alsof je hem nooit zag, en kijkt of Voor jou hem uit zichzelf aanraadt. Het blijft bij meten: er verandert niets.',
+          doe: 'Tik op Meet het.',
+        },
+        uitkomst: {
+          kop: 'De uitkomst',
+          tekst: 'Het percentage zegt hoeveel van je verborgen favorieten terugkwamen in de top 50 van Voor jou. Onder Diagnose zie je waar het aan ligt: filmdata die nog ontbreekt, of favorieten die niet eens bij de kandidaten kwamen. Heb je nog geen vijf favorieten van 4,5 sterren met filmdata, dan zegt de tool hoeveel je er nu hebt.',
+          vb: 'Bij jou nu: {pct}%.',
+        },
+        leren: {
+          kop: 'Leer mijn smaak',
+          tekst: 'Leer mijn smaak laat een model uitzoeken welke signalen bij jou een favoriet voorspellen; je shortlist en wat je afwees tellen mee. Daarna toetst het zich op favorieten die het niet zag. Doet het model het beter dan de vaste weging, dan rangschikt Voor jou ermee. Na het leren zet je het met Gebruik in Voor jou zelf aan of uit.',
+        },
+        lijstjes: {
+          kop: 'Genres, decennia, makers en landen',
+          tekst: 'Waar je watchlist naar overhelt, in staafjes: de genres, de decennia, de regisseurs met meerdere films op je lijst, en de landen.',
+        },
+        picks: {
+          kop: 'De laatste picks',
+          tekst: 'Je laatste twaalf picks, met de datum. Tik op een pick en de filmkaart gaat weer open.',
+          leeg: 'Zodra je een film pickt, staat hij hier met de datum. Tik erop en de filmkaart gaat weer open.',
+        },
+      },
+      setup: {
+        titel: 'Setup: de basis',
+        zoek: 'setup instellingen tmdb sleutel api filmdata export opnieuw laden bijwerken verkeerde film match jaar afwijkend hoort niet op mijn filmlijst geen film serie terugzetten taal nederlands engels regio land streaming justwatch profielen huisgenoten back-up backup herstel verhuizen terug naar start wissen wis alle data',
+        tmdb: {
+          kop: 'De filmdata van TMDB',
+          tekst: 'Posters, scores, trailers, aanbevelingen en het streamingaanbod komen van TMDB. Daar hoef je niets voor te doen: de tool regelt het. Heb je een eigen TMDB-sleutel, dan mag je die hier plakken; hij krijgt dan voorrang.',
+        },
+        laden: {
+          kop: 'Je lijst bijwerken',
+          tekst: 'Een nieuwere Letterboxd-export laad je hier, net als de eerste keer: slepen, of Kies bestand(en). Daaronder staat wat er nu geladen is. Filmdata (opnieuw) ophalen haalt alles voor je lijst opnieuw op, en controleert daarbij elke match.',
+        },
+        match: {
+          kop: 'Een verkeerde film',
+          tekst: 'Soms koppelt de tool een titel aan de verkeerde film, zoals een remake met dezelfde naam. Wijkt het jaar af, dan staat hier deze knop. Tik erop en kies de juiste film. Is iets geen film, zoals een serie, kies dan Hoort niet op mijn filmlijst. Zo’n titel staat daarna onderaan deze kaart; tik erop om hem terug te zetten.',
+          leeg: 'Nu wijkt er geen jaar af. Klopt een film toch niet? Haal de filmdata opnieuw op: de tool controleert dan elke match, en voor films waarvan het jaar afwijkt verschijnt hier een knop om de juiste te kiezen.',
+        },
+        taal: {
+          kop: 'Taal',
+          tekst: 'Nederlands of Engels. Alles wisselt meteen mee, ook deze rondleiding.',
+        },
+        regio: {
+          kop: 'Je land',
+          tekst: 'Het streamingaanbod verschilt per land. Kies het jouwe, dan haalt de tool de juiste diensten en JustWatch-links op. Na een wissel ververst het aanbod vanzelf op de achtergrond.',
+        },
+        profielen: {
+          kop: 'Profielen',
+          tekst: 'Kijken huisgenoten op hetzelfde apparaat? Geef ieder een profiel, met een eigen watchlist, geschiedenis en smaakprofiel. Wisselen herlaadt de tool.',
+        },
+        backup: {
+          kop: 'Back-up',
+          tekst: 'Exporteer alles zet je hele tool in één bestand: je lijst, kaartjes, sterren, instellingen en de filmdata. Met Herstel back-up zet je dat bestand terug, ook op een ander apparaat of in een andere browser.',
+        },
+        start: {
+          kop: 'Opnieuw beginnen',
+          tekst: 'Terug naar start wist je bibliotheek: watchlist, filmdata, sterren, kaartjes en geschiedenis. Je instellingen en sleutels blijven, dus je laadt zo een nieuwe export. Wis alle data, ernaast, haalt ook die weg; dan begint de tool als nieuw. Allebei vragen ze het eerst.',
+        },
+      },
+      extras: {
+        titel: 'Setup: de extra’s',
+        zoek: 'omdb sleutel imdb rotten tomatoes metacritic scores activatielink daglimiet meerdere sleutels test ontbrekende scores sync apparaten code koppellink wissel ontkoppel versleuteld letterboxd live dagboek gebruikersnaam nossy recept score gewicht weging thema nadruk trefwoorden installeren app beginscherm iphone android premiere versie',
+        omdb: {
+          kop: 'Meer scores met OMDb',
+          tekst: 'TMDB geeft de basis. Met een gratis OMDb-sleutel komen daar de scores van IMDb, Rotten Tomatoes en Metacritic bij, en daarmee de Nossy-score. Drie stappen: vraag de sleutel aan en kies FREE (1000 films per dag), klik de activatielink in je mail, en plak de sleutel hier. Meerdere sleutels zet je onder elkaar; de tool schakelt door als er een zijn daglimiet haalt. Staat hij erin, dan haalt Ontbrekende scores ophalen de rest binnen, en Test alle sleutels zegt welke werken.',
+        },
+        sync: {
+          kop: 'Op al je apparaten',
+          tekst: 'Zet sync aan, dan zijn je kaartjes, sterren, gezien-lijst, watchlist en instellingen op al je apparaten hetzelfde. Op het andere apparaat open je de koppellink, of vul je hier de code in. Alles gaat versleuteld met die code: bewaar hem goed en deel hem alleen met je eigen apparaten. Lekt hij uit, maak dan met Wissel code een nieuwe. In de demo staat sync uit.',
+        },
+        live: {
+          kop: 'Letterboxd live',
+          tekst: 'Vul je Letterboxd-gebruikersnaam in en tik op Koppel en lees mee. De tool leest dan je openbare dagboek mee: wat je logt telt als gezien, je sterren tellen mee in je smaak, en kaartjes scheuren vanzelf af. Voor wat je kijkt, hoef je dan geen nieuwe export meer te laden.',
+        },
+        recept: {
+          kop: 'Het Nossy-recept',
+          tekst: 'De Nossy-score is het gewogen gemiddelde van IMDb, Metacritic en TMDB. Standaard tellen ze even zwaar. Geef een bron hier 0 tot 3 keer gewicht; 0 laat hem weg. Rotten Tomatoes telt niet mee, want dat is een percentage en geen cijfer. Je ziet het wel op elke kaart.',
+          vb: 'Een voorbeeld: IMDb 8,0, Metacritic 70 (telt als 7,0) en TMDB 7,5 geven samen 7,5. Zet IMDb op 2× en het wordt (16 + 7 + 7,5) / 4 = 7,6.',
+        },
+        thema: {
+          kop: 'Thema-nadruk',
+          tekst: 'Naast genre en tijdperk leert de tool je thema’s uit je hoogst beoordeelde films: trefwoorden als coming of age of vervreemding. Met deze schuif bepaal je hoe zwaar ze meetellen in Voor jou en de matchpercentages, van uit tot sterk.',
+        },
+        installeren: {
+          kop: 'Als app op je telefoon',
+          tekst: 'Zet de tool op je beginscherm, dan opent hij als een app, zonder adresbalk. Op een iPhone in Safari: Deel, dan Zet op beginscherm. Op Android in Chrome: het menu met de drie puntjes, dan App installeren of Toevoegen aan startscherm. Op een computer in Chrome of Edge: het installeerpictogram in de adresbalk.',
+        },
+        premiere: {
+          kop: 'De première nog eens',
+          tekst: 'Onderaan staat welke versie je hebt. Met je eigen lijst staat daar ook Bekijk de première van 5.0 nog eens: de korte voorstelling met je watchlist, je kaartjes en je filmjaar.',
+        },
+      },
+    },
   },
 };
