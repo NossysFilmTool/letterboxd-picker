@@ -141,7 +141,7 @@ export default function Instellingen({ app }) {
         ) : (
           <>
             <ScoresPreview />
-            <p style={{ color: 'var(--paper)', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{tr('setup.scoresPitch')} <HoeWerktDit app={app} h="extras" stap="omdb" /></p>
+            <p style={{ color: 'var(--paper)', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{tr('setup.scoresPitch')} <HoeWerktDit app={app} h="setup" stap="omdb" /></p>
             <ol style={{ color: 'var(--fog)', fontSize: 13.5, margin: '0 0 12px 18px', display: 'grid', gap: 6 }}>
               <li>{tr('setup.wizStep1')}<a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noreferrer">omdbapi.com/apikey.aspx</a>{tr('setup.wizStep1b')}</li>
               <li><strong style={{ color: 'var(--paper)' }}>{tr('setup.wizStep2')}</strong></li>
@@ -295,7 +295,7 @@ export default function Instellingen({ app }) {
       <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-recept">
         <p className="label" style={{ marginBottom: 10 }}>{tr('setup.nossyRecipe')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>
-          {tr('setup.nossyExplain')} <HoeWerktDit app={app} h="extras" stap="recept" />
+          {tr('setup.nossyExplain')} <HoeWerktDit app={app} h="setup" stap="recept" />
         </p>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           {[['imdb', 'IMDb'], ['mc', 'Metacritic'], ['tmdb', 'TMDB']].map(([id, label]) => (

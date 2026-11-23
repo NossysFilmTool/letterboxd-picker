@@ -17,7 +17,8 @@ export default function UitlegProgramma({ app, tab, uitleg = {}, onStart, onSlui
   const ctx = { app, tab, el: null, vind: () => null };
   const lijst = beschikbaar(ctx);
   const gezien = uitleg.gezien || [];
-  const bezig = uitleg.bezig && vindHoofdstuk(uitleg.bezig.h) ? uitleg.bezig : null;
+  // Een stand van een oudere versie (een hoofdstuk dat er niet meer is) telt niet
+  const bezig = uitleg.bezig && vindHoofdstuk(uitleg.bezig.h)?.stappen[uitleg.bezig.s] ? uitleg.bezig : null;
   const hier = hoofdstukVoorTab(tab);
   const treffers = useMemo(() => (vraag.trim() ? zoekUitleg(vraag, tr, ctx) : null), [vraag, tr]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -36,9 +37,10 @@ export default function UitlegProgramma({ app, tab, uitleg = {}, onStart, onSlui
     if (gezien.includes(h.id)) return tr('uitleg.pGezien');
     return '';
   };
-  const regel = (h, { stap = 0, onder = null, boven = null } = {}) => (
+  // Een hoofdstuk: de korte rondgang; een gevonden stap: zijn hele deel
+  const regel = (h, { stap = 0, deel = null, onder = null, boven = null } = {}) => (
     <li key={`${h.id}.${stap}.${boven || ''}`}>
-      <button type="button" className="uitleg-regel" onClick={() => onStart(h.id, stap)}>
+      <button type="button" className="uitleg-regel" onClick={() => onStart(h.id, stap, deel ? { deel } : {})}>
         <span className="label-breed uitleg-regel-nr">{boven || nummer(h)}</span>
         <span className="uitleg-regel-titel">{tr(`uitleg.h.${h.id}.titel`)}</span>
         <span className="uitleg-regel-meta label-breed">
@@ -61,7 +63,7 @@ export default function UitlegProgramma({ app, tab, uitleg = {}, onStart, onSlui
         </div>
         <p className="uitleg-programma-sub">{tr('uitleg.pSub')}</p>
         {bezig && (
-          <button type="button" className="btn primary uitleg-verder" onClick={() => onStart(bezig.h, bezig.s)}>
+          <button type="button" className="btn primary uitleg-verder" onClick={() => onStart(bezig.h, bezig.s, bezig.deel ? { deel: bezig.deel } : {})}>
             {tr('uitleg.pVerder', { titel: tr(`uitleg.h.${bezig.h}.titel`) })}
           </button>
         )}
@@ -73,7 +75,7 @@ export default function UitlegProgramma({ app, tab, uitleg = {}, onStart, onSlui
         {treffers ? (
           treffers.length ? (
             <ol className="uitleg-regels" aria-label={tr('uitleg.pTreffers')}>
-              {treffers.map((x) => regel(x.h, { stap: x.stap, onder: x.kop ? tr('uitleg.pBij', { kop: x.kop }) : null }))}
+              {treffers.map((x) => regel(x.h, { stap: x.stap, deel: x.deel, onder: x.kop ? tr('uitleg.pBij', { kop: x.kop }) : null }))}
             </ol>
           ) : <p className="uitleg-programma-niets">{tr('uitleg.pNiets')}</p>
         ) : (

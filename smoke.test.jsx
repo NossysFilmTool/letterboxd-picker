@@ -272,9 +272,9 @@ describe('V2 smoke', () => {
     const nu = new Date(2026, 10, 14, 20, 0);
     const watchlist = [{ key: 'a', name: 'A' }, { key: 'b', name: 'B' }, { key: 'c', name: 'C' }, { key: 'zag', name: 'Al gezien' }];
     const meta = {
-      a: { vote: 7.0, runtime: 100, flat: ['MUBI'], backdrop: '/a.jpg' },
-      b: { vote: 9.5, runtime: 110, flat: [], director: 'Wim Wenders' },
-      c: { vote: 5.0, runtime: 95, flat: ['Netflix'], flatSinds: { Netflix: nu.getTime() - 2 * 864e5 } },
+      a: { vote: 7.0, votes: 2000, runtime: 100, flat: ['MUBI'], backdrop: '/a.jpg' },
+      b: { vote: 9.5, votes: 20000, runtime: 110, flat: [], director: 'Wim Wenders' },
+      c: { vote: 5.0, votes: 800, runtime: 95, flat: ['Netflix'], flatSinds: { Netflix: nu.getTime() - 2 * 864e5 } },
       zag: { vote: 9.9, runtime: 90 },
       pd: { director: 'Wim Wenders' },
     };
@@ -299,6 +299,79 @@ describe('V2 smoke', () => {
     expect(kiesHoofdfilm({ watchlist, meta: {}, seenSet, nu })).toBeNull();
   });
 
+  it('voorpagina: een korte film is nooit de hoofdfilm, maar wel de voorfilm', async () => {
+    const { kiesHoofdfilm, kiesVoorfilm, betrouwbaarCijfer } = await import('./src/lib/voorpagina.js');
+    const nu = new Date(2026, 10, 14, 20, 0);
+    const watchlist = [{ key: 'wire', name: 'The Wire' }, { key: 'lang', name: 'Een speelfilm' }, { key: 'zeldzaam', name: 'Bijna niemand zag hem' }];
+    const meta = {
+      // een korte film van 3 minuten met een hoog cijfer van twaalf stemmers
+      wire: { vote: 8.6, votes: 12, runtime: 3 },
+      lang: { vote: 7.6, votes: 40000, runtime: 112 },
+      // een speelfilm met een 9,4 van negen stemmers: geen "hoogste cijfer"
+      zeldzaam: { vote: 9.4, votes: 9, runtime: 95 },
+    };
+    // weinig stemmen trekt het cijfer naar het midden
+    expect(betrouwbaarCijfer(meta.zeldzaam)).toBeLessThan(betrouwbaarCijfer(meta.lang));
+    const keuze = kiesHoofdfilm({ watchlist, meta, nu });
+    expect(keuze.film.key).toBe('lang');
+    expect(keuze.reden).toEqual({ soort: 'hoogste' });
+    // de korte film wordt de voorfilm, nooit de hoofdfilm zelf
+    expect(kiesHoofdfilm({ watchlist, meta, nu, weg: ['lang', 'zeldzaam'] })).toBeNull();
+    expect(kiesVoorfilm({ watchlist, meta, nu, zonder: keuze.film.key }).film.key).toBe('wire');
+    // al gezien: geen voorfilm; alleen korte films op je lijst: dan toch een hoofdfilm
+    expect(kiesVoorfilm({ watchlist, meta, nu, seenSet: new Set(['wire']) })).toBeNull();
+    expect(kiesHoofdfilm({ watchlist: [watchlist[0]], meta, nu }).film.key).toBe('wire');
+  });
+
+  it('voorpagina: je smaak als reden, en afwisseling over de dagen', async () => {
+    const { kiesHoofdfilm, beschrijfHoofdfilm } = await import('./src/lib/voorpagina.js');
+    const nu = new Date(2026, 10, 18, 20, 0);
+    const taste = { genres: { Drama: 0.8 }, decades: { 1970: 0.6 }, themes: {}, topThemes: [], nietEngels: 0.5, medianVotes: 5000, sterk: true };
+    const meta = {
+      d: { vote: 8.0, votes: 5000, runtime: 105, year: 1975, lang: 'fr', genres: ['Drama'] },
+      x: { vote: 7.4, votes: 6000, runtime: 100, year: 2004, lang: 'en', genres: ['Comedy'], director: 'X' },
+      y: { vote: 7.4, votes: 6000, runtime: 100, year: 2004, lang: 'en', genres: ['Comedy'], director: 'Y' },
+    };
+    // met een sterk profiel: de reden is je smaak, met wat de film ermee deelt
+    const smaak = beschrijfHoofdfilm({ key: 'd', name: 'D' }, { meta, taste, nu });
+    expect(smaak.reden).toMatchObject({ soort: 'smaak', genre: 'Drama', era: '70' });
+    expect(smaak.reden.pct).toBeGreaterThanOrEqual(70);
+    // met een pril profiel claimt de tool dat niet
+    expect(beschrijfHoofdfilm({ key: 'd', name: 'D' }, { meta, taste: { ...taste, sterk: false }, nu }).reden.soort).not.toBe('smaak');
+    // drie dagen weggeklikt: hij zakt onder een gelijke film
+    const watchlist = [{ key: 'x', name: 'X' }, { key: 'y', name: 'Y' }];
+    const overgeslagen = { x: ['2026-11-10', '2026-11-12', '2026-11-15'], y: [] };
+    expect(kiesHoofdfilm({ watchlist, meta, nu, overgeslagen }).film.key).toBe('y');
+    expect(kiesHoofdfilm({ watchlist, meta, nu, overgeslagen: { y: overgeslagen.x } }).film.key).toBe('x');
+    // vorige week al gepickt: niet weer als hoofdfilm, maar vandaag gepickt verandert vandaag niets
+    const vorigeWeek = new Date(2026, 10, 12, 21, 0).toISOString();
+    expect(kiesHoofdfilm({ watchlist, meta, nu, gepickt: [{ key: 'x', date: vorigeWeek }] }).film.key).toBe('y');
+    expect(kiesHoofdfilm({ watchlist, meta, nu, gepickt: [{ key: 'y', date: vorigeWeek }] }).film.key).toBe('x');
+    const vandaagGepickt = kiesHoofdfilm({ watchlist, meta, nu, gepickt: [{ key: 'x', date: nu.toISOString() }] }).film.key;
+    expect(vandaagGepickt).toBe(kiesHoofdfilm({ watchlist, meta, nu }).film.key);
+  });
+
+  it('voorpagina: de voorfilm staat onder de reden en opent zijn eigen filmkaart', async () => {
+    const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
+    const kort = JSON.parse(localStorage.getItem('nossyV2.watchlist'))[2];
+    meta[kort.key] = { ...meta[kort.key], runtime: 7 };
+    localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    render(<App />);
+    const regel = await waitFor(() => { const r = document.querySelector('.hoofdfilm-voorfilm'); expect(r).toBeTruthy(); return r; });
+    expect(document.querySelector('.hoofdfilm-titel').textContent).not.toBe(kort.name);
+    expect(regel.textContent).toContain('Voorfilm');
+    expect(regel.textContent).toContain('7 min');
+    const knop = within(regel).getByRole('button', { name: kort.name });
+    fireEvent.click(knop);
+    expect(knop.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector('.voorfilm-kaart').textContent).toContain('Voorfilm van vanavond');
+    // geen kaartje: alleen kijken
+    expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes') || '[]')).toEqual([]);
+    // vandaag onthouden voor de afwisseling van morgen
+    const log = JSON.parse(localStorage.getItem('nossyV2.hoofdfilmLog'));
+    expect(log.at(-1).key).toBe(JSON.parse(localStorage.getItem('nossyV2.watchlist')).find((f) => f.name === document.querySelector('.hoofdfilm-titel').textContent).key);
+  });
+
   it('voorpagina: een hoofdfilm met titelblok, een andere kiezen, en het kaartje pakken', async () => {
     const mm = window.matchMedia;
     window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
@@ -316,6 +389,8 @@ describe('V2 smoke', () => {
       expect(titel()).not.toBe(eerste);
       const weg = JSON.parse(localStorage.getItem('nossyV2.hoofdfilmWeg'));
       expect(weg.keys).toHaveLength(1);
+      // en op welke dag: drie dagen weggeklikt en hij zakt
+      expect(JSON.parse(localStorage.getItem('nossyV2.hoofdfilmOvergeslagen'))[weg.keys[0]]).toEqual([weg.dag]);
       // het kaartje pakken: het kaartje schuift uit de kassa, met de hoofdfilm erop
       const tweede = titel();
       fireEvent.click(screen.getByText('Pak dit kaartje'));
@@ -5876,6 +5951,28 @@ describe('Zaalstemming', () => {
 
 // De rondleiding (lib/rondleiding.js, components/Rondleiding.jsx): de
 // ouvreuse met de zaklamp, het programma en het welkom
+// De rondleiding: hulpjes voor de tests hieronder. Een hoofdstuk uit het
+// programma loopt alleen langs de kern; een opgezocht deel (zoekregel, Hoe
+// werkt dit?, of verder waar je was) langs alles van dat deel.
+const rKnop = () => document.querySelector('[data-uitleg="uitleg-knop"]');
+const rInstellingen = () => JSON.parse(localStorage.getItem('nossyV2.settings'));
+// Vóór render: de plek bewaren alsof je in dat deel bezig was
+const rDeel = async (h, deel) => {
+  const { vindHoofdstuk } = await import('./src/lib/rondleiding.js');
+  const s = vindHoofdstuk(h).stappen.findIndex((x) => x.deel === deel);
+  const st = JSON.parse(localStorage.getItem('nossyV2.settings') || '{}');
+  localStorage.setItem('nossyV2.settings', JSON.stringify({ ...st, uitleg: { ...(st.uitleg || {}), bezig: { h, s, deel } } }));
+};
+const rVerder = (titel) => {
+  fireEvent.click(rKnop());
+  fireEvent.click(screen.getByRole('button', { name: `Verder waar je was: ${titel}` }));
+};
+const rStart = (titel) => {
+  fireEvent.click(rKnop());
+  fireEvent.click(screen.getAllByRole('button', { name: new RegExp(titel) })[0]);
+};
+const rVolgende = (titel, woord = 'Volgende') => fireEvent.click(within(titel).getByRole('button', { name: woord }));
+
 describe('de rondleiding', () => {
   beforeEach(() => { cleanup(); seed(); });
 
@@ -5891,8 +5988,6 @@ describe('de rondleiding', () => {
     loop('./src');
     return uit.join('\n');
   };
-  const uitlegKnop = () => document.querySelector('[data-uitleg="uitleg-knop"]');
-  const instellingen = () => JSON.parse(localStorage.getItem('nossyV2.settings'));
 
   it('elk doel heeft een anker in de tool, en elk anker hoort bij een stap', async () => {
     const { HOOFDSTUKKEN } = await import('./src/lib/rondleiding.js');
@@ -5934,10 +6029,14 @@ describe('de rondleiding', () => {
       h.stappen.forEach((s) => {
         const b = `uitleg.h.${h.id}.${s.id}`;
         stapSleutels.push(`${b}.kop`, `${b}.tekst`);
+        if (s.meer) stapSleutels.push(`${b}.meer`);
         if (s.vb) stapSleutels.push(`${b}.vb`);
         if (s.doe) stapSleutels.push(`${b}.doe`);
         if (s.doe?.knop) stapSleutels.push(`uitleg.knopDoe.${s.doe.knop}`);
         if (s.leeg) stapSleutels.push(`${b}.leeg`);
+        // elke stap hoort bij een deel, en een naslagstap heeft geen tweede tekst
+        expect(typeof s.deel, `${h.id}.${s.id}`).toBe('string');
+        if (s.naslag) expect(s.meer, `${h.id}.${s.id}`).toBeFalsy();
       });
     });
     const nlAlle = plat(nl.uitleg, 'uitleg');
@@ -5956,13 +6055,27 @@ describe('de rondleiding', () => {
     expect(en.setup.unignoreTitle).toBeTruthy();
   });
 
+  it('dun: zeven hoofdstukken, een korte rondgang, en kernteksten van een paar zinnen', async () => {
+    const { HOOFDSTUKKEN } = await import('./src/lib/rondleiding.js');
+    const nl = (await import('./src/lib/dict/nl.js')).default;
+    const en = (await import('./src/lib/dict/en.js')).default;
+    expect(HOOFDSTUKKEN.map((h) => h.id)).toEqual(['welkom', 'vanavond', 'archief', 'programma', 'samen', 'jaarboek', 'setup']);
+    const kern = HOOFDSTUKKEN.flatMap((h) => h.stappen.filter((s) => !s.naslag).map((s) => [h, s]));
+    expect(kern.length).toBeLessThanOrEqual(40);
+    HOOFDSTUKKEN.forEach((h) => expect(h.stappen.filter((s) => !s.naslag).length, h.id).toBeLessThanOrEqual(7));
+    kern.forEach(([h, s]) => [nl, en].forEach((d) => {
+      const t = d.uitleg.h[h.id][s.id].tekst;
+      expect(t.split(/\s+/).length, `${h.id}.${s.id}: ${t}`).toBeLessThanOrEqual(30);
+    }));
+  });
+
   it('vanzelf alleen in een uitgebrachte versie en één keer; in de tests niet', async () => {
     const { uitlegAutomatisch } = await import('./src/lib/rondleiding.js');
-    const leeg = { versie: '5.7.0', uitleg: {}, watchlist: 0, demoMode: false };
+    const leeg = { versie: '5.8.0', uitleg: {}, watchlist: 0, demoMode: false };
     expect(uitlegAutomatisch(leeg)).toBe('welkom');
     expect(uitlegAutomatisch({ ...leeg, watchlist: 12 })).toBe('melding');
     expect(uitlegAutomatisch({ ...leeg, demoMode: true })).toBe('melding');
-    expect(uitlegAutomatisch({ ...leeg, versie: '5.7.0-beta.2' })).toBe(null);
+    expect(uitlegAutomatisch({ ...leeg, versie: '5.8.0-beta.2' })).toBe(null);
     expect(uitlegAutomatisch({ ...leeg, versie: 'dev' })).toBe(null);
     expect(uitlegAutomatisch({ ...leeg, versie: null })).toBe(null);
     expect(uitlegAutomatisch({ ...leeg, uitleg: { welkom: 'zelf' } })).toBe(null);
@@ -5981,11 +6094,12 @@ describe('de rondleiding', () => {
       render(<App />);
       const welkom = await screen.findByRole('dialog', { name: 'Welkom in de bioscoop' });
       expect(location.search).toBe('');
+      expect(welkom.textContent).toContain('In drie minuten');
       expect(welkom.textContent).toContain('Kom je alleen meestemmen? Vul de code in.');
       expect(welkom.textContent).toContain('altijd onder Uitleg');
       fireEvent.click(within(welkom).getByRole('button', { name: 'Ik kijk zelf wel rond' }));
       expect(screen.queryByRole('dialog', { name: 'Welkom in de bioscoop' })).toBeNull();
-      expect(instellingen().uitleg.welkom).toBe('zelf');
+      expect(rInstellingen().uitleg.welkom).toBe('zelf');
       expect(document.body.textContent).toContain('Wat kijken we vanavond?');
     } finally {
       window.history.replaceState(null, '', '/');
@@ -5994,68 +6108,161 @@ describe('de rondleiding', () => {
 
   it('Uitleg opent het programma; zoeken vindt het hoofdstuk en de stap', () => {
     render(<App />);
-    expect(uitlegKnop().getAttribute('aria-label')).toBe('Uitleg');
-    fireEvent.click(uitlegKnop());
+    expect(rKnop().getAttribute('aria-label')).toBe('Uitleg');
+    fireEvent.click(rKnop());
     const p = screen.getByRole('dialog', { name: 'Uitleg' });
     expect(p.textContent).toContain('Welkom en je lijst laden');
-    expect(p.textContent).toContain('3 min');
+    expect(p.textContent).toContain('2 min');
+    expect(p.querySelectorAll('.uitleg-regels:not(.hier) li')).toHaveLength(7);
     const zoek = within(p).getByLabelText('Zoek in de uitleg');
     expect(zoek.getAttribute('placeholder')).toBe('Waar wil je uitleg over?');
     fireEvent.change(zoek, { target: { value: 'Export' } });
     expect(p.textContent).toContain('Bij: Je Letterboxd-export');
+    // ook wat alleen in de langere tekst staat, en in een naslagstap
+    fireEvent.change(zoek, { target: { value: 'Pauzeer' } });
+    expect(p.textContent).toContain('Bij: Filmdata van TMDB');
+    fireEvent.change(zoek, { target: { value: 'huisgenoten' } });
+    expect(p.textContent).toContain('Bij: Profielen');
     fireEvent.change(zoek, { target: { value: 'blokfluit' } });
     expect(p.textContent).toContain('Daar staat geen uitleg over');
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Uitleg' })).toBeNull();
   });
 
-  it('een hoofdstuk: stap voor stap, de lege tekst, Escape bewaart de plek, en uit is gezien', async () => {
+  it('een hoofdstuk: de kern, Meer hierover, Escape bewaart de plek, en rustig uit', async () => {
     render(<App />);
-    fireEvent.click(uitlegKnop());
+    fireEvent.click(rKnop());
     fireEvent.click(screen.getByRole('button', { name: /Welkom en je lijst laden/ }));
     let titel = await screen.findByRole('dialog', { name: 'Wat deze tool doet' });
-    expect(titel.textContent).toContain('stap 1 van 6');
+    expect(titel.textContent).toContain('stap 1 van 4');
+    // de filmstrook: een raampje per stap, dit raampje belicht
+    const ramen = titel.querySelectorAll('.uitleg-raam');
+    expect(ramen).toHaveLength(4);
+    expect(titel.querySelector('.uitleg-raam.nu')).toBe(ramen[0]);
+    // kort, en de rest onder Meer hierover
+    expect(titel.textContent).toContain('Je gegevens blijven in je eigen browser.');
+    const meer = within(titel).getByRole('button', { name: 'Meer hierover' });
+    expect(meer.getAttribute('aria-expanded')).toBe('false');
+    expect(titel.querySelector('.uitleg-meer').hidden).toBe(true);
+    fireEvent.click(meer);
+    expect(titel.querySelector('.uitleg-meer').hidden).toBe(false);
+    expect(titel.querySelector('.uitleg-meer').textContent).toContain('tenzij je zelf sync aanzet');
+    expect(within(titel).getByRole('button', { name: 'Minder' }).getAttribute('aria-expanded')).toBe('true');
     expect(document.querySelector('[data-uitleg-stap]').getAttribute('data-uitleg-stap')).toBe('welkom.wat');
-    expect(instellingen().uitleg.bezig).toEqual({ h: 'welkom', s: 0 });
-    fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
-    // met een lijst staat de import bij Setup
+    expect(rInstellingen().uitleg.bezig).toEqual({ h: 'welkom', s: 0 });
+    rVolgende(titel);
+    // met een lijst staat de import bij Setup; een nieuwe stap begint weer kort
     titel = await screen.findByRole('dialog', { name: 'Je Letterboxd-export' });
-    expect(titel.textContent).toContain('stap 2 van 6');
+    expect(titel.textContent).toContain('stap 2 van 4');
+    expect(titel.querySelector('.uitleg-raam.af')).toBeTruthy();
+    expect(within(titel).getByRole('button', { name: 'Meer hierover' })).toBeTruthy();
     expect(document.querySelector('.kop-setup.active')).toBeTruthy();
-    fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
-    titel = await screen.findByRole('dialog', { name: 'Je lijst bijwerken' });
     // terug, en met het pijltje weer verder
-    fireEvent.click(within(titel).getByRole('button', { name: 'Vorige' }));
-    titel = await screen.findByRole('dialog', { name: 'Je Letterboxd-export' });
+    rVolgende(titel, 'Vorige');
+    titel = await screen.findByRole('dialog', { name: 'Wat deze tool doet' });
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    titel = await screen.findByRole('dialog', { name: 'Je lijst bijwerken' });
-    fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
-    // niets op te halen: de lege tekst
+    titel = await screen.findByRole('dialog', { name: 'Je Letterboxd-export' });
+    rVolgende(titel);
+    // Je lijst bijwerken is naslag. Niets op te halen: de lege tekst
     titel = await screen.findByRole('dialog', { name: 'Filmdata van TMDB' }, { timeout: 3000 });
     await waitFor(() => expect(titel.textContent).toContain('Nu is er niets op te halen'), { timeout: 3000 });
+    expect(titel.textContent).toContain('stap 3 van 4');
     // Escape: weg, en de plek blijft bewaard
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(document.querySelector('.uitleg')).toBeNull());
-    expect(instellingen().uitleg.bezig).toEqual({ h: 'welkom', s: 5 });
-    fireEvent.click(uitlegKnop());
-    fireEvent.click(screen.getByRole('button', { name: 'Verder waar je was: Welkom en je lijst laden' }));
+    expect(rInstellingen().uitleg.bezig).toEqual({ h: 'welkom', s: 5 });
+    rVerder('Welkom en je lijst laden');
     titel = await screen.findByRole('dialog', { name: 'Filmdata van TMDB' }, { timeout: 3000 });
-    fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
-    titel = await screen.findByRole('dialog', { name: 'Vijf plekken, en Setup' });
-    fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
+    rVolgende(titel);
+    // de vijf plekken zijn naslag
     titel = await screen.findByRole('dialog', { name: 'Uitleg, altijd bij de hand' });
-    expect(titel.textContent).toContain('stap 6 van 6');
-    fireEvent.click(within(titel).getByRole('button', { name: 'Klaar' }));
+    expect(titel.textContent).toContain('stap 4 van 4');
+    rVolgende(titel, 'Klaar');
     const eind = await screen.findByRole('dialog', { name: 'Dat was Welkom en je lijst laden' });
-    fireEvent.click(within(eind).getByRole('button', { name: 'Stop de rondleiding' }));
+    // rustig: Klaar voor nu gaat voor, het volgende hoofdstuk mag
+    const knoppen = within(eind).getAllByRole('button');
+    expect(knoppen[0].textContent).toBe('Klaar voor nu');
+    expect(knoppen[0].className).toContain('primary');
+    expect(within(eind).getByRole('button', { name: 'Verder met Vanavond: de hoofdfilm en de kassa' }).className).not.toContain('primary');
+    expect(within(eind).getByRole('button', { name: 'Naar het programma' })).toBeTruthy();
+    fireEvent.click(knoppen[0]);
     await waitFor(() => expect(document.querySelector('.uitleg')).toBeNull());
-    expect(instellingen().uitleg.gezien).toEqual(['welkom']);
-    expect(instellingen().uitleg.bezig).toBe(null);
-    fireEvent.click(uitlegKnop());
+    expect(rInstellingen().uitleg.gezien).toEqual(['welkom']);
+    expect(rInstellingen().uitleg.bezig).toBe(null);
+    fireEvent.click(rKnop());
     expect(screen.getByRole('dialog', { name: 'Uitleg' }).textContent).toContain('gezien');
   });
 
-  it('zonder lijst: de doestap wacht, en de demo-lijst doet het voor', async () => {
+  it('een gevonden stap opent zijn hele deel, met de langere tekst al open', async () => {
+    render(<App />);
+    fireEvent.click(rKnop());
+    const p = screen.getByRole('dialog', { name: 'Uitleg' });
+    fireEvent.change(within(p).getByLabelText('Zoek in de uitleg'), { target: { value: 'Downloads' } });
+    expect(p.textContent).toContain('Bij: Je Letterboxd-export');
+    fireEvent.click(within(p).getAllByRole('button', { name: /Welkom en je lijst laden/ })[0]);
+    let titel = await screen.findByRole('dialog', { name: 'Je Letterboxd-export' });
+    expect(titel.querySelector('.uitleg-meer').hidden).toBe(false);
+    expect(titel.textContent).toContain('op een computer in je map Downloads');
+    expect(within(titel).getByRole('button', { name: 'Minder' })).toBeTruthy();
+    expect(titel.textContent).toContain('stap 2 van 6');
+    expect(rInstellingen().uitleg.bezig).toEqual({ h: 'welkom', s: 2, deel: 'welkom' });
+    rVolgende(titel);
+    // de naslag hoort er nu bij
+    titel = await screen.findByRole('dialog', { name: 'Je lijst bijwerken' });
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Filmdata van TMDB' }, { timeout: 3000 });
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Vijf plekken, en Setup' });
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Uitleg, altijd bij de hand' });
+    rVolgende(titel, 'Klaar');
+    const eind = await screen.findByRole('dialog', { name: 'Dat was Welkom en je lijst laden' });
+    expect(eind.textContent).toContain('Zoek je nog iets?');
+    expect(within(eind).queryByRole('button', { name: /Verder met/ })).toBeNull();
+    fireEvent.click(within(eind).getByRole('button', { name: 'Klaar voor nu' }));
+    await waitFor(() => expect(document.querySelector('.uitleg')).toBeNull());
+    // een opgezocht deel is nog niet het hele hoofdstuk
+    expect(rInstellingen().uitleg.gezien || []).not.toContain('welkom');
+    expect(rInstellingen().uitleg.bezig).toBe(null);
+  });
+
+  it('beweging: de iris opent en sluit, de tussentitel flikkert aan; met beperk beweging niets', async () => {
+    const mm = window.matchMedia;
+    try {
+      window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+      await rDeel('samen', 'samen');
+      render(<App />);
+      rVerder('Samen kiezen');
+      let titel = await screen.findByRole('dialog', { name: 'Welke manier wanneer' });
+      expect(document.querySelector('.uitleg-iris')).toBeTruthy();
+      expect(titel.className).toContain('flikker');
+      await waitFor(() => expect(document.querySelector('.uitleg-iris')).toBeNull(), { timeout: 2000 });
+      rVolgende(titel, 'Klaar');
+      // eerst de iris dicht, dan pas het einde, dat uit het donker komt
+      expect(document.querySelector('.uitleg-iris')).toBeTruthy();
+      expect(screen.queryByRole('dialog', { name: 'Dat was Samen kiezen' })).toBeNull();
+      let eind = await screen.findByRole('dialog', { name: 'Dat was Samen kiezen' }, { timeout: 2000 });
+      expect(document.querySelector('.uitleg-zwart')).toBeTruthy();
+      fireEvent.click(within(eind).getByRole('button', { name: 'Klaar voor nu' }));
+      cleanup();
+      // beperk beweging: geen iris en geen flikker, en meteen het einde
+      window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
+      await rDeel('samen', 'samen');
+      render(<App />);
+      rVerder('Samen kiezen');
+      titel = await screen.findByRole('dialog', { name: 'Welke manier wanneer' });
+      expect(document.querySelector('.uitleg-iris')).toBeNull();
+      expect(document.querySelector('.uitleg.stil')).toBeTruthy();
+      expect(titel.className).not.toContain('flikker');
+      rVolgende(titel, 'Klaar');
+      eind = screen.getByRole('dialog', { name: 'Dat was Samen kiezen' });
+      expect(document.querySelector('.uitleg-zwart')).toBeNull();
+    } finally {
+      window.matchMedia = mm;
+    }
+  });
+
+  it('zonder lijst: het welkom, de demo-lijst doet het voor, dan Vanavond, en dan rust', async () => {
     localStorage.clear();
     localStorage.setItem('nossyV2.settings', JSON.stringify({ lang: 'nl' }));
     const oudFetch = global.fetch;
@@ -6065,14 +6272,12 @@ describe('de rondleiding', () => {
       render(<App />);
       const welkom = await screen.findByRole('dialog', { name: 'Welkom in de bioscoop' });
       fireEvent.click(within(welkom).getByRole('button', { name: 'Leid me rond' }));
-      expect(instellingen().uitleg.welkom).toBe('rondleiding');
+      expect(rInstellingen().uitleg.welkom).toBe('rondleiding');
       let titel = await screen.findByRole('dialog', { name: 'Wat deze tool doet' });
-      fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
-      titel = await screen.findByRole('dialog', { name: 'Alleen meestemmen?' });
-      expect(document.querySelector('[data-uitleg="zaal-code"]')).toBeTruthy();
-      fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
+      rVolgende(titel);
+      // meestemmen met een code staat al in het welkom: hier is dat naslag
       titel = await screen.findByRole('dialog', { name: 'Je Letterboxd-export' });
-      fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'Laad je export' });
       // een doestap: geen Volgende, wel overslaan en voordoen
       expect(within(titel).queryByRole('button', { name: 'Volgende' })).toBeNull();
@@ -6083,15 +6288,42 @@ describe('de rondleiding', () => {
       // gedaan: de rondleiding gaat zelf verder, langs de filmdata naar de demo
       titel = await screen.findByRole('dialog', { name: 'Filmdata van TMDB' }, { timeout: 4000 });
       // de teller loopt door: de stappen die je al zag, blijven meetellen
-      expect(titel.textContent).toContain('stap 5 van 8');
-      fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
+      expect(titel.textContent).toContain('stap 4 van 6');
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'De demo-lijst' });
       expect(document.querySelector('[data-uitleg="demo-banner"]')).toBeTruthy();
+      rVolgende(titel);
+      titel = await screen.findByRole('dialog', { name: 'Uitleg, altijd bij de hand' });
+      rVolgende(titel, 'Klaar');
+      // de rondgang van het welkom gaat door naar Vanavond
+      let eind = await screen.findByRole('dialog', { name: 'Dat was Welkom en je lijst laden' });
+      const knoppen = within(eind).getAllByRole('button');
+      expect(knoppen.map((k) => k.textContent)).toEqual(['Verder met Vanavond: de hoofdfilm en de kassa', 'Klaar voor nu']);
+      fireEvent.click(knoppen[0]);
+      titel = await screen.findByRole('dialog', { name: 'De hoofdfilm van vanavond' });
+      await waitFor(() => expect(titel.textContent).toContain('Je hoofdfilm staat hier zodra de filmdata'), { timeout: 4000 });
+      rVolgende(titel);
+      titel = await screen.findByRole('dialog', { name: 'De kassa' });
+      rVolgende(titel);
+      titel = await screen.findByRole('dialog', { name: 'Aanpassen' });
+      rVolgende(titel, 'Sla over');
+      titel = await screen.findByRole('dialog', { name: 'De la van de kassa' }, { timeout: 3000 });
+      rVolgende(titel);
+      titel = await screen.findByRole('dialog', { name: 'Laat het lot kiezen' });
+      rVolgende(titel, 'Sla over');
+      // en daar houdt hij op: de rest staat onder Uitleg
+      eind = await screen.findByRole('dialog', { name: 'Dat was Vanavond: de hoofdfilm en de kassa' }, { timeout: 3000 });
+      expect(eind.textContent).toContain('De rest staat onder Uitleg');
+      expect(within(eind).queryByRole('button', { name: /Verder met/ })).toBeNull();
+      expect(within(eind).getAllByRole('button')[0].textContent).toBe('Klaar voor nu');
+      fireEvent.click(within(eind).getByRole('button', { name: 'Klaar voor nu' }));
+      await waitFor(() => expect(document.querySelector('.uitleg')).toBeNull());
+      expect(rInstellingen().uitleg.gezien).toEqual(['welkom', 'vanavond']);
     } finally {
       global.fetch = oudFetch;
       window.history.replaceState(null, '', '/');
     }
-  });
+  }, 20000);
 
   it('je eigen export na de demo: wat je in de demo deed, gaat weg', async () => {
     const { demoWatchlist } = await import('./src/lib/extra.js');
@@ -6128,75 +6360,97 @@ describe('de rondleiding', () => {
   });
 });
 
-// De rondleiding, hoofdstuk 2 tot en met 4: Vanavond, de kaartjes, het archief
+// De rondleiding: Vanavond, en je kaartjes en het archief
 describe('de rondleiding: Vanavond, kaartjes, archief', () => {
   beforeEach(() => { cleanup(); seed(); });
-  const uitlegKnop = () => document.querySelector('[data-uitleg="uitleg-knop"]');
-  const start = (titel) => {
-    fireEvent.click(uitlegKnop());
-    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(titel) })[0]);
-  };
-  const volgende = (titel) => fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
-
-  it('Vanavond: de hoofdfilm, de kassa, de la als doestap, en een echte pick als keuze', async () => {
+  const metRust = async (fn) => {
     const mm = window.matchMedia;
     window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
-    try {
-      render(<App />);
-      start('Vanavond: de hoofdfilm en de kassa');
-      let titel = await screen.findByRole('dialog', { name: 'De hoofdfilm van vanavond' });
-      const naam = document.querySelector('[data-uitleg="hoofdfilm"]').getAttribute('data-uitleg-titel');
-      expect(titel.textContent).toContain(`Vandaag: ${naam}.`);
-      volgende(titel);
-      titel = await screen.findByRole('dialog', { name: 'Pak dit kaartje' });
-      volgende(titel);
-      // geen Net binnen en geen vraag: hun eigen tekst
-      titel = await screen.findByRole('dialog', { name: 'Net binnen' });
-      await waitFor(() => expect(titel.textContent).toContain('Komen er films van je lijst nieuw'));
-      volgende(titel);
-      titel = await screen.findByRole('dialog', { name: 'De vraag over gisteren' });
-      await waitFor(() => expect(titel.textContent).toContain('de dag erna de vraag'));
-      volgende(titel);
-      titel = await screen.findByRole('dialog', { name: 'De kassa' });
-      expect(titel.textContent).toContain('Nu in de pot: 6.');
-      volgende(titel);
-      titel = await screen.findByRole('dialog', { name: 'Waar heb je zin in?' });
-      expect(titel.textContent).toContain('Tik je nu op Korte avond, dan blijven er 3 over.');
-      volgende(titel);
-      // een doestap: Laat zien opent de la, en de rondleiding gaat vanzelf verder
-      titel = await screen.findByRole('dialog', { name: 'Aanpassen' });
-      expect(within(titel).queryByRole('button', { name: 'Volgende' })).toBeNull();
-      fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
-      titel = await screen.findByRole('dialog', { name: 'De la van de kassa' }, { timeout: 3000 });
-      expect(document.querySelector('.kassa-la')).toBeTruthy();
-      volgende(titel);
-      // de la gaat eerst dicht
-      titel = await screen.findByRole('dialog', { name: 'Trailer en slim kiezen' });
-      await waitFor(() => expect(document.querySelector('.kassa-la')).toBeNull());
-      expect(titel.textContent).toContain('bijna twee keer zoveel kans');
-      volgende(titel);
-      // de echte pick is een keuze, met het gevolg erbij
-      titel = await screen.findByRole('dialog', { name: 'Laat het lot kiezen' });
-      expect(titel.textContent).toContain('Je krijgt dan een echt kaartje');
-      expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes') || '[]')).toEqual([]);
-      fireEvent.click(within(titel).getByRole('button', { name: 'Kies echt een film' }));
-      titel = await screen.findByRole('dialog', { name: 'Je kaartje' }, { timeout: 4000 });
-      expect(document.querySelector('.winner')).toBeTruthy();
-      expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes')).length).toBe(1);
-      volgende(titel);
-      titel = await screen.findByRole('dialog', { name: 'Wat je met je pick doet' });
-      fireEvent.click(within(titel).getByRole('button', { name: 'Klaar' }));
-      const eind = await screen.findByRole('dialog', { name: 'Dat was Vanavond: de hoofdfilm en de kassa' });
-      expect(within(eind).getByRole('button', { name: 'Verder met Je kaartjes en de doos' })).toBeTruthy();
-      expect(JSON.parse(localStorage.getItem('nossyV2.settings')).uitleg.gezien).toContain('vanavond');
-    } finally {
-      window.matchMedia = mm;
-    }
-  });
+    try { await fn(); } finally { window.matchMedia = mm; }
+  };
+
+  it('Vanavond, kort: de hoofdfilm, de kassa, de la als doestap, en het lot', () => metRust(async () => {
+    render(<App />);
+    rStart('Vanavond: de hoofdfilm en de kassa');
+    let titel = await screen.findByRole('dialog', { name: 'De hoofdfilm van vanavond' });
+    const naam = document.querySelector('[data-uitleg="hoofdfilm"]').getAttribute('data-uitleg-titel');
+    expect(titel.textContent).toContain(`Vandaag: ${naam}.`);
+    expect(titel.textContent).toContain('Een korte film van je lijst staat eronder als voorfilm.');
+    expect(titel.textContent).toContain('stap 1 van 6');
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Pak dit kaartje' });
+    rVolgende(titel);
+    // Net binnen, de vraag en de stemmingen zijn naslag
+    titel = await screen.findByRole('dialog', { name: 'De kassa' });
+    expect(titel.textContent).toContain('Nu in de pot: 6.');
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Aanpassen' });
+    fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
+    titel = await screen.findByRole('dialog', { name: 'De la van de kassa' }, { timeout: 3000 });
+    expect(document.querySelector('.kassa-la')).toBeTruthy();
+    rVolgende(titel);
+    // de la gaat eerst dicht
+    titel = await screen.findByRole('dialog', { name: 'Laat het lot kiezen' });
+    await waitFor(() => expect(document.querySelector('.kassa-la')).toBeNull());
+    expect(titel.textContent).toContain('stap 6 van 6');
+    rVolgende(titel, 'Sla over');
+    const eind = await screen.findByRole('dialog', { name: 'Dat was Vanavond: de hoofdfilm en de kassa' });
+    expect(within(eind).getByRole('button', { name: 'Verder met Je kaartjes en het archief' })).toBeTruthy();
+    fireEvent.click(within(eind).getByRole('button', { name: 'Klaar voor nu' }));
+    expect(rInstellingen().uitleg.gezien).toContain('vanavond');
+    expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes') || '[]')).toEqual([]);
+  }));
+
+  it('Vanavond, het hele deel: Net binnen, de vraag, de stemmingen, en een echte pick als keuze', () => metRust(async () => {
+    await rDeel('vanavond', 'vanavond');
+    render(<App />);
+    rVerder('Vanavond: de hoofdfilm en de kassa');
+    let titel = await screen.findByRole('dialog', { name: 'De hoofdfilm van vanavond' });
+    // de langere tekst staat meteen open
+    expect(titel.textContent).toContain('Die keuze staat de hele dag vast.');
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Pak dit kaartje' });
+    rVolgende(titel);
+    // geen Net binnen en geen vraag: hun eigen tekst
+    titel = await screen.findByRole('dialog', { name: 'Net binnen' });
+    await waitFor(() => expect(titel.textContent).toContain('Komen er films van je lijst nieuw'));
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'De vraag over gisteren' });
+    await waitFor(() => expect(titel.textContent).toContain('de dag erna de vraag'));
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'De kassa' });
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Waar heb je zin in?' });
+    expect(titel.textContent).toContain('Tik je nu op Korte avond, dan blijven er 3 over.');
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Aanpassen' });
+    expect(within(titel).queryByRole('button', { name: 'Volgende' })).toBeNull();
+    fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
+    titel = await screen.findByRole('dialog', { name: 'De la van de kassa' }, { timeout: 3000 });
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Trailer en slim kiezen' });
+    await waitFor(() => expect(document.querySelector('.kassa-la')).toBeNull());
+    expect(titel.textContent).toContain('bijna twee keer zoveel kans');
+    rVolgende(titel);
+    // de echte pick is een keuze, met het gevolg erbij
+    titel = await screen.findByRole('dialog', { name: 'Laat het lot kiezen' });
+    expect(titel.textContent).toContain('Je krijgt dan een echt kaartje');
+    expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes') || '[]')).toEqual([]);
+    fireEvent.click(within(titel).getByRole('button', { name: 'Kies echt een film' }));
+    titel = await screen.findByRole('dialog', { name: 'Je kaartje' }, { timeout: 4000 });
+    expect(document.querySelector('.winner')).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes')).length).toBe(1);
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Wat je met je pick doet' });
+    rVolgende(titel, 'Klaar');
+    const eind = await screen.findByRole('dialog', { name: 'Dat was Vanavond: de hoofdfilm en de kassa' });
+    expect(eind.textContent).toContain('Zoek je nog iets?');
+    expect(rInstellingen().uitleg.gezien || []).not.toContain('vanavond');
+  }));
 
   it('Vanavond: de echte pick overslaan, dan vallen de stappen over de filmkaart weg', async () => {
     render(<App />);
-    fireEvent.click(uitlegKnop());
+    fireEvent.click(rKnop());
     // via het programma meteen naar de stap van het lot
     fireEvent.change(screen.getByLabelText('Zoek in de uitleg'), { target: { value: 'lot' } });
     fireEvent.click(screen.getAllByRole('button', { name: /Vanavond: de hoofdfilm en de kassa/ })[0]);
@@ -6206,30 +6460,50 @@ describe('de rondleiding: Vanavond, kaartjes, archief', () => {
     expect(JSON.parse(localStorage.getItem('nossyV2.kaartjes') || '[]')).toEqual([]);
   });
 
-  it('archief: de filterzin als doestap, de zin leest mee, en een film openen', async () => {
+  it('kaartjes en archief, kort: het kaartje, de doos, de filterzin en een film openen', async () => {
     render(<App />);
-    start('Het archief');
+    rStart('Je kaartjes en het archief');
+    let titel = await screen.findByRole('dialog', { name: 'Een pick is nog geen gekeken film' });
+    expect(titel.textContent).toContain('stap 1 van 4');
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'De doos' });
+    expect(titel.textContent).toContain('Nu in de doos: 0.');
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Filteren met een zin' });
+    fireEvent.change(screen.getByLabelText('Genre'), { target: { value: 'Drama' } });
+    // gelukt: de klapper klapt, en hij gaat zelf verder
+    await waitFor(() => expect(document.querySelector('.uitleg-doe.gedaan .uitleg-klapper')).toBeTruthy());
+    titel = await screen.findByRole('dialog', { name: 'Een film openen' }, { timeout: 3000 });
+    fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
+    await screen.findByRole('dialog', { name: 'Dat was Je kaartjes en het archief' }, { timeout: 4000 });
+    expect(document.querySelector('.winner')).toBeTruthy();
+  });
+
+  it('archief, het hele deel: de filterzin als doestap, de zin leest mee, en een film openen', async () => {
+    await rDeel('archief', 'archief');
+    render(<App />);
+    rVerder('Je kaartjes en het archief');
     let titel = await screen.findByRole('dialog', { name: 'Alles wat je hebt' });
     expect(titel.textContent).toContain('6 op je watchlist');
-    volgende(titel);
+    rVolgende(titel);
     // zonder filmbeeld geen uitgelichte film: die stap valt weg
     titel = await screen.findByRole('dialog', { name: 'Per decennium' }, { timeout: 4000 });
     expect(titel.textContent).toContain('stap 2 van');
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Zoeken' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Filteren met een zin' });
     expect(within(titel).queryByRole('button', { name: 'Volgende' })).toBeNull();
     fireEvent.change(screen.getByLabelText('Genre'), { target: { value: 'Drama' } });
     titel = await screen.findByRole('dialog', { name: 'De zin past zich aan' }, { timeout: 3000 });
     expect(titel.textContent).toContain('Nu: Toon drama uit alle jaren');
     expect(titel.textContent).not.toContain('Sciencefiction'); // geen opties uit de keuzelijst
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Een film openen' });
     fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
     titel = await screen.findByRole('dialog', { name: 'De filmkaart' }, { timeout: 4000 });
     expect(document.querySelector('.winner')).toBeTruthy();
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Je eigen sterren' }, { timeout: 3000 });
     await waitFor(() => expect(document.querySelector('.winner')).toBeNull());
   });
@@ -6238,53 +6512,50 @@ describe('de rondleiding: Vanavond, kaartjes, archief', () => {
     const meta = JSON.parse(localStorage.getItem('nossyV2.meta'));
     Object.values(meta).forEach((m) => { m.genres = []; });
     localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    await rDeel('archief', 'archief');
     render(<App />);
-    start('Het archief');
+    rVerder('Je kaartjes en het archief');
     let titel = await screen.findByRole('dialog', { name: 'Alles wat je hebt' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Per decennium' }, { timeout: 4000 });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Zoeken' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Filteren met een zin' });
     expect(titel.textContent).not.toContain('Tik op alle genres');
     expect(within(titel).queryByRole('button', { name: 'Sla over' })).toBeNull();
-    volgende(titel);
+    rVolgende(titel);
     await screen.findByRole('dialog', { name: 'De zin past zich aan' });
   });
 
-  it('kaartjes: naar het tabblad Kaartjes, en de lege teksten zonder kaartjes', async () => {
+  it('kaartjes, het hele deel: naar het tabblad Kaartjes, en de lege teksten zonder kaartjes', async () => {
+    await rDeel('archief', 'kaartjes');
     render(<App />);
-    start('Je kaartjes en de doos');
+    rVerder('Je kaartjes en het archief');
     let titel = await screen.findByRole('dialog', { name: 'Een pick is nog geen gekeken film' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Afscheuren en ontdekken' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Uit je doos' });
     await waitFor(() => expect(titel.textContent).toContain('Zodra er kaartjes in je doos zitten'));
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'De doos' });
     expect(titel.textContent).toContain('Nu in de doos: 0.');
     expect(screen.getByRole('button', { name: /Kaartjes/, pressed: true })).toBeTruthy();
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Jouw filmjaar' });
     await waitFor(() => expect(titel.textContent).toContain('Zitten er dit jaar kaartjes in de doos'));
   });
 });
 
-// De rondleiding, hoofdstuk 5 tot en met 7: het programma
+// De rondleiding: het programma (Voor jou, eigen rijen, zoeken)
 describe('de rondleiding: het programma', () => {
   beforeEach(() => { cleanup(); seed(); });
-  const uitlegKnop = () => document.querySelector('[data-uitleg="uitleg-knop"]');
-  const start = (titel) => {
-    fireEvent.click(uitlegKnop());
-    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(titel) })[0]);
-  };
-  const volgende = (titel) => fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
   // de aanraders komen uit TMDB: in de tests wacht de rondleiding korter
   let wacht;
   beforeEach(async () => { wacht = (await import('./src/lib/rondleiding.js')).WACHT; wacht.oud = wacht.lang; wacht.lang = 300; });
   afterEach(() => { wacht.lang = wacht.oud; });
+  const PROGRAMMA = 'Programma: nieuwe films voor jou';
   // vier hoge sterren en een regisseur met vijf films: genoeg voor een rij
   const metRij = () => {
     localStorage.clear();
@@ -6304,82 +6575,109 @@ describe('de rondleiding: het programma', () => {
     localStorage.setItem('nossyV2.dienstKiezerWeg', 'true');
   };
 
+  it('kort: Voor jou, de rijen, een tegel, een eigen rij en zoeken', async () => {
+    metRij();
+    render(<App />);
+    rStart(PROGRAMMA);
+    let titel = await screen.findByRole('dialog', { name: 'Films van buiten je lijst' });
+    expect(titel.textContent).toContain('stap 1 van 5');
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Rijen met een reden' });
+    await waitFor(() => expect(titel.textContent).toContain('Bovenaan: Meer van Testregisseur.'));
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Een tegel' });
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Een eigen rij' });
+    fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
+    titel = await screen.findByRole('dialog', { name: 'Opslaan' }, { timeout: 3000 });
+    rVolgende(titel);
+    // de maker gaat dicht, dan zoeken
+    titel = await screen.findByRole('dialog', { name: 'Zoeken' });
+    await waitFor(() => expect(document.querySelector('[data-uitleg="eigen-maker"]')).toBeNull());
+    fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
+    await screen.findByRole('dialog', { name: `Dat was ${PROGRAMMA}` }, { timeout: 3000 });
+    expect(document.querySelector('[data-uitleg="zoekmachine"]')).toBeTruthy();
+  }, 15000);
+
   it('Voor jou met een rij: de tegel, Alles bekijken als doestap, en terug naar de rijen', async () => {
     metRij();
+    await rDeel('programma', 'voorjou');
     render(<App />);
     // na Niet nu staat Diensten kiezen bij de filters
     fireEvent.click(screen.getAllByLabelText('Programma')[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Diensten kiezen' }));
     expect(screen.getByText('Welke streamingdiensten heb je?')).toBeTruthy();
-    start('Programma: Voor jou');
+    rVerder(PROGRAMMA);
     let titel = await screen.findByRole('dialog', { name: 'Films van buiten je lijst' });
     expect(titel.textContent).toMatch(/Nu: \d+ suggesties\./);
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Vanavond, voor jou' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Net binnen' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Rijen met een reden' });
     await waitFor(() => expect(titel.textContent).toContain('Bovenaan: Meer van Testregisseur.'));
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Een tegel' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Alles bekijken' });
     expect(within(titel).queryByRole('button', { name: 'Volgende' })).toBeNull();
     fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
     titel = await screen.findByRole('dialog', { name: 'De hele rij' }, { timeout: 3000 });
     expect(document.querySelector('.rec-row-head')).toBeNull();
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Waarom deze film' });
-    volgende(titel);
+    rVolgende(titel);
     // de filters: eerst terug uit Alles bekijken
     titel = await screen.findByRole('dialog', { name: 'Filters en andere suggesties' });
     await waitFor(() => expect(document.querySelector('.rec-row-head')).toBeTruthy());
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Je diensten' });
     expect(titel.textContent).toContain('Kies één keer welke streamingdiensten je hebt');
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Je shortlist' });
     await waitFor(() => expect(titel.textContent).toContain('Zet je een film op je shortlist'));
-  });
+  }, 15000);
 
   it('Voor jou zonder rijen: de lijst met je kandidaten, en de lege teksten', async () => {
+    await rDeel('programma', 'voorjou');
     render(<App />);
-    start('Programma: Voor jou');
+    rVerder(PROGRAMMA);
     let titel = await screen.findByRole('dialog', { name: 'Films van buiten je lijst' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Vanavond, voor jou' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Net binnen' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Rijen met een reden' });
     await waitFor(() => expect(titel.textContent).toContain('De rijen verschijnen zodra'));
-    volgende(titel);
+    rVolgende(titel);
     // geen rij, dus geen tegel en geen Alles bekijken: meteen de lijst
     titel = await screen.findByRole('dialog', { name: 'De hele rij' }, { timeout: 4000 });
     expect(titel.textContent).not.toContain('Terug naar Voor jou');
   });
 
   it('eigen rijen: de maker als doestap, en Snel beoordelen houdt zijn eigen toetsen', async () => {
+    await rDeel('programma', 'eigenrijen');
     render(<App />);
-    start('Programma: eigen rijen');
+    rVerder(PROGRAMMA);
     let titel = await screen.findByRole('dialog', { name: 'Een eigen rij' });
     expect(within(titel).queryByRole('button', { name: 'Volgende' })).toBeNull();
     // zelf op de echte knop tikken
     fireEvent.click(screen.getByRole('button', { name: 'Eigen rij' }));
     titel = await screen.findByRole('dialog', { name: /Voorstellen|Waar gaat de rij over\?/ }, { timeout: 3000 });
-    if (titel.textContent.includes('Voorstellen')) { volgende(titel); titel = await screen.findByRole('dialog', { name: 'Waar gaat de rij over?' }); }
-    volgende(titel);
+    if (titel.textContent.includes('Voorstellen')) { rVolgende(titel); titel = await screen.findByRole('dialog', { name: 'Waar gaat de rij over?' }); }
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'De bouwstenen' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'De naam' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Opslaan' });
-    volgende(titel);
+    rVolgende(titel);
     // de maker gaat dicht, en zonder eigen rij de lege tekst
     titel = await screen.findByRole('dialog', { name: 'Rijen beheren' });
     await waitFor(() => expect(document.querySelector('[data-uitleg="eigen-maker"]')).toBeNull());
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Snel beoordelen' });
     fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
     titel = await screen.findByRole('dialog', { name: 'Vegen' }, { timeout: 3000 });
@@ -6388,8 +6686,8 @@ describe('de rondleiding: het programma', () => {
     expect(screen.getByRole('dialog', { name: 'Vegen' })).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(document.querySelector('[data-uitleg="snel"]')).toBeNull();
-    // Snel beoordelen is dicht, de rondleiding niet: hij gaat naar het einde
-    await screen.findByRole('dialog', { name: 'Dat was Programma: eigen rijen en snel beoordelen' }, { timeout: 4000 });
+    // Snel beoordelen is dicht, de rondleiding niet: hij gaat naar het einde van dit deel
+    await screen.findByRole('dialog', { name: `Dat was ${PROGRAMMA}` }, { timeout: 4000 });
   }, 15000);
 
   it('zoeken: zelf zoeken als doestap, de filters, en de resultaten', async () => {
@@ -6400,8 +6698,9 @@ describe('de rondleiding: het programma', () => {
         : { results: [] }),
     });
     try {
+      await rDeel('programma', 'zoeken');
       render(<App />);
-      start('Programma: zoeken');
+      rVerder(PROGRAMMA);
       let titel = await screen.findByRole('dialog', { name: 'Zoeken' });
       fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
       // zelf zoeken: daar is geen Laat zien voor
@@ -6415,13 +6714,13 @@ describe('de rondleiding: het programma', () => {
       fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
       titel = await screen.findByRole('dialog', { name: 'De criteria' }, { timeout: 3000 });
       expect(within(document.querySelector('[data-uitleg="zoek-filters"]')).getByText('Diep ondergronds')).toBeTruthy();
-      volgende(titel);
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'Verberg al gezien' });
-      volgende(titel);
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'De resultaten' });
       expect(titel.textContent).toContain('Verberg wat ik al ken');
-      fireEvent.click(within(titel).getByRole('button', { name: 'Klaar' }));
-      await screen.findByRole('dialog', { name: 'Dat was Programma: zoeken' });
+      rVolgende(titel, 'Klaar');
+      await screen.findByRole('dialog', { name: `Dat was ${PROGRAMMA}` });
       expect(screen.getByText('Zoekfilm')).toBeTruthy();
     } finally {
       delete global.fetch;
@@ -6429,15 +6728,9 @@ describe('de rondleiding: het programma', () => {
   }, 15000);
 });
 
-// De rondleiding, hoofdstuk 8 tot en met 11: samen kiezen
+// De rondleiding: samen kiezen (één telefoon, de zaal, op afstand)
 describe('de rondleiding: samen kiezen', () => {
   beforeEach(() => { cleanup(); seed(); });
-  const uitlegKnop = () => document.querySelector('[data-uitleg="uitleg-knop"]');
-  const start = (titel) => {
-    fireEvent.click(uitlegKnop());
-    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(titel) })[0]);
-  };
-  const volgende = (titel) => fireEvent.click(within(titel).getByRole('button', { name: 'Volgende' }));
   // Een nep-Worker voor de zaal: openen, de lobby zetten en peilen
   const nepZaal = (code = 'KMRT') => {
     const calls = [];
@@ -6473,35 +6766,65 @@ describe('de rondleiding: samen kiezen', () => {
     expect(oefenUitslag(['drama', null]).genre).toMatchObject({ namen: ['drama'], wijze: 'meeste' });
   });
 
+  it('kort: welke manier wanneer, veto, de zaal als keuze, oefenen, en Voor ons', async () => {
+    const calls = nepZaal();
+    try {
+      render(<App />);
+      rStart('Samen kiezen');
+      let titel = await screen.findByRole('dialog', { name: 'Welke manier wanneer' });
+      expect(titel.textContent).toContain('stap 1 van 5');
+      rVolgende(titel);
+      titel = await screen.findByRole('dialog', { name: 'Veto-rondes' });
+      rVolgende(titel);
+      titel = await screen.findByRole('dialog', { name: 'De zaal openen' });
+      rVolgende(titel, 'Sla over');
+      // zonder zaal vallen de code en het sluiten weg; de oefening blijft
+      titel = await screen.findByRole('dialog', { name: 'Stemmen met punten' });
+      expect(titel.textContent).toContain('Het wordt Thriller');
+      rVolgende(titel);
+      titel = await screen.findByRole('dialog', { name: 'Voor ons' });
+      expect(document.querySelector('[data-uitleg="samen-host"]')).toBeTruthy();
+      rVolgende(titel, 'Klaar');
+      const eind = await screen.findByRole('dialog', { name: 'Dat was Samen kiezen' });
+      expect(within(eind).getByRole('button', { name: 'Verder met Het jaarboek' })).toBeTruthy();
+      expect(calls.some(([, u]) => u.includes('/zaal'))).toBe(false);
+      expect(calls.filter(([m]) => m === 'POST')).toEqual([]);
+    } finally {
+      delete global.fetch;
+    }
+  });
+
   it('Filmavond: de pot, de filters, veto, de trailers en de knock-out', async () => {
+    await rDeel('samen', 'filmavond');
     render(<App />);
-    start('Filmavond op één telefoon');
+    rVerder('Samen kiezen');
     let titel = await screen.findByRole('dialog', { name: 'Samen kiezen' });
     const n = document.querySelector('[data-uitleg="avond-kop"]').getAttribute('data-uitleg-n');
     expect(titel.textContent).toContain(`Kandidaten in de pot nu: ${n}.`);
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'De pot' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Wat er op tafel komt' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Veto-rondes' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Eerst de trailers' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Knock-out bracket' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'De winnaar' });
-    fireEvent.click(within(titel).getByRole('button', { name: 'Klaar' }));
-    await screen.findByRole('dialog', { name: 'Dat was Filmavond op één telefoon' });
+    rVolgende(titel, 'Klaar');
+    await screen.findByRole('dialog', { name: 'Dat was Samen kiezen' });
   });
 
   it('de zaal: openen als keuze, de lobby in het licht, oefenen met stemmen, en weer sluiten', async () => {
     const calls = nepZaal();
     try {
+      await rDeel('samen', 'zaal');
       render(<App />);
-      start('De zaalstemming, voor de gastheer');
+      rVerder('Samen kiezen');
       let titel = await screen.findByRole('dialog', { name: 'Iedereen stemt mee' });
-      volgende(titel);
+      rVolgende(titel);
       // openen is een keuze: de rondleiding doet het niet vanzelf
       titel = await screen.findByRole('dialog', { name: 'De zaal openen' });
       expect(within(titel).queryByRole('button', { name: 'Volgende' })).toBeNull();
@@ -6509,16 +6832,16 @@ describe('de rondleiding: samen kiezen', () => {
       fireEvent.click(within(titel).getByRole('button', { name: 'Open echt een zaal' }));
       titel = await screen.findByRole('dialog', { name: 'Code, QR en link' }, { timeout: 3000 });
       expect(titel.textContent).toContain('Deze zaal: KMRT.');
-      volgende(titel);
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'Zelf meedoen' });
-      volgende(titel);
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'Zo speelt de zaal' });
-      volgende(titel);
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'De gasten' });
-      volgende(titel);
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'Beginnen' });
       expect(titel.textContent).toContain('Nu in de zaal: 0.');
-      volgende(titel);
+      rVolgende(titel);
       // de oefening: zonder jouw stem wint wat op de meeste lijstjes staat
       titel = await screen.findByRole('dialog', { name: 'Stemmen met punten' });
       expect(titel.textContent).toContain('Het wordt Thriller');
@@ -6533,41 +6856,42 @@ describe('de rondleiding: samen kiezen', () => {
       expect(titel.textContent).toContain('Met 4 punten, en Komedie had ook brede steun: films die allebei zijn.');
       // de oefening stemt niet echt
       expect(calls.some(([, u]) => u.includes('/stem'))).toBe(false);
-      volgende(titel);
+      rVolgende(titel);
       for (const kop of ['Bij gelijkspel', 'De films op tafel', 'De trailers', 'De filmronde', 'De uitslag']) {
         titel = await screen.findByRole('dialog', { name: kop });
-        volgende(titel);
+        rVolgende(titel);
       }
       // aan het eind: de zaal weer dicht
       titel = await screen.findByRole('dialog', { name: 'De zaal sluiten' });
       fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
-      await screen.findByRole('dialog', { name: 'Dat was De zaalstemming, voor de gastheer' }, { timeout: 3000 });
+      await screen.findByRole('dialog', { name: 'Dat was Samen kiezen' }, { timeout: 3000 });
       expect(document.querySelector('[data-uitleg="zaal-lobby"]')).toBeNull();
       expect(document.querySelector('[data-uitleg="avond-kop"]')).toBeTruthy();
     } finally {
       delete global.fetch;
     }
-  });
+  }, 15000);
 
   it('de zaal: wie de zaal niet opent, krijgt het verloop zonder lobby', async () => {
     const calls = nepZaal();
     try {
+      await rDeel('samen', 'zaal');
       render(<App />);
-      start('De zaalstemming, voor de gastheer');
+      rVerder('Samen kiezen');
       let titel = await screen.findByRole('dialog', { name: 'Iedereen stemt mee' });
-      volgende(titel);
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'De zaal openen' });
       fireEvent.click(within(titel).getByRole('button', { name: 'Sla over' }));
       // de stappen over de lobby vallen weg
       titel = await screen.findByRole('dialog', { name: 'Stemmen met punten' });
-      volgende(titel);
+      rVolgende(titel);
       for (const kop of ['Bij gelijkspel', 'De films op tafel', 'De trailers', 'De filmronde']) {
         titel = await screen.findByRole('dialog', { name: kop });
-        volgende(titel);
+        rVolgende(titel);
       }
       titel = await screen.findByRole('dialog', { name: 'De uitslag' });
-      fireEvent.click(within(titel).getByRole('button', { name: 'Klaar' }));
-      await screen.findByRole('dialog', { name: 'Dat was De zaalstemming, voor de gastheer' });
+      rVolgende(titel, 'Klaar');
+      await screen.findByRole('dialog', { name: 'Dat was Samen kiezen' });
       expect(calls.some(([, u]) => u.includes('/zaal'))).toBe(false);
     } finally {
       delete global.fetch;
@@ -6575,14 +6899,15 @@ describe('de rondleiding: samen kiezen', () => {
   });
 
   it('de gasten: het codeveld, de stappen op de telefoon, en dezelfde oefening', async () => {
+    await rDeel('samen', 'zaalgast');
     render(<App />);
-    start('De zaalstemming, voor de gasten');
+    rVerder('Samen kiezen');
     let titel = await screen.findByRole('dialog', { name: 'Meedoen met een code' });
     expect(document.querySelector('[data-uitleg="zaal-meedoen"]')).toBeTruthy();
-    volgende(titel);
+    rVolgende(titel);
     for (const kop of ['Je naam', 'Je Letterboxd laten meetellen', 'Zelf een film voordragen']) {
       titel = await screen.findByRole('dialog', { name: kop });
-      volgende(titel);
+      rVolgende(titel);
     }
     titel = await screen.findByRole('dialog', { name: 'Stemmen op je telefoon' });
     // nog eens tikken haalt hem weg
@@ -6591,33 +6916,32 @@ describe('de rondleiding: samen kiezen', () => {
     expect(titel.textContent).toContain('Met 4 punten.');
     fireEvent.click(within(titel).getByRole('button', { name: 'Eerste keus: Thriller' }));
     expect(titel.textContent).toContain('Jij: nog geen stem.');
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Alvast stemmen' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Het kaartje mee naar huis' });
-    fireEvent.click(within(titel).getByRole('button', { name: 'Klaar' }));
-    await screen.findByRole('dialog', { name: 'Dat was De zaalstemming, voor de gasten' });
+    rVolgende(titel, 'Klaar');
+    await screen.findByRole('dialog', { name: 'Dat was Samen kiezen' });
   });
 
-  it('samen kiezen: welke manier wanneer, Voor ons en Op afstand, zonder een sessie te starten', async () => {
+  it('op afstand: Voor ons en Op afstand, zonder een sessie te starten', async () => {
     const calls = nepZaal();
     try {
+      await rDeel('samen', 'afstand');
       render(<App />);
-      start('Samen kiezen op afstand');
-      let titel = await screen.findByRole('dialog', { name: 'Welke manier wanneer' });
-      volgende(titel);
-      titel = await screen.findByRole('dialog', { name: 'Voor ons' });
+      rVerder('Samen kiezen');
+      let titel = await screen.findByRole('dialog', { name: 'Voor ons' });
       expect(document.querySelector('[data-uitleg="samen-host"]')).toBeTruthy();
-      volgende(titel);
+      rVolgende(titel);
       for (const kop of ['Wat je vrienden doen', 'De ranglijst']) {
         titel = await screen.findByRole('dialog', { name: kop });
-        volgende(titel);
+        rVolgende(titel);
       }
       titel = await screen.findByRole('dialog', { name: 'Op afstand' });
-      volgende(titel);
+      rVolgende(titel);
       titel = await screen.findByRole('dialog', { name: 'De winnaar op afstand' });
-      fireEvent.click(within(titel).getByRole('button', { name: 'Klaar' }));
-      await screen.findByRole('dialog', { name: 'Dat was Samen kiezen op afstand' });
+      rVolgende(titel, 'Klaar');
+      await screen.findByRole('dialog', { name: 'Dat was Samen kiezen' });
       expect(calls.filter(([m]) => m === 'POST')).toEqual([]);
     } finally {
       delete global.fetch;
@@ -6650,34 +6974,48 @@ describe('de rondleiding: samen kiezen', () => {
   });
 });
 
-// De rondleiding, hoofdstuk 12 tot en met 14: het jaarboek en Setup
+// De rondleiding: het jaarboek en Setup
 describe('de rondleiding: jaarboek en setup', () => {
   beforeEach(() => { cleanup(); seed(); });
-  const uitlegKnop = () => document.querySelector('[data-uitleg="uitleg-knop"]');
-  const start = (titel) => {
-    fireEvent.click(uitlegKnop());
-    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(titel) })[0]);
-  };
-  const volgende = (titel, woord = 'Volgende') => fireEvent.click(within(titel).getByRole('button', { name: woord }));
   const watchlistNu = () => JSON.parse(localStorage.getItem('nossyV2.watchlist'));
+  const SETUP = 'Setup: je gegevens en de extra’s';
 
-  it('het jaarboek: de cijfers uit het scherm, meten als doestap, en de lege teksten', async () => {
+  it('het jaarboek, kort: je profiel, meten, de uitkomst en leren', async () => {
     render(<App />);
-    start('Het jaarboek');
+    rStart('Het jaarboek');
+    let titel = await screen.findByRole('dialog', { name: 'Je smaakprofiel' });
+    expect(titel.textContent).toContain('stap 1 van 3');
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Meten hoe goed Voor jou je kent' });
+    fireEvent.click(within(titel).getByRole('button', { name: 'Laat zien' }));
+    titel = await screen.findByRole('dialog', { name: 'De uitkomst' }, { timeout: 3000 });
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Leer mijn smaak' });
+    rVolgende(titel, 'Klaar');
+    const eind = await screen.findByRole('dialog', { name: 'Dat was Het jaarboek' });
+    fireEvent.click(within(eind).getByRole('button', { name: 'Klaar voor nu' }));
+    expect(rInstellingen().uitleg.gezien).toContain('jaarboek');
+    expect(JSON.parse(localStorage.getItem('nossyV2.smaakModel') || 'null')).toBeNull();
+  });
+
+  it('het jaarboek, het hele deel: de cijfers uit het scherm, meten als doestap, en de lege teksten', async () => {
+    await rDeel('jaarboek', 'jaarboek');
+    render(<App />);
+    rVerder('Het jaarboek');
     let titel = await screen.findByRole('dialog', { name: 'Het jaarboek' });
-    volgende(titel);
+    rVolgende(titel);
     // geen dagboek in de testdata: de lege tekst
     titel = await screen.findByRole('dialog', { name: 'Je kijkritme' }, { timeout: 3000 });
     await waitFor(() => expect(titel.textContent).toContain('Staat je Letterboxd-dagboek erin'));
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'De cijfers' });
     const cijfers = document.querySelector('[data-uitleg="jaarboek-cijfers"]');
     expect(titel.textContent).toContain(`Op je watchlist: ${cijfers.getAttribute('data-uitleg-n')}. Nog te kijken: ${cijfers.getAttribute('data-uitleg-nog')}.`);
     // de eigen gemiddelde rating heeft nu een tekst in beide talen
     expect(document.body.textContent).not.toContain('${');
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Je smaakprofiel' });
-    volgende(titel);
+    rVolgende(titel);
     // meten laat niets na: de rondleiding mag het voordoen
     titel = await screen.findByRole('dialog', { name: 'Meten hoe goed Voor jou je kent' });
     expect(within(titel).queryByRole('button', { name: 'Volgende' })).toBeNull();
@@ -6687,32 +7025,50 @@ describe('de rondleiding: jaarboek en setup', () => {
     // te weinig favorieten om te meten: dan geen percentage in het voorbeeld
     expect(document.querySelector('[data-uitleg="jaarboek-meting"]').textContent).toContain('Nog te weinig favorieten');
     expect(titel.textContent).not.toContain('Bij jou nu');
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Leer mijn smaak' });
     // leren verandert Voor jou: alleen kijken
     expect(within(titel).queryByRole('button', { name: 'Laat zien' })).toBeNull();
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Genres, decennia, makers en landen' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'De laatste picks' }, { timeout: 3000 });
     await waitFor(() => expect(titel.textContent).toContain('Zodra je een film pickt'));
-    volgende(titel, 'Klaar');
+    rVolgende(titel, 'Klaar');
     await screen.findByRole('dialog', { name: 'Dat was Het jaarboek' });
     expect(JSON.parse(localStorage.getItem('nossyV2.smaakModel') || 'null')).toBeNull();
-  });
+  }, 15000);
 
   it('het jaarboek met een dagboek en picks: het ritme en de picks in het licht', async () => {
     const vandaag = new Date().toISOString().slice(0, 10);
     localStorage.setItem('nossyV2.diary', JSON.stringify([{ key: 'stalker|1979', name: 'Stalker', year: 1979, watchedDate: vandaag, rewatch: false }]));
     localStorage.setItem('nossyV2.history', JSON.stringify([{ key: 'stalker|1979', name: 'Stalker', year: 1979, date: new Date().toISOString(), context: null }]));
+    await rDeel('jaarboek', 'jaarboek');
     render(<App />);
-    start('Het jaarboek');
+    rVerder('Het jaarboek');
     let titel = await screen.findByRole('dialog', { name: 'Het jaarboek' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Je kijkritme' });
     expect(titel.textContent).toContain('Een staafje per maand');
     expect(document.querySelector('[data-uitleg="jaarboek-ritme"]')).toBeTruthy();
     expect(document.querySelector('[data-uitleg="jaarboek-picks"]').textContent).toContain('Stalker');
+  });
+
+  it('Setup, kort: je lijst bijwerken, back-up, OMDb, sync en live', async () => {
+    render(<App />);
+    rStart('Setup: je gegevens');
+    let titel = await screen.findByRole('dialog', { name: 'Je lijst bijwerken' });
+    expect(titel.textContent).toContain('stap 1 van 5');
+    for (const kop of ['Back-up', 'Meer scores met OMDb', 'Op al je apparaten']) {
+      rVolgende(titel);
+      titel = await screen.findByRole('dialog', { name: kop });
+    }
+    rVolgende(titel);
+    titel = await screen.findByRole('dialog', { name: 'Letterboxd live' });
+    rVolgende(titel, 'Klaar');
+    const eind = await screen.findByRole('dialog', { name: `Dat was ${SETUP}` });
+    expect(within(eind).getByRole('button', { name: 'Verder met Welkom en je lijst laden' })).toBeTruthy();
+    expect(watchlistNu().length).toBeGreaterThan(0);
   });
 
   it('Setup, de basis: een verkeerde film, de taal wisselt de rondleiding mee, en niets wordt gewist', async () => {
@@ -6720,59 +7076,64 @@ describe('de rondleiding: jaarboek en setup', () => {
     const eerste = watchlistNu()[0].key;
     meta[eerste] = { ...meta[eerste], yearMismatch: true, mismatchType: 'jaar' };
     localStorage.setItem('nossyV2.meta', JSON.stringify(meta));
+    await rDeel('setup', 'setup');
     render(<App />);
-    start('Setup: de basis');
+    rVerder(SETUP);
     let titel = await screen.findByRole('dialog', { name: 'De filmdata van TMDB' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Je lijst bijwerken' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Een verkeerde film' });
     expect(titel.textContent).toContain('Wijkt het jaar af');
     expect(document.querySelector('[data-uitleg="setup-match"]').textContent).toMatch(/afwijkend jaar/);
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Taal' });
     // de rondleiding spreekt meteen de nieuwe taal
     fireEvent.click(within(document.querySelector('[data-uitleg="setup-taal"]')).getByRole('button', { name: 'English' }));
     titel = await screen.findByRole('dialog', { name: 'Language' });
-    volgende(titel, 'Next');
+    rVolgende(titel, 'Next');
     titel = await screen.findByRole('dialog', { name: 'Your country' });
-    volgende(titel, 'Next');
+    rVolgende(titel, 'Next');
     titel = await screen.findByRole('dialog', { name: 'Profiles' });
-    volgende(titel, 'Next');
+    rVolgende(titel, 'Next');
     titel = await screen.findByRole('dialog', { name: 'Backup' });
-    volgende(titel, 'Next');
+    // ook de knop van de langere tekst spreekt Engels
+    expect(within(titel).getByRole('button', { name: 'Less' })).toBeTruthy();
+    rVolgende(titel, 'Next');
     titel = await screen.findByRole('dialog', { name: 'Starting over' });
     expect(titel.textContent).toContain('Your settings and keys stay');
-    volgende(titel, 'Done');
-    await screen.findByRole('dialog', { name: 'That was Setup: the basics' });
+    rVolgende(titel, 'Done');
+    await screen.findByRole('dialog', { name: 'That was Setup: your data and the extras' });
     expect(watchlistNu().length).toBeGreaterThan(0);
   });
 
   it('Setup, de extra’s: van OMDb tot de première, en zoeken op sync', async () => {
+    await rDeel('setup', 'extras');
     render(<App />);
-    fireEvent.click(uitlegKnop());
+    fireEvent.click(rKnop());
     const p = document.querySelector('.uitleg-programma');
     fireEvent.change(within(p).getByLabelText('Zoek in de uitleg'), { target: { value: 'sync' } });
     expect(p.textContent).toContain('Bij: Op al je apparaten');
     fireEvent.change(within(p).getByLabelText('Zoek in de uitleg'), { target: { value: '' } });
-    fireEvent.click(within(p).getAllByRole('button', { name: /Setup: de extra’s/ })[0]);
+    fireEvent.click(within(p).getByRole('button', { name: `Verder waar je was: ${SETUP}` }));
     let titel = await screen.findByRole('dialog', { name: 'Meer scores met OMDb' });
-    volgende(titel);
+    expect(titel.textContent).toContain('kies FREE (1000 films per dag)');
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Op al je apparaten' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Letterboxd live' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Het Nossy-recept' });
     expect(titel.textContent).toContain('(16 + 7 + 7,5) / 4 = 7,6');
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Thema-nadruk' });
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Als app op je telefoon' });
     expect(titel.textContent).toContain('Zet op beginscherm');
-    volgende(titel);
+    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'De première nog eens' });
-    volgende(titel, 'Klaar');
-    await screen.findByRole('dialog', { name: 'Dat was Setup: de extra’s' });
+    rVolgende(titel, 'Klaar');
+    await screen.findByRole('dialog', { name: `Dat was ${SETUP}` });
   });
 
   it('het rekenvoorbeeld van het recept klopt met de echte Nossy-score', async () => {
@@ -6789,7 +7150,8 @@ describe('de rondleiding: jaarboek en setup', () => {
   });
 });
 
-// "Hoe werkt dit?": de stille ingangen bij de kaarten met veel opzet
+// "Hoe werkt dit?": de stille ingangen bij de kaarten met veel opzet. Ze
+// openen hun stap met alles van dat deel, de langere tekst al open.
 describe('de rondleiding: Hoe werkt dit?', () => {
   beforeEach(() => { cleanup(); seed(); });
   const hoe = (anker) => within(document.querySelector(`[data-uitleg="${anker}"]`)).getByRole('button', { name: 'Hoe werkt dit?' });
@@ -6803,6 +7165,8 @@ describe('de rondleiding: Hoe werkt dit?', () => {
     render(<App />);
     fireEvent.click(screen.getAllByLabelText('Setup')[0]);
     fireEvent.click(hoe('setup-omdb'));
+    const titel = await screen.findByRole('dialog', { name: 'Meer scores met OMDb' }, { timeout: 3000 });
+    expect(titel.querySelector('.uitleg-meer').hidden).toBe(false);
     await stop('Meer scores met OMDb');
     fireEvent.click(hoe('setup-sync'));
     await stop('Op al je apparaten');
@@ -6810,7 +7174,7 @@ describe('de rondleiding: Hoe werkt dit?', () => {
     await stop('Letterboxd live');
     fireEvent.click(hoe('setup-recept'));
     await stop('Het Nossy-recept');
-    expect(JSON.parse(localStorage.getItem('nossyV2.settings')).uitleg.bezig).toEqual({ h: 'extras', s: 3 });
+    expect(rInstellingen().uitleg.bezig).toEqual({ h: 'setup', s: 11, deel: 'extras' });
     fireEvent.click(screen.getAllByLabelText('Jaarboek')[0]);
     fireEvent.click(hoe('jaarboek-leren'));
     await stop('Leer mijn smaak');

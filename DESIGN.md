@@ -127,16 +127,29 @@ app kunnen zijn? Dan is het nog niet af.
   wat er net binnen is en je laatste kaartjes. Op een breed scherm een
   dubbele bladzijde: links de hoofdfilm en Net binnen, rechts de kassa, de
   vraag en je doos.
-- De hoofdfilm komt uit je eigen lijst (`src/lib/voorpagina.js`): een film die
-  je nog niet zag, met een hoger cijfer, op je diensten, net binnen en
-  vanavond nog uit, en met een filmbeeld krijgt voorrang. Het lot van de dag
-  beslist tussen films die dicht bij elkaar liggen, dus de voorpagina is elke
-  dag anders maar springt niet bij elke keer openen.
+- De hoofdfilm komt uit je eigen lijst (`src/lib/voorpagina.js`): een
+  speelfilm die je nog niet zag. Korter dan 40 minuten is een korte film, en
+  die is nooit de hoofdfilm. Wat telt: een cijfer dat je kunt vertrouwen
+  (gedempt bij weinig stemmen, nooit opgeblazen), je smaak (het
+  matchpercentage van Voor jou, zwaarder zodra je profiel genoeg sterren
+  heeft), op je diensten, net binnen, vanavond nog uit en een filmbeeld.
+  Doordeweeks liever geen lange zit, op vrijdag en zaterdag juist wel.
+- Afwisseling over de dagen: niet dezelfde regisseur of hetzelfde genre als
+  gisteren, niet wat de afgelopen week al hoofdfilm was of wat je de
+  afgelopen twee weken pickte. Een film die je op drie dagen wegklikte, zakt.
+  Alles gaat over eerdere dagen; wat je vandaag doet, verandert de keuze van
+  vandaag niet. Het lot van de dag beslist tussen films die dicht bij elkaar
+  liggen, dus de voorpagina is elke dag anders maar springt niet bij elke
+  keer openen.
 - Hij staat er met zijn filmbeeld, daaronder een vlak in de kleur van de film:
   de tijd van nu tot het einde, de titel groot, het titelblok, en één echte
   reden ("Net binnen op MUBI.", "Van Wim Wenders, net als Perfect Days, die je
-  5 sterren gaf.", "Het hoogste cijfer op je lijst dat je nog niet zag.").
-  Nooit een verzonnen reden.
+  5 sterren gaf.", "Het hoogste cijfer op je lijst dat je nog niet zag.",
+  "Past bij je smaak: 88%. Je valt op drama uit de jaren 70."). Nooit een
+  verzonnen reden; de smaak is pas een reden als je profiel sterk genoeg is.
+- De voorfilm: in de bioscoop draaide er een korte film voor de hoofdfilm.
+  Een korte film van je lijst staat als regel onder de reden; een tik opent
+  zijn filmkaart, zonder kaartje.
 - "Pak dit kaartje" is de hoofdknop: het aftellen, de trailer en het kaartje
   uit de sleuf, net als bij het lot. "Een andere film" schuift door en geldt
   de rest van de dag.
@@ -390,6 +403,17 @@ app kunnen zijn? Dan is het nog niet af.
   kaart met een dun kader en een kop in `--font-kop`. Op een breed scherm
   staat hij naast het onderdeel, op een telefoon onderin, als ondertiteling
   boven de navigatie. Een stap zonder onderdeel staat midden in beeld.
+- Kort, en de rest als je hem zoekt. Zeven hoofdstukken, elk een paar
+  minuten. Een hoofdstuk uit het programma loopt alleen langs de kern: een
+  stap of vijf, elk met hooguit twee zinnen. Wil je meer, dan klap je
+  "Meer hierover" open. De rest is naslag: die staat in hetzelfde
+  hoofdstuk, maar je komt er via de zoekregel of Hoe werkt dit?. Dan loopt
+  de rondleiding langs alles van dat onderwerp (het deel), met de langere
+  tekst al open. Een opgezocht deel telt niet als een gezien hoofdstuk.
+- Niet duwen. Het welkom leidt rond langs Welkom en Vanavond, een minuut
+  of drie, en zegt dan dat de rest onder Uitleg staat. Aan het eind van
+  een hoofdstuk gaat Klaar voor nu voor; het volgende hoofdstuk mag, maar
+  als tweede knop.
 - Twee soorten stappen. Een kijkstap legt uit, en je gaat verder met
   Volgende. Een doestap vraagt je iets te doen ("Tik op Aanpassen") en gaat
   vanzelf verder als je het deed; "Laat zien" tikt de echte knop aan.
@@ -416,14 +440,25 @@ app kunnen zijn? Dan is het nog niet af.
   code voor wie alleen komt meestemmen. Wie de tool al gebruikte, krijgt
   één rustige melding. Gasten via een link zien niets. De voortgang staat
   in de instellingen en reist mee met sync.
+- Beweging uit de bioscoop. De zaklamp zwaait: bij een nieuwe stap glijdt
+  de bundel van het vorige onderdeel naar het volgende. Een hoofdstuk opent
+  met een iris, een cirkel die opengaat, en sluit met een iris die tot een
+  stip krimpt; daarna komt de eindkaart uit het donker. Een nieuwe
+  tussentitel flikkert zacht aan, als een projector die aanslaat. Bij een
+  doestap klopt een ring om het onderdeel tot je tikt, en lukt het, dan
+  klapt de klapper. De voortgang is een filmstrook: een raampje per stap,
+  wat je zag belicht.
 - Toegankelijk: de tussentitel is een venster dat de focus krijgt en zijn
   tekst voorleest; bij een doestap gaat de focus naar de knop zelf. De
   pijltjes gaan vooruit en terug, Escape stopt en onthoudt waar je was. De
-  teksten zeggen waar iets staat. Met "beperk beweging" schuift er niets:
-  de tussentitel staat er meteen en het scherm springt naar het onderdeel.
+  teksten zeggen waar iets staat; de filmstrook leest voor als "stap 2 van
+  5". Met "beperk beweging" schuift er niets: geen zwaai, iris, flikker of
+  kloppende ring, de tussentitel staat er meteen en het scherm springt naar
+  het onderdeel.
 - `smoke.test.jsx` bewaakt dat elk doel een anker heeft en elk anker bij een
-  stap hoort, en dat elke tekst in beide talen bestaat met dezelfde
-  plekhouders.
+  stap hoort, dat elke tekst in beide talen bestaat met dezelfde
+  plekhouders, en dat het dun blijft: zeven hoofdstukken, hooguit zeven
+  kernstappen per hoofdstuk, en kernteksten van hooguit dertig woorden.
 
 ## Geluid
 
@@ -442,4 +477,6 @@ app kunnen zijn? Dan is het nog niet af.
   beeld slaat, de woorden van het verhaal die een voor een verschijnen, de
   cijfers die optellen. Met "beperk beweging" aan ligt alles er gewoon, is
   er geen voorprogramma en loopt niets vanzelf door.
+- De rondleiding heeft zijn eigen beweging (zie De rondleiding): de zaklamp
+  die zwaait, de iris, de projector, de kloppende ring, de klapper.
 - Verder beweegt alleen wat je zelf aanraakt. Geen invlieg-animaties op lijsten.

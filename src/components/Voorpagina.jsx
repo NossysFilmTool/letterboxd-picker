@@ -52,7 +52,8 @@ function Titelblok({ m }) {
 // De hoofdfilm van vanavond: het filmbeeld, en daaronder een vlak in de kleur
 // van de film met de titel groot, het titelblok, de reden en de knoppen
 //   keuze: uit kiesHoofdfilm (lib/voorpagina.js); aanvang: Date
-export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig }) {
+//   voorfilm: uit kiesVoorfilm, een korte film van je lijst (of null)
+export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig, voorfilm = null, voorfilmOpen = false, onVoorfilm }) {
   const { t: tr, lang } = useT();
   const { film, m, dienst, reden } = keuze;
   const kleur = useFilmkleur(m.poster);
@@ -64,6 +65,12 @@ export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig }) {
       case 'binnen': return tr('voorpagina.r_binnen', { dienst: reden.dienst });
       case 'regisseur': return tr('voorpagina.r_regisseur', { regisseur: reden.regisseur, titel: reden.titel, sterren: decimaal(reden.sterren) });
       case 'hoogste': return tr('voorpagina.r_hoogste');
+      case 'smaak': {
+        const genre = reden.genre ? reden.genre.toLocaleLowerCase(lang) : null;
+        if (genre && reden.era) return tr('voorpagina.r_smaakTijd', { pct: reden.pct, genre, era: reden.era });
+        if (genre) return tr('voorpagina.r_smaakGenre', { pct: reden.pct, genre });
+        return tr('voorpagina.r_smaak', { pct: reden.pct });
+      }
       case 'dienst': return tr('voorpagina.r_dienst', { dienst: reden.dienst, klaar });
       case 'past': return tr('voorpagina.r_past', { klaar });
       default: return tr('voorpagina.r_lijst');
@@ -81,6 +88,13 @@ export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig }) {
         <h1 id="hoofdfilm-titel" className={`hoofdfilm-titel${film.name.length > 22 ? ' lang' : ''}`}>{film.name}</h1>
         <Titelblok m={m} />
         <p className="hoofdfilm-reden">{redenTekst}</p>
+        {voorfilm && (
+          <p className="hoofdfilm-voorfilm">
+            <span className="label-breed">{tr('voorpagina.voorfilm')}</span>
+            <button type="button" className="linkbtn" onClick={onVoorfilm} aria-expanded={voorfilmOpen}>{voorfilm.film.name}</button>
+            {voorfilm.m.runtime ? <span>{voorfilm.m.runtime} min</span> : null}
+          </p>
+        )}
         <p className="hoofdfilm-meta meta">
           {film.year ? <span>{film.year}</span> : null}
           {m.runtime ? <span>{m.runtime} min</span> : null}

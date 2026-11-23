@@ -269,6 +269,10 @@ export default {
     r_dienst: 'Now on {dienst}, and over by {klaar}.',
     r_past: 'Over by {klaar}.',
     r_lijst: 'From your own list, picked for tonight.',
+    r_smaak: 'Fits your taste: {pct}%.',
+    r_smaakGenre: 'Fits your taste: {pct}%. You go for {genre}.',
+    r_smaakTijd: 'Fits your taste: {pct}%. You go for {genre} from the {era}s.',
+    voorfilm: 'Short first', voorfilmKaart: 'Tonight’s short',
     nuOp: 'Now on {p}', pakKaartje: 'Take this ticket', ander: 'Another film', context: "Tonight's feature",
     kassaKop: 'The box office', kassaSub: 'rather leave it to fate?',
     binnenKop: 'Just arrived', binnenSub: 'this week on your services', binnenSubAlle: 'streaming since this week',
@@ -747,11 +751,14 @@ export default {
     lijstDemo: 'Practise with the demo list', lijstEigen: 'My own list first',
     lijstLaden: 'Fetching the film data: {klaar} of {totaal}.', lijstBijna: 'The demo list is coming in.',
     eindKop: 'That was {titel}',
-    eindTekst: 'Next up: {titel}. Or pick a chapter yourself in the programme.',
+    eindTekst: 'Want more? {titel} is the next chapter. Everything is also under Guide, top right.',
+    eindRondgang: 'That was the short tour. The rest is under Guide, top right: pick a chapter whenever you like, or search for a word.',
+    eindNaslag: 'Looking for something else? Under Guide, top right, you find every chapter and the search.',
     eindAlles: 'You have seen every chapter. You can always find them again under Guide, top right.',
-    verderMet: 'Go on with {titel}', naarProgramma: 'To the programme', klaarStop: 'Stop the tour',
+    verderMet: 'Go on with {titel}', naarProgramma: 'To the programme', klaarVoorNu: 'Done for now',
+    meer: 'More about this', minder: 'Less',
     welkomKop: 'Welcome to the cinema',
-    welkomTekst: 'This tool picks a film from your Letterboxd watchlist. On your own, as a pair or with a whole room. Shall I show you around? It takes a few minutes, and you practise with real films.',
+    welkomTekst: 'This tool picks a film from your Letterboxd watchlist. On your own, as a pair or with a whole room. Shall I show you around? In three minutes you see how to load your list and how the tool picks for tonight.',
     welkomJa: 'Show me around', welkomZelf: 'I will look around myself',
     welkomCode: 'Only here to vote? Enter the code.',
     welkomAltijd: 'The tour is always under Guide, top right.',
@@ -768,7 +775,8 @@ export default {
         zoek: 'begin start export zip csv import load letterboxd watchlist demo example film data tmdb posters code guest vote navigation help',
         wat: {
           kop: 'What this tool does',
-          tekst: 'Your Letterboxd watchlist is long. This tool picks from it: by your mood, by what is streaming tonight, or together with others. Your data stays in your own browser, unless you switch on sync yourself.',
+          tekst: 'This tool picks a film from your Letterboxd watchlist: alone, as a pair or with a whole room. Your data stays in your own browser.',
+          meer: 'Your Letterboxd watchlist is long. This tool picks from it: by your mood, by what is streaming tonight, or together with others. Your data stays in your own browser, unless you switch on sync yourself.',
         },
         code: {
           kop: 'Only here to vote?',
@@ -776,11 +784,13 @@ export default {
         },
         export: {
           kop: 'Your Letterboxd export',
-          tekst: 'On letterboxd.com: Settings, the Data tab, Export your data. The link is also at the bottom of this box. Letterboxd gives you a zip file with your watchlist, what you watched and your ratings. On a phone it ends up in Files, under Downloads; on a computer in your Downloads folder. No need to unzip it.',
+          tekst: 'On letterboxd.com: Settings, the Data tab, Export your data. You get a zip file; no need to unzip it.',
+          meer: 'On letterboxd.com: Settings, the Data tab, Export your data. The link is also at the bottom of this box. Letterboxd gives you a zip file with your watchlist, what you watched and your ratings. On a phone it ends up in Files, under Downloads; on a computer in your Downloads folder. No need to unzip it.',
         },
         kiezen: {
           kop: 'Load your export',
-          tekst: 'Drag the zip file into this box, or tap Choose file(s). The tool picks out your watchlist, your watched list, your ratings, your diary and your own lists by itself.',
+          tekst: 'Drag the zip file into this box, or tap Choose file(s). The tool picks out everything it needs by itself.',
+          meer: 'Drag the zip file into this box, or tap Choose file(s). The tool picks out your watchlist, your watched list, your ratings, your diary and your own lists by itself.',
           doe: 'Load your export. No export to hand yet? Then practise with the demo list first.',
         },
         bijwerken: {
@@ -789,13 +799,15 @@ export default {
         },
         filmdata: {
           kop: 'Film data from TMDB',
-          tekst: 'While this bar runs, the tool fetches posters, scores, trailers and streaming availability from TMDB. That happens once per film. Pause stops the fetching.',
+          tekst: 'While this bar runs, the tool fetches posters, scores, trailers and streaming availability. That happens once per film.',
+          meer: 'While this bar runs, the tool fetches posters, scores, trailers and streaming availability from TMDB. That happens once per film. Pause stops the fetching.',
           vb: 'Now: {klaar} of {totaal} films.',
-          leeg: 'With a new list, a bar shows here while the tool fetches posters, scores, trailers and streaming availability from TMDB. That happens once per film. Right now there is nothing to fetch.',
+          leeg: 'With a new list, the tool first fetches posters, scores and trailers here. Right now there is nothing to fetch.',
         },
         demo: {
           kop: 'The demo list',
-          tekst: 'You are practising with 24 example films. Load your own export whenever you like: what you did in the demo, such as tickets and ratings, goes away then. Clear demo and start over takes you back to the beginning.',
+          tekst: 'You are practising with 24 example films. Load your own export whenever you like; what you did in the demo goes away then.',
+          meer: 'You are practising with 24 example films. Load your own export whenever you like: what you did in the demo, such as tickets and ratings, goes away then. Clear demo and start over takes you back to the beginning.',
         },
         plekken: {
           kop: 'Five places, and Setup',
@@ -803,21 +815,24 @@ export default {
         },
         knop: {
           kop: 'Guide, always at hand',
-          tekst: 'Top right is where you find the tour again, as a flashlight on a phone. It remembers where you were. Looking for help with something? Type a word, such as export, code or sync.',
+          tekst: 'Top right, as a flashlight on a phone, you find every chapter again. Looking for help with something? Type a word.',
+          meer: 'Top right is where you find the tour again, as a flashlight on a phone. It remembers where you were. Looking for help with something? Type a word, such as export, code or sync.',
         },
       },
       vanavond: {
         titel: 'Tonight: the main feature and the box office',
-        zoek: 'tonight main feature ticket take another film just in streaming question yesterday stars later box office pot mood short night proven hidden gem adjust drawer filters length genre language period score services lists watched default fate pick choose trailer smart pick chance countdown film card nossy score share more like this again',
+        zoek: 'tonight main feature ticket take another film just in streaming question yesterday stars later box office pot mood short night proven hidden gem adjust drawer filters length genre language period score services lists watched default fate pick choose trailer smart chance countdown card nossy share more like this again',
         hoofdfilm: {
           kop: 'Tonight’s main feature',
-          tekst: 'Every day the tool picks one film from your list, with a real reason: just in on a service, by a director you rated highly, the highest score you have not seen yet, or it finishes in good time. That choice holds for the whole day.',
+          tekst: 'Every day the tool picks one feature film from your list, with a real reason. A short film from your list sits below it as the short.',
+          meer: 'Every day the tool picks one feature film from your list, on a score you can trust and on your taste, with a real reason: just in on a service, by a director you rated highly, the highest score you have not seen yet, how well it fits your taste, or it finishes in good time. That choice holds for the whole day. A short film from your list sits below it as the short before the feature.',
           vb: 'Today: {titel}. {reden}',
-          leeg: 'Your main feature appears here once the film data for your list is in. Then the tool picks one film every day, with a real reason, and that choice holds for the whole day.',
+          leeg: 'Your main feature appears here once the film data for your list is in. Then the tool picks one film a day, with a real reason.',
         },
         acties: {
           kop: 'Take this ticket',
-          tekst: 'Take this ticket gives you the main feature: first the countdown, then the trailer if it is on, then your ticket. Rather something else? Another film moves on to the next one; that holds for the rest of the day.',
+          tekst: 'Take this ticket gives you the main feature, with the countdown and the trailer. Another film moves on to the next one, for the rest of the day.',
+          meer: 'Take this ticket gives you the main feature: first the countdown, then the trailer if it is on, then your ticket. Rather something else? Another film moves on to the next one; that holds for the rest of the day.',
         },
         binnen: {
           kop: 'Just arrived',
@@ -826,7 +841,7 @@ export default {
         },
         vraag: {
           kop: 'The question about last night',
-          tekst: 'After an evening with a ticket, the tool asks the next day whether you watched it. Give stars, choose Seen, no stars, or Didn\u2019t watch. Picked more films that evening? Then tap the one you watched. Later puts the question away for half a day.',
+          tekst: 'After an evening with a ticket, the tool asks the next day whether you watched it. Give stars, choose Seen, no stars, or Didn’t watch. Picked more films that evening? Then tap the one you watched. Later puts the question away for half a day.',
           leeg: 'Take a ticket, and the next day the question whether you watched it shows up here. Say yes, and the ticket tears off and goes into the box.',
         },
         kassa: {
@@ -846,7 +861,8 @@ export default {
         },
         la: {
           kop: 'The box office drawer',
-          tekst: 'Row by row: the length (no short films, or up to one and a half, two or two and a half hours), genres you are in the mood for or would rather not, the language, a period, a minimum score, and only what is streaming. Got your own Letterboxd lists? Then choose at the top what the tool picks from. Seen left out keeps what you have seen out of the pot. Back to default resets everything.',
+          tekst: 'Here you set the length, genres, language, period and a minimum score. Back to default resets everything.',
+          meer: 'Row by row: the length (no short films, or up to one and a half, two or two and a half hours), genres you are in the mood for or would rather not, the language, a period, a minimum score, and only what is streaming. Got your own Letterboxd lists? Then choose at the top what the tool picks from. Seen left out keeps what you have seen out of the pot. Back to default resets everything.',
         },
         schakelaars: {
           kop: 'Trailer and smart pick',
@@ -864,26 +880,28 @@ export default {
         },
         knoppen: {
           kop: 'What you do with your pick',
-          tekst: 'Trailer opens the trailer. Now on a service takes you there via JustWatch; this ticket then comes first in tomorrow’s question. More like this looks for films like it. Seen marks it as seen, and the ticket tears off. Share makes a picture of it. Pick again draws a new film from the same pot, with a new ticket. Back to the box office takes you back to the front page.',
+          tekst: 'Here you open the trailer, go to the service, look for More like this or mark it as seen. Pick again draws a new film from the same pot.',
+          meer: 'Trailer opens the trailer. Now on a service takes you there via JustWatch; this ticket then comes first in tomorrow’s question. More like this looks for films like it. Seen marks it as seen, and the ticket tears off. Share makes a picture of it. Pick again draws a new film from the same pot, with a new ticket. Back to the box office takes you back to the front page.',
         },
       },
-      kaartjes: {
-        titel: 'Your tickets and the box',
-        zoek: 'ticket tickets box tear torn watched proof diary answer seen expire fourteen days film year share stars note not watched after all watched after all found via nossy logged',
-        wat: {
+      archief: {
+        titel: 'Your tickets and the archive',
+        zoek: 'ticket tickets box tear torn watched proof diary answer seen expire fourteen days film year share stars note not after all found via nossy logged archive watchlist filter sentence genre period decade length service sort order my search title highlighted highest score open card tick',
+        kaartje: {
           kop: 'A pick is not a watched film yet',
-          tekst: 'Every pick gives you a ticket. It only tears off and goes into the box once it turns out you watched it: it is in your Letterboxd diary, you say so yourself at the question the next day, or you mark it as watched within fourteen days. Without proof the ticket expires after fourteen days, without a message.',
+          tekst: 'Every pick gives you a ticket. Only once it turns out you watched it does it tear off and go into the box.',
+          meer: 'Every pick gives you a ticket. It only tears off and goes into the box once it turns out you watched it: it is in your Letterboxd diary, you say so yourself at the question the next day, or you mark it as watched within fourteen days. Without proof the ticket expires after fourteen days, without a message.',
         },
         momenten: {
           kop: 'Tearing off and discovering',
           tekst: 'Say you watched it, and the ticket tears off on screen, with its number in the box. When the tool finds the proof itself, in your diary or because you marked it as watched, it shows you the ticket as soon as it finds out.',
         },
-        doos: {
+        uitdoos: {
           kop: 'From your box',
           tekst: 'Your last three tickets are on the front page. Tap them to go to the box.',
           leeg: 'As soon as there are tickets in your box, the last three show up here on the front page.',
         },
-        archief: {
+        doos: {
           kop: 'The box',
           tekst: 'In the Archive, under Tickets, is your whole box by month, with your average stars.',
           vb: 'In the box now: {n}.',
@@ -908,10 +926,6 @@ export default {
           tekst: 'Films from your Letterboxd diary without a ticket. Found one through the tool? Tap Found via Nossy and it still gets a ticket.',
           leeg: 'Load your Letterboxd export, and your recent logs without a ticket show up here. Found one through the tool? Found via Nossy still gives it a ticket.',
         },
-      },
-      archief: {
-        titel: 'The archive',
-        zoek: 'archive watchlist watched tickets filter sentence genre period decade length service sort order my stars search title highlighted highest score open film card tick',
         tabs: {
           kop: 'Everything you have',
           tekst: 'Watchlist is your Letterboxd watchlist. Seen is everything you watched on Letterboxd, with your stars. Tickets is your box.',
@@ -954,12 +968,13 @@ export default {
           tekst: 'Under Seen, your films are ordered by your own stars, highest first. Each film shows what you gave it.',
         },
       },
-      voorjou: {
-        titel: 'Programme: For you',
-        zoek: 'programme for you recommendations suggestions rows reason tonight just arrived tile plus eye cross not for me why match recipe percent see all fetch more filters genre service services streaming short other suggestions shortlist copy export letterboxd import rejected restore',
+      programma: {
+        titel: 'Programme: new films for you',
+        zoek: 'programme for you recommendations suggestions rows reason tonight just arrived tile plus eye cross not me why match recipe percent see all fetch more filters genre service services streaming short other shortlist copy export letterboxd import rejected restore own row build make criteria like a film filmmaker director actor genres topics country period name edit up down delete pin quick rate swipe arrows search engine title creator filmography decade language non english score runtime votes obscure deep underground widely seen hide what i know nossy scores load save as tmdb database',
         wat: {
           kop: 'Films from outside your list',
-          tekst: 'The programme looks for films that are not on your list yet. For you leans on what you gave 4 or 5 stars (5 stars weighs more), on your watchlist and on your taste profile. What you gave 2 stars or less pushes similar films down. What you have seen never shows up here.',
+          tekst: 'The programme looks for films not on your list yet. For you leans on what you gave 4 or 5 stars; what you have seen never shows up here.',
+          meer: 'The programme looks for films that are not on your list yet. For you leans on what you gave 4 or 5 stars (5 stars weighs more), on your watchlist and on your taste profile. What you gave 2 stars or less pushes similar films down. What you have seen never shows up here.',
           vb: 'Now: {aantal} suggestions.',
         },
         vanavond: {
@@ -975,13 +990,15 @@ export default {
         },
         rijen: {
           kop: 'Rows with a reason',
-          tekst: 'Every row says why it is there: Top picks for you, Because you rated a film highly, More from a director, Hidden gems, Outside your bubble. Which favourite and which director a row gets changes every day.',
+          tekst: 'Every row says why it is there, such as Hidden gems or More from a director. Which favourite or director a row gets changes every day.',
+          meer: 'Every row says why it is there: Top picks for you, Because you rated a film highly, More from a director, Hidden gems, Outside your bubble. Which favourite and which director a row gets changes every day.',
           vb: 'At the top: {titel}.',
-          leeg: 'The rows appear once the tool has found enough films from outside your list. That goes through TMDB and takes a moment the first time.',
+          leeg: 'The rows appear once the tool has found enough films from outside your list. The first time that takes a moment.',
         },
         tegel: {
           kop: 'A tile',
-          tekst: 'The plus puts a film on your shortlist. The eye says you have seen it, with stars if you like. The cross is not for me; then the tool asks why not: not my genre, too mainstream, not by this director, or already seen. One tap makes the suggestions sharper.',
+          tekst: 'The plus puts a film on your shortlist, the eye says you have seen it and the cross is not for me. Every tap makes the suggestions sharper.',
+          meer: 'The plus puts a film on your shortlist. The eye says you have seen it, with stars if you like. The cross is not for me; then the tool asks why not: not my genre, too mainstream, not by this director, or already seen. One tap makes the suggestions sharper.',
         },
         alles: {
           kop: 'See all',
@@ -1017,10 +1034,6 @@ export default {
           tekst: 'What you rejected sits at the bottom. Tap Rejected and put a film back with the arrow.',
           leeg: 'When you reject a film, it sits at the bottom under Rejected. You can put it back there if you change your mind.',
         },
-      },
-      eigenrijen: {
-        titel: 'Programme: your own rows and quick rate',
-        zoek: 'own row rows build make criteria like a film filmmaker director actor genres topics country period short service name edit up down delete pin quick rate swipe arrows',
         nieuw: {
           kop: 'Your own row',
           tekst: 'Next to the rows the tool makes, you build your own: on criteria, on a film you love, or on a director or actor.',
@@ -1062,21 +1075,17 @@ export default {
           kop: 'Swiping',
           tekst: 'Swipe right: want to see, and it goes on your shortlist. Left: not for me. On a computer the arrow keys work: right, left, down for not sure, and G for already seen. Done takes you back.',
         },
-      },
-      zoeken: {
-        titel: 'Programme: search',
-        zoek: 'search search engine title creator director actor filmography filters criteria genres period decade language non english score runtime votes obscure deep underground widely seen hide seen what i know nossy scores load match save as row tmdb database',
-        tab: {
+        zoeken: {
           kop: 'Search',
           tekst: 'Search goes through the whole TMDB film database, including everything that is not on your list.',
           doe: 'Tap Search.',
         },
-        veld: {
+        zoekveld: {
           kop: 'By title or creator',
           tekst: 'Type a title or a name and press Enter. If it is a director or actor, the name appears under Creators: tap it for the whole filmography.',
           doe: 'Search for something, like your favourite film.',
         },
-        filters: {
+        zoekfilters: {
           kop: 'Searching on criteria',
           tekst: 'Leave the search field empty to search on criteria. With a title, the filters work as a sieve on the matches.',
           doe: 'Tap Show filters.',
@@ -1095,17 +1104,22 @@ export default {
           leeg: 'Once you search, the top of the results shows what you searched for and how many there are, with Hide what I already know, Load Nossy scores (with an OMDb key) and Save as a row in For you, for a search on criteria or a filmography.',
         },
       },
-      filmavond: {
-        titel: 'Movie night on one phone',
-        zoek: 'movie night choose together group friends pot watchlist overlap friend export load filters table veto veto rounds players pass the phone trailers pitch peek info knockout bracket duel quarterfinal semifinal final winner ticket',
-        wat: {
+      samen: {
+        titel: 'Choosing together',
+        zoek: 'movie night choose together group friends pot watchlist overlap friend export load filters table veto rounds players pass the phone trailers pitch peek info knockout bracket duel quarterfinal semifinal final winner ticket house vote host tv laptop screen phones code qr link share lobby play too how plays genre round from list recommendations nominations letterboxd guests voting automatically by hand start points 1st 2nd choice tie lists broad support draw film result another close practice guest along join scan name count nominate nomination search ahead youtube keep image four ways which when couch for us taste score ranking 45 average we will watch this remote chat 24 hours votes most',
+        welke: {
+          kop: 'Which way when',
+          tekst: 'With one phone on the couch: veto or knockout; with a tv and everyone’s phone: the house. Everyone at home: For us or Remote.',
+          meer: 'Together on the couch with one phone: a veto round or the knockout. A tv and everyone’s phone: the house vote. Choosing on everyone’s taste, with everyone’s Letterboxd: For us. Everyone at home on their own phone: Remote.',
+        },
+        avond: {
           kop: 'Choosing together',
-          tekst: 'Movie night is choosing with more people. This chapter is about choosing on one phone that you pass around. The house vote and choosing together remotely each have a chapter of their own.',
+          tekst: 'Movie night is choosing with more people. This part is about choosing on one phone that you pass around; after it come the house vote and choosing together remotely.',
           vb: 'Candidates in the pot now: {n}.',
         },
         pot: {
           kop: 'The pot',
-          tekst: 'The pot holds your watchlist, without what you have seen. Load a friend\u2019s watchlist lets you pick a friend\u2019s export (zip or csv): then only the films on both your lists stay. That works with more friends at once. The cross next to a name removes that list, and My watchlist puts everything back.',
+          tekst: 'The pot holds your watchlist, without what you have seen. Load a friend’s watchlist lets you pick a friend’s export (zip or csv): then only the films on both your lists stay. That works with more friends at once. The cross next to a name removes that list, and My watchlist puts everything back.',
         },
         filters: {
           kop: 'What goes on the table',
@@ -1113,7 +1127,8 @@ export default {
         },
         veto: {
           kop: 'Veto rounds',
-          tekst: 'Up to eight films on the table. Choose how many players there are. In turn, someone strikes a film and passes the phone; you watch the last one standing. The i on a poster is a quick peek: the film card, without stopping the round. The pot needs at least four films.',
+          tekst: 'Up to eight films on the table. In turn, someone strikes one and passes the phone; you watch the last one standing.',
+          meer: 'Up to eight films on the table. Choose how many players there are. In turn, someone strikes a film and passes the phone; you watch the last one standing. The i on a poster is a quick peek: the film card, without stopping the round. The pot needs at least four films.',
         },
         trailers: {
           kop: 'Trailers first',
@@ -1127,22 +1142,20 @@ export default {
           kop: 'The winner',
           tekst: 'When one film is left, or it wins the final, the film card is ready with a ticket for all of you. The ticket goes into your ticket box, just like with Tonight. New round starts over.',
         },
-      },
-      zaal: {
-        titel: 'The house vote, for the host',
-        zoek: 'house vote host tv laptop screen phones code qr link share lobby play too how the house plays genre genre round from the list recommendations nominations letterboxd guests voting automatically by hand start points 1st 2nd choice tie lists broad support draw trailers film round result ticket another round close practice',
-        wat: {
+        zaal: {
           kop: 'Everyone votes',
           tekst: 'For a group in one room. This device is the house: put it on a tv or laptop where everyone can see it. The others vote on their own phone, without an account or installing anything, up to twelve people. First you pick a genre together, then a film.',
         },
         open: {
           kop: 'Opening the house',
-          tekst: 'Open the house makes a code of four letters. The house takes its films from the Movie night pot, so your filters count. The pot needs at least three films.',
-          doe: 'Try it if you like. The house really opens, but nothing happens without players, and at the end of this chapter you close it again. Or skip this step.',
+          tekst: 'Open the house makes a code of four letters, and everyone votes on their own phone. The films come from the Movie night pot.',
+          meer: 'Open the house makes a code of four letters. The house takes its films from the Movie night pot, so your filters count. The pot needs at least three films.',
+          doe: 'Try it if you like. The house really opens, but nothing happens without players, and a little later you close it again. Or skip this step.',
         },
         code: {
           kop: 'Code, QR and link',
-          tekst: 'Whoever joins goes to the address on the screen on their phone and enters the code, or scans the QR code with the camera. Share the link sends it directly, for instance in your group chat. Names appear under In the house as soon as someone joins.',
+          tekst: 'Guests enter the code at the address on the screen, or scan the QR code. Share the link sends it directly.',
+          meer: 'Whoever joins goes to the address on the screen on their phone and enters the code, or scans the QR code with the camera. Share the link sends it directly, for instance in your group chat. Names appear under In the house as soon as someone joins.',
           vb: 'This house: {code}.',
         },
         zelf: {
@@ -1162,9 +1175,10 @@ export default {
           tekst: 'Once everyone is in, Start begins the first round. Whoever arrives after that watches along on the screen.',
           vb: 'In the house now: {n}.',
         },
-        genre: {
+        oefenen: {
           kop: 'Voting with points',
-          tekst: 'Everyone gives a 1st choice (2 points) and a 2nd choice (1 point). Genres come first: on the table are the genres with enough films in the pot. Try it below.',
+          tekst: 'First the house picks a genre, then a film. You give a 1st choice (2 points) and a 2nd choice (1 point); try it below.',
+          meer: 'Everyone gives a 1st choice (2 points) and a 2nd choice (1 point). Genres come first: on the table are the genres with enough films in the pot. Try it below.',
         },
         gelijk: {
           kop: 'When it is a tie',
@@ -1174,11 +1188,11 @@ export default {
           kop: 'The films on the table',
           tekst: 'The smart pick chooses films from the pot that fit the genre: a higher score gives a better chance, and films with a trailer go first. Then come the recommendations, each with why, and the nominations of the guests, with their name. If guests let their Letterboxd count, that is already taken into account here.',
         },
-        trailers: {
+        zaaltrailers: {
           kop: 'The trailers',
           tekst: 'Watch the trailers plays them on the screen. The phones see which trailer is playing, and whoever knows already votes ahead. Vote now skips the trailers.',
         },
-        film: {
+        filmronde: {
           kop: 'The film round',
           tekst: 'Again a 1st and a 2nd choice, with the same points. The screen shows who has voted. When everyone has voted, the round closes on its own after a few seconds; if someone has only a 1st choice, the screen waits fifteen seconds. Close the vote closes it yourself.',
         },
@@ -1191,20 +1205,16 @@ export default {
           tekst: 'Close the house sits at the bottom of every house screen and takes you back to Movie night. A house disappears by itself after twelve hours.',
           doe: 'Tap Close the house.',
         },
-      },
-      zaalgast: {
-        titel: 'The house vote, for the guests',
-        zoek: 'guest guests vote along join phone code qr scan name letterboxd count export nominate nomination film search 1st 2nd choice voting ahead trailers youtube ticket keep share image practice lobby',
-        code: {
+        gast: {
           kop: 'Joining with a code',
           tekst: 'Whoever votes along needs no list or account of their own. Scan the QR code on the screen, open the shared link, or enter the four-letter code here.',
           leeg: 'Whoever votes along needs no list or account of their own. Scan the QR code on the screen, open the shared link, or enter the four-letter code at Movie night, under Join with a code.',
         },
-        naam: {
+        gastnaam: {
           kop: 'Your name',
           tekst: 'Enter your name on your phone and tap Join; then your name is on the screen. If it is taken, choose another. If the evening has started, you watch along on the screen.',
         },
-        letterboxd: {
+        gastletterboxd: {
           kop: 'Letting your Letterboxd count',
           tekst: 'If the host wants that, your phone asks whether the house may take you into account. Say yes, and you make an export on Letterboxd and choose the zip file; the phone helps in three steps. If you use the tool yourself on that phone, or kept your export there before, it takes one tap. The export stays on your phone: the screen only gets, per film, whether you saw it, whether it is on your watchlist and how well it fits you.',
         },
@@ -1212,7 +1222,7 @@ export default {
           kop: 'Nominating a film',
           tekst: 'With this on, you search for a film on your phone and nominate it, until the films go on the table. A new nomination replaces the previous one, and Withdraw takes it back. With more nominations than room, the ones more guests nominated go first, then what fits the genre, and after that the draw decides.',
         },
-        stemmen: {
+        gaststemmen: {
           kop: 'Voting on your phone',
           tekst: 'Tap 1st on your favourite and 2nd on your second choice. Tap again to take it back; tap 1st on your 2nd choice and they swap. In the lobby your phone can practise this while you wait.',
         },
@@ -1220,21 +1230,14 @@ export default {
           kop: 'Voting ahead',
           tekst: 'During the trailers your phone shows which trailer is playing on the screen. If you know already, give your 1st and 2nd choice ahead: it counts as soon as the voting starts. Every film with a trailer also has a link to YouTube.',
         },
-        kaartje: {
+        gastkaartje: {
           kop: 'Taking the ticket home',
           tekst: 'After the result the ticket is on your phone, with everyone on it. Keep it in my ticket box puts it in the tool on that phone; later the tool asks whether you watched it. Share as image turns it into a picture.',
         },
-      },
-      samen: {
-        titel: 'Choosing together remotely',
-        zoek: 'together choose four ways which when couch tv for us taste link friends export score ranking 45 average we will watch this remote voting round group chat code 24 hours votes most votes',
-        welke: {
-          kop: 'Which way when',
-          tekst: 'Together on the couch with one phone: a veto round or the knockout. A tv and everyone\u2019s phone: the house vote. Choosing on everyone\u2019s taste, with everyone\u2019s Letterboxd: For us. Everyone at home on their own phone: Remote.',
-        },
         voorons: {
           kop: 'For us',
-          tekst: 'Choose on everyone\u2019s taste, and look beyond your watchlist. Enter your name; Start For us sets up to sixty films from the pot and gives you a link. Your friends open it on their own phone and load their Letterboxd export there, which stays on that device. Only a score per film comes to you.',
+          tekst: 'Not in one room? For us chooses on everyone’s Letterboxd taste, and with Remote everyone votes at home through a link.',
+          meer: 'Choose on everyone’s taste, and look beyond your watchlist. Enter your name; Start For us sets up to sixty films from the pot and gives you a link. Your friends open it on their own phone and load their Letterboxd export there, which stays on that device. Only a score per film comes to you.',
         },
         vrienden: {
           kop: 'What your friends do',
@@ -1242,20 +1245,20 @@ export default {
         },
         rang: {
           kop: 'The ranking',
-          tekst: 'Per film you see how well it fits each person, and who has seen it. At the top are films nobody has seen and nobody scores below 45, by the average. That way the film two people love and one person hates does not win. We\u2019ll watch this gives a ticket with every name.',
+          tekst: 'Per film you see how well it fits each person, and who has seen it. At the top are films nobody has seen and nobody scores below 45, by the average. That way the film two people love and one person hates does not win. We’ll watch this gives a ticket with every name.',
         },
         afstand: {
           kop: 'Remote',
           tekst: 'Start the voting round, and the tool takes up to twelve films from the pot. Share the link in your group chat: everyone taps the films they do want to see on their own phone, without an account. Keep this screen open, it refreshes by itself. The code is valid for 24 hours.',
         },
-        winnaar: {
+        afstandwinnaar: {
           kop: 'The remote winner',
           tekst: 'Close it once everyone has voted. The film with the most votes wins; if films are tied, the one with the highest Nossy score. The result also appears for everyone who voted.',
         },
       },
       jaarboek: {
         titel: 'The yearbook',
-        zoek: 'yearbook insight numbers statistics watching rhythm diary month rewatch taste profile genres era themes measure how well favourites top 50 diagnosis learn my taste model learning use in for you decades directors countries latest picks history',
+        zoek: 'yearbook insight numbers statistics watching rhythm diary month rewatch taste profile genres era themes measure how well favourites top 50 diagnosis learn my model learning use in for you decades directors countries latest picks history',
         wat: {
           kop: 'The yearbook',
           tekst: 'The yearbook reads your taste from your watchlist, your ratings and your Letterboxd diary. What the tool knows about you here steers the recommendations in For you and the match percentages.',
@@ -1272,21 +1275,25 @@ export default {
         },
         profiel: {
           kop: 'Your taste profile',
-          tekst: 'What you mostly go for, from which era, which themes keep coming back in what you rate highly, and what is less your thing. For you and the match percentages steer by it. The more stars you give on Letterboxd, the sharper it gets.',
+          tekst: 'What you go for, from which era, and which themes keep coming back in what you rate highly. For you and the match percentages steer by it.',
+          meer: 'What you mostly go for, from which era, which themes keep coming back in what you rate highly, and what is less your thing. For you and the match percentages steer by it. The more stars you give on Letterboxd, the sharper it gets.',
         },
         meten: {
           kop: 'Measuring how well For you knows you',
-          tekst: 'The tool hides one of your favourites (4.5 stars and up) at a time as if you never saw it, and checks whether For you recommends it on its own. It only measures: nothing changes.',
+          tekst: 'The tool hides one of your favourites at a time and checks whether For you recommends it on its own. Nothing changes.',
+          meer: 'The tool hides one of your favourites (4.5 stars and up) at a time as if you never saw it, and checks whether For you recommends it on its own. It only measures: nothing changes.',
           doe: 'Tap Measure it.',
         },
         uitkomst: {
           kop: 'The result',
-          tekst: 'The percentage says how many of your hidden favourites came back in the top 50 of For you. Under Diagnosis you see what holds it back: film data that is still missing, or favourites that never made it into the candidates. With fewer than five favourites of 4.5 stars with film data, the tool tells you how many you have now.',
+          tekst: 'The percentage says how many of your hidden favourites For you found again on its own, in the top 50.',
+          meer: 'The percentage says how many of your hidden favourites came back in the top 50 of For you. Under Diagnosis you see what holds it back: film data that is still missing, or favourites that never made it into the candidates. With fewer than five favourites of 4.5 stars with film data, the tool tells you how many you have now.',
           vb: 'For you right now: {pct}%.',
         },
         leren: {
           kop: 'Learn my taste',
-          tekst: 'Learn my taste lets a model work out which signals predict a favourite for you; your shortlist and what you rejected count too. Then it tests itself on favourites it did not see. If the model does better than the fixed weighting, For you ranks with it. After learning, Use in For you turns it on or off.',
+          tekst: 'Learn my taste lets a model work out which signals predict a favourite for you. If it does better than the fixed weighting, For you ranks with it.',
+          meer: 'Learn my taste lets a model work out which signals predict a favourite for you; your shortlist and what you rejected count too. Then it tests itself on favourites it did not see. If the model does better than the fixed weighting, For you ranks with it. After learning, Use in For you turns it on or off.',
         },
         lijstjes: {
           kop: 'Genres, decades, directors and countries',
@@ -1299,15 +1306,16 @@ export default {
         },
       },
       setup: {
-        titel: 'Setup: the basics',
-        zoek: 'setup settings tmdb key api film data export reload update wrong film match year differs does not belong on my film list not a film series put back language dutch english region country streaming justwatch profiles housemates backup restore move back to start erase all data',
+        titel: 'Setup: your data and the extras',
+        zoek: 'setup settings tmdb key api film data export reload update wrong match year differs does not belong on my list a series put back language dutch english region country streaming justwatch profiles housemates backup restore move to start erase all omdb imdb rotten tomatoes metacritic scores activation link daily limit several keys test missing sync devices code change disconnect encrypted letterboxd live diary username nossy recipe score weight weighting theme emphasis keywords install app home screen iphone android premiere version',
         tmdb: {
           kop: 'Film data from TMDB',
           tekst: 'Posters, scores, trailers, recommendations and what is streaming come from TMDB. You do not need to do anything for that: the tool takes care of it. If you have your own TMDB key, you can paste it here; it then takes priority.',
         },
         laden: {
           kop: 'Updating your list',
-          tekst: 'You load a newer Letterboxd export here, just like the first time: drag it in, or use Choose file(s). Below it you see what is loaded now. Fetch film data (again) fetches everything for your list again, and checks every match along the way.',
+          tekst: 'You load a newer Letterboxd export here, just like the first time. Below it you see what is loaded now.',
+          meer: 'You load a newer Letterboxd export here, just like the first time: drag it in, or use Choose file(s). Below it you see what is loaded now. Fetch film data (again) fetches everything for your list again, and checks every match along the way.',
         },
         match: {
           kop: 'A wrong film',
@@ -1328,27 +1336,27 @@ export default {
         },
         backup: {
           kop: 'Backup',
-          tekst: 'Export everything puts your whole tool in one file: your list, tickets, ratings, settings and the film data. Restore backup puts that file back, on another device or in another browser too.',
+          tekst: 'Export everything puts your whole tool in one file. Restore backup puts it back, on another device too.',
+          meer: 'Export everything puts your whole tool in one file: your list, tickets, ratings, settings and the film data. Restore backup puts that file back, on another device or in another browser too.',
         },
         start: {
           kop: 'Starting over',
           tekst: 'Back to start clears your library: watchlist, film data, ratings, tickets and history. Your settings and keys stay, so you can load a new export right away. Erase all data, next to it, removes those as well, and the tool starts fresh. Both ask first.',
         },
-      },
-      extras: {
-        titel: 'Setup: the extras',
-        zoek: 'omdb key imdb rotten tomatoes metacritic scores activation link daily limit several keys test missing scores sync devices code link change code disconnect encrypted letterboxd live diary username nossy recipe score weight weighting theme emphasis keywords install app home screen iphone android premiere version',
         omdb: {
           kop: 'More scores with OMDb',
-          tekst: 'TMDB gives the basics. With a free OMDb key you also get the scores from IMDb, Rotten Tomatoes and Metacritic, and with them the Nossy score. Three steps: request the key and choose FREE (1000 films a day), click the activation link in your mail, and paste the key here. Put several keys below each other; the tool moves on when one hits its daily limit. Once it is in, Fetch missing scores gets the rest, and Test all keys tells you which ones work.',
+          tekst: 'With a free OMDb key you also get the scores from IMDb, Rotten Tomatoes and Metacritic, and with them the Nossy score.',
+          meer: 'TMDB gives the basics. With a free OMDb key you also get the scores from IMDb, Rotten Tomatoes and Metacritic, and with them the Nossy score. Three steps: request the key and choose FREE (1000 films a day), click the activation link in your mail, and paste the key here. Put several keys below each other; the tool moves on when one hits its daily limit. Once it is in, Fetch missing scores gets the rest, and Test all keys tells you which ones work.',
         },
         sync: {
           kop: 'On all your devices',
-          tekst: 'Turn on sync and your tickets, ratings, watched list, watchlist and settings are the same on all your devices. On the other device, open the link or fill in the code here. Everything is encrypted with that code: keep it safe and share it only with your own devices. If it leaks, make a new one with Change code. In the demo, sync is off.',
+          tekst: 'With sync your tickets, ratings, watchlist and settings are the same on all your devices. Everything is encrypted with your own code.',
+          meer: 'Turn on sync and your tickets, ratings, watched list, watchlist and settings are the same on all your devices. On the other device, open the link or fill in the code here. Everything is encrypted with that code: keep it safe and share it only with your own devices. If it leaks, make a new one with Change code. In the demo, sync is off.',
         },
         live: {
           kop: 'Letterboxd live',
-          tekst: 'Fill in your Letterboxd username and tap Connect and follow. The tool then follows your public diary: what you log counts as watched, your ratings count towards your taste, and tickets tear off by themselves. For what you watch, you no longer need to load a new export.',
+          tekst: 'Fill in your Letterboxd username and the tool follows your public diary. What you log counts as watched, and tickets tear off by themselves.',
+          meer: 'Fill in your Letterboxd username and tap Connect and follow. The tool then follows your public diary: what you log counts as watched, your ratings count towards your taste, and tickets tear off by themselves. For what you watch, you no longer need to load a new export.',
         },
         recept: {
           kop: 'The Nossy recipe',

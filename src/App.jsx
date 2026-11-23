@@ -782,22 +782,27 @@ export default function App() {
   // De rondleiding (lib/rondleiding.js): de stand (welk hoofdstuk, welke
   // stap), het programma, en het welkom op een leeg apparaat. De voortgang
   // staat in de instellingen en reist mee met sync.
-  const [uitlegStand, setUitlegStand] = useState(null); // { h, s }
+  // { h, s, deel?, rondgang? }: deel is een opgezocht onderwerp (alle
+  // stappen daarvan), rondgang de korte rondleiding van het welkom
+  const [uitlegStand, setUitlegStand] = useState(null);
   const [programmaOpen, setProgrammaOpen] = useState(false);
   const [welkomOpen, setWelkomOpen] = useState(false);
   const zetUitleg = (fn) => setSettings((s) => ({ ...s, uitleg: fn(s.uitleg || {}) }));
-  const startUitleg = (h, stap = 0) => {
+  const startUitleg = (h, stap = 0, { deel = null, rondgang = false } = {}) => {
     setProgrammaOpen(false);
     setWelkomOpen(false);
-    setUitlegStand({ h, s: stap });
-    zetUitleg((u) => metBezig(u, h, stap));
+    setUitlegStand({ h, s: stap, ...(deel ? { deel } : {}), ...(rondgang ? { rondgang: true } : {}) });
+    zetUitleg((u) => metBezig(u, h, stap, deel));
   };
-  // openUitleg(): het programma; openUitleg('zaal'): dat hoofdstuk;
-  // openUitleg('extras', 'sync'): meteen bij die stap ("Hoe werkt dit?")
+  // openUitleg(): het programma; openUitleg('vanavond'): dat hoofdstuk;
+  // openUitleg('setup', 'sync'): meteen bij die stap, met alles van zijn
+  // deel ("Hoe werkt dit?")
   const openUitleg = (h, stap) => {
     if (!h) { setProgrammaOpen(true); return; }
-    const i = stap ? (vindHoofdstuk(h)?.stappen.findIndex((x) => x.id === stap) ?? -1) : 0;
-    startUitleg(h, Math.max(i, 0));
+    const hs = vindHoofdstuk(h);
+    const i = stap ? (hs?.stappen.findIndex((x) => x.id === stap) ?? -1) : -1;
+    if (i < 0) { startUitleg(h, 0); return; }
+    startUitleg(h, i, { deel: hs.stappen[i].deel });
   };
   const stopUitleg = () => setUitlegStand(null);
   const uitlegGekeken = useRef(false);
@@ -894,7 +899,7 @@ export default function App() {
     {premiereOpen && <Premiere app={app} onKlaar={sluitPremiere} />}
     {welkomOpen && !uitlegStand && (
       <UitlegWelkom
-        onRondleiding={() => { zetUitleg((u) => ({ ...u, welkom: 'rondleiding' })); startUitleg('welkom', 0); }}
+        onRondleiding={() => { zetUitleg((u) => ({ ...u, welkom: 'rondleiding' })); startUitleg('welkom', 0, { rondgang: true }); }}
         onZelf={() => { setWelkomOpen(false); zetUitleg((u) => ({ ...u, welkom: 'zelf' })); }}
         onCode={(code) => { setWelkomOpen(false); zetUitleg((u) => ({ ...u, welkom: 'gast' })); naarZaal(code); }} />
     )}
@@ -903,13 +908,18 @@ export default function App() {
     )}
     {uitlegStand && (
       <Rondleiding app={app} tab={tab} setTab={setTab} stand={uitlegStand} gezien={settings.uitleg?.gezien || []}
-        onStand={(h, stap) => { setUitlegStand({ h, s: stap }); zetUitleg((u) => metBezig(u, h, stap)); }}
+        onStand={(h, stap) => {
+          // Binnen een hoofdstuk blijven het deel en de rondgang staan
+          const zelfde = uitlegStand.h === h;
+          setUitlegStand(zelfde ? { ...uitlegStand, s: stap } : { h, s: stap });
+          zetUitleg((u) => metBezig(u, h, stap, zelfde ? uitlegStand.deel : null));
+        }}
         onStop={stopUitleg}
         onGezien={(h) => zetUitleg((u) => metGezien(u, h))}
-        onKlaar={(h, { volgende, programma } = {}) => {
-          zetUitleg((u) => metGezien(u, h));
+        onKlaar={(h, { volgende, programma, rondgang = false, gezien = true } = {}) => {
+          zetUitleg((u) => (gezien ? metGezien(u, h) : { ...u, bezig: null }));
           setUitlegStand(null);
-          if (volgende) startUitleg(volgende, 0);
+          if (volgende) startUitleg(volgende, 0, { rondgang });
           else if (programma) setProgrammaOpen(true);
         }} />
     )}

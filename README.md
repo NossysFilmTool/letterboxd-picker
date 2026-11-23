@@ -9,17 +9,21 @@ optional features use a small server; see Privacy for exactly what they send.
 
 ## Features
 
-- **The guided tour**: Guide, top right, walks you through everything the
-  tool can do, in fourteen short chapters, from loading your export to the
-  house vote and sync. The light falls on the real button, the examples use
-  your own films (or the demo list), and you can let the tour show you or
-  tap it yourself. It leaves no trace by itself: a real pick or a real house
+- **The guided tour**: Guide, top right, walks you through the tool in seven
+  short chapters, from loading your export to the house vote and sync. Each
+  chapter keeps to the essentials, with "More about this" when you want the
+  details. The light falls on the real button, the examples use your own
+  films (or the demo list), and you can let the tour show you or tap it
+  yourself. It leaves no trace by itself: a real pick or a real house
   is your choice, and it never erases anything. Search it ("export", "code", "sync"), or tap
   How does this work? next to the cards with the most setup.
 - **Tonight**: the box office. Choose a mood ("short evening", "hidden gem"),
   see how many films are in the pot, decide what goes on the table (length,
   genres, language, period, score, your streaming services) and pick. Your
-  film gets a trailer, then its ticket slides out of the box office. A smart
+  film gets a trailer, then its ticket slides out of the box office. Above
+  it, the main feature: one feature film a day from your list, chosen on a
+  score you can trust and your taste, with the reason and a short film to
+  go before it. A smart
   mode favours higher-rated films and avoids recent picks. You can also pick
   from your own Letterboxd lists.
 - **Archive**: your watchlist, watch history and tickets, filtered with a
@@ -178,9 +182,12 @@ welke er draait en kun je alvast stemmen, en na afloop gaat iedereen naar
 huis met het kaartje: te bewaren in de eigen kaartjesdoos of te delen als
 plaatje.
 
-Nieuw in 5.7: de rondleiding. Onder Uitleg, rechtsboven, neemt de tool je
-in veertien korte hoofdstukken mee langs alles wat hij kan, van je export
-laden tot de zaalstemming en sync. Het licht valt op de echte knop, de
+Nieuw in 5.8: de hoofdfilm van vanavond kiest slimmer, op een betrouwbaar
+cijfer en je smaak, nooit meer een korte film (die staat eronder als
+voorfilm), en met afwisseling over de dagen. En de rondleiding is dunner.
+Onder Uitleg, rechtsboven, neemt de tool je in zeven korte hoofdstukken mee,
+van je export laden tot de zaalstemming en sync. Elk hoofdstuk houdt het bij
+de kern; onder Meer hierover staat de rest. Het licht valt op de echte knop, de
 voorbeelden komen uit je eigen films (of de demo-lijst), en je laat het
 voordoen of tikt het zelf. Uit zichzelf laat hij geen sporen na: een echte
 pick of een echte zaal is je eigen keuze, en wissen doet hij nooit. Zoek erin ("export", "code",

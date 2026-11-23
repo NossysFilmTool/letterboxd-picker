@@ -7,7 +7,7 @@ import { aanvangTijd } from '../lib/kaartje.js';
 import { inDeDoos } from '../lib/kaartjesdoos.js';
 import { leesOpslag, useLS } from '../lib/storage.js';
 import { netBinnen } from '../lib/aanbod.js';
-import { kiesHoofdfilm, beschrijfHoofdfilm, vandaag } from '../lib/voorpagina.js';
+import { kiesHoofdfilm, kiesVoorfilm, beschrijfHoofdfilm, vandaag } from '../lib/voorpagina.js';
 import { ontgrendel } from '../lib/zaalgeluid.js';
 import { useT, decimaal } from '../lib/i18n.js';
 import Leader from '../components/Leader.jsx';
@@ -158,23 +158,58 @@ export default function Pick({ app }) {
   const dag = vandaag(nu);
   const [hfWeg, setHfWeg] = useLS('hoofdfilmWeg', { dag: '', keys: [] });
   const weg = hfWeg?.dag === dag ? hfWeg.keys : [];
+  // Voor de afwisseling: de hoofdfilms van eerdere dagen, en op welke dagen
+  // je een film wegklikte (lib/voorpagina.js)
+  const [hfLog, setHfLog] = useLS('hoofdfilmLog', []);
+  const [hfOvergeslagen, setHfOvergeslagen] = useLS('hoofdfilmOvergeslagen', {});
+  const vorige = (Array.isArray(hfLog) ? hfLog : []).filter((v) => v.dag !== dag);
   const [voorkeur, setVoorkeur] = useState(null);
   const binnen = useMemo(() => netBinnen(watchlist, meta, { mijnDiensten: diensten, seenSet }), [watchlist, meta, diensten, seenSet]);
   const keuze = useMemo(() => {
     const ratedFilms = app.ratedFilms || [];
     if (voorkeur) {
       const f = watchlist.find((x) => x.key === voorkeur);
-      if (f && meta[f.key]) return beschrijfHoofdfilm(f, { meta, ratedFilms, mijnDiensten: diensten, binnen, nu: beginNu });
+      if (f && meta[f.key]) return beschrijfHoofdfilm(f, { meta, ratedFilms, mijnDiensten: diensten, binnen, taste: app.taste, nu: beginNu });
     }
-    const basisArgs = { watchlist, meta, seenSet, ratedFilms, mijnDiensten: diensten, nu: beginNu };
+    const basisArgs = {
+      watchlist, meta, seenSet, ratedFilms, mijnDiensten: diensten, nu: beginNu,
+      taste: app.taste, vorige, overgeslagen: hfOvergeslagen || {}, gepickt: history || [],
+    };
     return kiesHoofdfilm({ ...basisArgs, weg }) || (weg.length ? kiesHoofdfilm({ ...basisArgs, weg: [] }) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voorkeur, watchlist, meta, seenSet, app.ratedFilms, diensten, binnen, dag, weg.join('|')]);
+  }, [voorkeur, watchlist, meta, seenSet, app.ratedFilms, app.taste, diensten, binnen, dag, weg.join('|'), JSON.stringify(vorige), hfOvergeslagen, history]);
+  // Wat vandaag de hoofdfilm is, onthouden voor de afwisseling van morgen
+  const keuzeKey = !voorkeur ? keuze?.film.key : null;
+  useEffect(() => {
+    if (!keuzeKey) return;
+    setHfLog((log) => {
+      const oud = Array.isArray(log) ? log : [];
+      if (oud.some((v) => v.dag === dag && v.key === keuzeKey)) return log;
+      return [...oud.filter((v) => v.dag !== dag), { dag, key: keuzeKey }].slice(-14);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keuzeKey, dag]);
   const anderHoofdfilm = () => {
     if (!keuze) return;
     setVoorkeur(null);
     setHfWeg({ dag, keys: [...weg.filter((k) => k !== keuze.film.key), keuze.film.key] });
+    // Op hoeveel dagen je hem wegklikte: drie keer en hij zakt
+    const key = keuze.film.key;
+    setHfOvergeslagen((o) => {
+      const alle = { ...(o || {}) };
+      alle[key] = [...new Set([...(alle[key] || []), dag])].slice(-5);
+      const sleutels = Object.keys(alle);
+      if (sleutels.length > 200) sleutels.slice(0, sleutels.length - 200).forEach((k) => { delete alle[k]; });
+      return alle;
+    });
   };
+  // De voorfilm: een korte film van je lijst, met een eigen filmkaart
+  const voorfilm = useMemo(
+    () => kiesVoorfilm({ watchlist, meta, seenSet, taste: app.taste, nu: beginNu, zonder: keuze?.film.key }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [watchlist, meta, seenSet, app.taste, dag, keuze?.film.key],
+  );
+  const [voorfilmOpen, setVoorfilmOpen] = useState(false);
   const alsHoofdfilm = (film) => {
     setVoorkeur(film.key);
     document.querySelector('.hoofdfilm')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
@@ -267,7 +302,18 @@ export default function Pick({ app }) {
   }
 
   const hoofd = keuze
-    ? <Hoofdfilm keuze={keuze} aanvang={aanvangTijd(nu)} onKaartje={pakHoofdfilm} onAnder={anderHoofdfilm} bezig={phase !== 'idle'} />
+    ? (
+      <>
+        <Hoofdfilm keuze={keuze} aanvang={aanvangTijd(nu)} onKaartje={pakHoofdfilm} onAnder={anderHoofdfilm} bezig={phase !== 'idle'}
+          voorfilm={voorfilm} voorfilmOpen={voorfilmOpen} onVoorfilm={() => setVoorfilmOpen((o) => !o)} />
+        {voorfilm && voorfilmOpen && (
+          <div className="voorfilm-kaart">
+            <Winner film={voorfilm.film} meta={voorfilm.m} context={tr('voorpagina.voorfilmKaart')}
+              seen={seenSet.has(voorfilm.film.key)} onToggleSeen={() => app.toggleSeen(voorfilm.film.key)} />
+          </div>
+        )}
+      </>
+    )
     : <h1 className="page-title">{tr('pick.title')}</h1>;
 
   const vraagBlok = vraag && (

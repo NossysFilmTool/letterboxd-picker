@@ -50,7 +50,7 @@ export default function SyncApparaten({ app }) {
       <p className="label" style={{ marginBottom: 6 }}>{tr('sync.titel')}</p>
       {!code ? (
         <>
-          <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('sync.uitleg')} <HoeWerktDit app={app} h="extras" stap="sync" /></p>
+          <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('sync.uitleg')} <HoeWerktDit app={app} h="setup" stap="sync" /></p>
           {app.demoMode ? (
             <p className="notice">{tr('sync.nietInDemo')}</p>
           ) : (

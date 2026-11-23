@@ -37,7 +37,7 @@ export default function LetterboxdLive({ app }) {
   return (
     <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-live">
       <p className="label" style={{ marginBottom: 6 }}>{tr('lbLive.titel')}</p>
-      <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('lbLive.uitleg')} <HoeWerktDit app={app} h="extras" stap="live" /></p>
+      <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>{tr('lbLive.uitleg')} <HoeWerktDit app={app} h="setup" stap="live" /></p>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <input className="field" style={{ maxWidth: 240 }} placeholder={tr('lbLive.placeholder')} value={invoer}
           onChange={(e) => setInvoer(e.target.value)} aria-label={tr('lbLive.naam')}

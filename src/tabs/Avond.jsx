@@ -397,7 +397,7 @@ export default function Avond({ app }) {
         <section className="card zs-kaart" aria-label={tr('zaal.titel')} data-uitleg="zaal-kaart">
           <div className="zs-kaart-tekst">
             <h2 className="zs-kaart-kop">{tr('zaal.titel')}</h2>
-            <p>{tr('zaal.uitleg')} <HoeWerktDit app={app} h="zaal" /></p>
+            <p>{tr('zaal.uitleg')} <HoeWerktDit app={app} h="samen" stap="zaal" /></p>
             <div className="zs-kaart-knoppen">
               <button type="button" className="btn primary" onClick={openZaal} disabled={zaalBezig || basePool.length < 3} data-uitleg="zaal-open">
                 {zaalBezig ? tr('zaal.openen') : tr('zaal.open')}
