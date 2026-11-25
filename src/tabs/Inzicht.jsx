@@ -139,6 +139,7 @@ export default function Inzicht({ app }) {
       nietEngels: tp.nietEngels,
       medianVotes: tp.medianVotes,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- de genre- en themanamen volgen de taal
   }, [watchlist, ratedFilms, meta, shortlist, skipped, lang]);
 
   if (!watchlist.length) {
@@ -168,20 +169,6 @@ export default function Inzicht({ app }) {
 
   return (
     <div>
-      {ritme && (
-        <div className="card" style={{ marginBottom: 18 }} data-uitleg="jaarboek-ritme">
-          <p className="label" style={{ marginBottom: 10 }}>{tr('inzicht.rhythm')}</p>
-          <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 56, marginBottom: 10 }} aria-hidden="true">
-            {ritme.maanden.map((x) => (
-              <div key={`${x.y}-${x.m}`} title={`${x.count}`} style={{ flex: 1, minWidth: 8, height: `${x.count ? Math.max(12, (x.count / ritme.max) * 100) : 4}%`, borderRadius: 1, background: x.count === ritme.max && x.count ? 'var(--paper)' : 'var(--line-strong)' }} />
-            ))}
-          </div>
-          <p style={{ color: 'var(--fog)', fontSize: 13.5 }}>
-            {tr('inzicht.rhythmLine', { count: ritme.totaal, month: ritme.piekNaam })}
-            {ritme.herkijk ? ` · ${tr('inzicht.rewatchLine', { count: ritme.herkijk })}` : ''}
-          </p>
-        </div>
-      )}
       <div className="toprow">
         <div>
           <h1 className="page-title">{tr('inzicht.title')}</h1>
@@ -196,6 +183,33 @@ export default function Inzicht({ app }) {
         </div>
       )}
 
+      {/* Eerst de getallen, dan je ritme en je smaak */}
+      <div
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}
+        data-uitleg="jaarboek-cijfers" data-uitleg-n={watchlist.length} data-uitleg-nog={unseen}
+      >
+        {metrics.map(([label, val]) => (
+          <div className="card" key={label} style={{ padding: '14px 16px' }}>
+            <p style={{ color: 'var(--fog-dim)', fontSize: 12 }}>{label}</p>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>{val}</p>
+          </div>
+        ))}
+      </div>
+
+      {ritme && (
+        <div className="card" style={{ marginBottom: 18 }} data-uitleg="jaarboek-ritme">
+          <p className="label" style={{ marginBottom: 10 }}>{tr('inzicht.rhythm')}</p>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 56, marginBottom: 10 }} aria-hidden="true">
+            {ritme.maanden.map((x) => (
+              <div key={`${x.y}-${x.m}`} title={`${x.count}`} style={{ flex: 1, minWidth: 8, height: `${x.count ? Math.max(12, (x.count / ritme.max) * 100) : 4}%`, borderRadius: 1, background: x.count === ritme.max && x.count ? 'var(--paper)' : 'var(--line-strong)' }} />
+            ))}
+          </div>
+          <p style={{ color: 'var(--fog)', fontSize: 13.5 }}>
+            {tr('inzicht.rhythmLine', { count: ritme.totaal, month: ritme.piekNaam })}
+            {ritme.herkijk ? ` · ${tr('inzicht.rewatchLine', { count: ritme.herkijk })}` : ''}
+          </p>
+        </div>
+      )}
       <div className="card" style={{ marginBottom: 18 }} data-uitleg="jaarboek-profiel">
         <p className="label" style={{ marginBottom: 10 }}><Sparkles size={14} style={{ verticalAlign: -2 }} /> {tr('inzicht.profileTitle')}</p>
         {!smaak.sterk && (
@@ -325,18 +339,6 @@ export default function Inzicht({ app }) {
             <button className="btn" onClick={leerSmaak} disabled={!!leren}>{geleerd ? tr('inzicht.leerOpnieuw') : tr('inzicht.leerKnop')}</button>
           </div>
         </div>
-      </div>
-
-      <div
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}
-        data-uitleg="jaarboek-cijfers" data-uitleg-n={watchlist.length} data-uitleg-nog={unseen}
-      >
-        {metrics.map(([label, val]) => (
-          <div className="card" key={label} style={{ padding: '14px 16px' }}>
-            <p style={{ color: 'var(--fog-dim)', fontSize: 12 }}>{label}</p>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>{val}</p>
-          </div>
-        ))}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }} data-uitleg="jaarboek-lijstjes">

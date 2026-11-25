@@ -1,4 +1,4 @@
-# Nossy's Letterboxd Watchlist Picker
+# ShutterBox
 
 Can't decide what to watch tonight? Load your Letterboxd watchlist and let the
 tool pick. By mood, together with friends (veto rounds and brackets), or
@@ -69,6 +69,24 @@ optional features use a small server; see Privacy for exactly what they send.
 - Fully bilingual (Dutch/English), streaming region selectable, installable
   as an app, JSON backup and restore.
 
+## New in version 6
+
+Version 6 gets the tool ready to be hosted for everyone.
+
+- **A new name**: ShutterBox, with the ShutterScore as its own score. Your
+  list, tickets and settings move along by themselves, and if you already
+  used the tool, it tells you once.
+- **Every screen has its own address** (`#archive`, `#programme`,
+  `#movie-night`, `#yearbook`, `#setup`), so Back, bookmarks and shared
+  links work.
+- **Movie night asks how you choose**: on the couch with one phone, in the
+  room with a screen and everyone's phone, or by link, each at home.
+- **Lighter to load**: a guest who scans the QR code loads only the voting
+  screen, and everyone loads only their own language. After the first
+  visit, the installed app also starts without a network.
+- **What went wrong**: Setup lists what failed in the background, on this
+  device only, ready to copy when you ask for help.
+
 ## New in version 5
 
 Version 5 turns the tool into a cinema around your watchlist.
@@ -133,14 +151,25 @@ hosted site.
 
 ```bash
 npm install
-npm run dev     # dev server
-npm test        # test suite (vitest + jsdom + fake-indexeddb)
-npm run build   # single-file build in dist/index.html
+npm run dev        # dev server
+npm test           # test suite in tests/ (vitest + jsdom + fake-indexeddb)
+npm run lint       # ESLint
+npm run build      # the hosted site, in dist/
+npm run build:los  # everything in one HTML file, in dist-los/index.html
 ```
 
-The build is one self-contained HTML file (vite-plugin-singlefile). Host it
-anywhere or just double-click it. Pushes to `main` deploy to GitHub Pages
-via Actions. Tests must pass first.
+The hosted build is split into files: a guest loads only their own screen,
+and everyone loads only their own language. On install, the service worker
+stores every file listed in `bestanden.json`, so the installed app starts
+offline after the first visit. `build:los` makes one self-contained HTML
+file to open without a server or pass along. Pushes to `main` deploy to
+GitHub Pages via Actions; lint and tests must pass first. Needs Node 20.19+
+or 22.12+.
+
+The name lives in `src/lib/merk.js` (plus `index.html` and
+`public/manifest.webmanifest`, which the browser reads before the app
+starts). Storage uses its own neutral prefix, so a new name never moves
+anyone's data.
 
 ## The Worker
 
@@ -181,6 +210,17 @@ export blijft op je telefoon. Tijdens de trailers zie je op je telefoon
 welke er draait en kun je alvast stemmen, en na afloop gaat iedereen naar
 huis met het kaartje: te bewaren in de eigen kaartjesdoos of te delen als
 plaatje.
+
+Nieuw in 6.0: de tool heet voortaan ShutterBox, en de eigen score de
+ShutterScore. Je lijst, kaartjes en instellingen gaan vanzelf mee, en wie
+de tool al gebruikte, hoort het één keer. Elk scherm heeft een eigen adres
+(#archive, #setup, ...), zodat Terug en bladwijzers werken. Bij Filmavond
+kies je eerst hoe jullie kiezen: op de bank met één telefoon, in de zaal
+met een scherm en ieders telefoon, of met een link, ieder thuis. Een gast
+die de QR-code scant, laadt alleen het stemscherm, en iedereen alleen de
+eigen taal. Na het eerste bezoek start de geïnstalleerde app ook zonder
+netwerk. En onder Setup staat wat er op de achtergrond misging, om mee te
+sturen als je hulp vraagt.
 
 Nieuw in 5.8: de hoofdfilm van vanavond kiest slimmer, op een betrouwbaar
 cijfer en je smaak, nooit meer een korte film (die staat eronder als

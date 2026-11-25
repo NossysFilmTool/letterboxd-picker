@@ -38,7 +38,7 @@
 import { GENRES, discover, fetchDetailById } from './tmdb.js';
 import { opgeblazenReden, beoordeelCijfer } from './opgeblazen.js';
 import { filterPot, metStandaard } from './avondFilters.js';
-import { nossyScore } from './pick.js';
+import { appScore } from './pick.js';
 import { matchScore } from './taste.js';
 import { plekGewicht } from './rows.js';
 import { maakHerkenner } from './gezien.js';
@@ -352,7 +352,7 @@ export async function zoekAanraders({
       cijfer = oordeel.cijfer;
     }
     if (cijfer < MIN_CIJFER) return null;
-    if (filterPot([{ key: 'k', year: m.year }], { k: m }, filters, nossyScore, { diensten }).length !== 1) return null;
+    if (filterPot([{ key: 'k', year: m.year }], { k: m }, filters, appScore, { diensten }).length !== 1) return null;
     const looptijd = !m.runtime ? 0 : m.runtime < 80 ? -0.3 : m.runtime > 150 ? -0.5 : m.runtime > 135 ? -0.2 : 0;
     const vanavond = (m.trailer ? 0.3 : -1.5)
       + (m.flat?.some((p) => mijn.has(p)) ? 0.5 : m.flat?.length ? 0.15 : 0)

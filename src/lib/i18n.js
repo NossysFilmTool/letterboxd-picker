@@ -1,28 +1,44 @@
 import { useSyncExternalStore } from 'react';
+import { NAAM, SCORE } from './merk.js';
 
-// Lichtgewicht vertaal-laag — geen externe library, past in de single-file build.
+// Lichtgewicht vertaal-laag, zonder externe library.
 // Teksten leven in dictionaries (dict/nl.js, dict/en.js) als geneste objecten;
 // t('pick.title') zoekt 'title' onder 'pick'. Variabelen via {naam}-placeholders,
 // meervoud via t('key', { count: n }) op een { one, other } object.
+// Elke taal is een eigen bestand dat pas laadt als iemand hem kiest: main.jsx
+// laadt de eerste vóór het tekenen, setLang de volgende (de tests laden ze
+// allebei meteen, tests/setup.js).
 
 const DICTS = {};
 export function registerDict(lang, dict) { DICTS[lang] = dict; }
+const LADERS = { nl: () => import('./dict/nl.js'), en: () => import('./dict/en.js') };
 
 const SUPPORTED = ['nl', 'en'];
 export const DEFAULT_LANG = 'nl';
 
 let current = DEFAULT_LANG;
+let gevraagd = current; // de laatst gekozen taal, ook als die nog laadt
 const listeners = new Set();
 const emit = () => listeners.forEach((l) => l());
+
+export async function laadTaal(lang) {
+  const l = SUPPORTED.includes(lang) ? lang : DEFAULT_LANG;
+  if (!DICTS[l]) registerDict(l, (await LADERS[l]()).default);
+}
 
 export function getLang() { return current; }
 // Een getal met de decimaal zoals de taal hem schrijft: 7,5 (nl) of 7.5 (en)
 export const decimaal = (v) => (current === 'nl' ? String(v).replace('.', ',') : String(v));
 export function setLang(lang) {
   const next = SUPPORTED.includes(lang) ? lang : DEFAULT_LANG;
+  gevraagd = next;
   if (next === current) return;
-  current = next;
-  emit();
+  if (DICTS[next]) { current = next; emit(); return; }
+  // Nog niet geladen: eerst de teksten, dan pas wisselen (en alleen als je
+  // intussen niet weer iets anders koos)
+  laadTaal(next).then(() => {
+    if (gevraagd === next && current !== next) { current = next; emit(); }
+  }).catch(() => {});
 }
 
 // Slimme startwaarde: opgeslagen keuze > browsertaal > standaard
@@ -46,9 +62,12 @@ function lookup(dict, key) {
   return key.split('.').reduce((o, k) => (o == null ? undefined : o[k]), dict);
 }
 
+// {app} en {appScore} (de naam van de tool, lib/merk.js) staan altijd klaar
+const VAST = { app: NAAM, appScore: SCORE };
 function interpolate(str, vars) {
-  if (!vars) return str;
-  return str.replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? String(vars[k]) : m));
+  if (typeof str !== 'string' || !str.includes('{')) return str;
+  const alle = vars ? { ...VAST, ...vars } : VAST;
+  return str.replace(/\{(\w+)\}/g, (m, k) => (alle[k] != null ? String(alle[k]) : m));
 }
 
 // t('key') of t('key', { naam: 'x', count: 3 }).

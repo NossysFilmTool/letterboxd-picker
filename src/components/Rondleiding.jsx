@@ -449,6 +449,7 @@ export default function Rondleiding({ app, tab, setTab, stand, onStand, onStop, 
     window.addEventListener('resize', meet);
     const t = setInterval(meet, 300);
     return () => { window.removeEventListener('scroll', meet, true); window.removeEventListener('resize', meet); clearInterval(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opnieuw meten alleen voor een ander anker
   }, [zoek]);
 
   // Een doestap: wachten tot je het doet, dan vanzelf verder. Was het al
@@ -494,6 +495,7 @@ export default function Rondleiding({ app, tab, setTab, stand, onStand, onStop, 
     };
     window.addEventListener('keydown', toets);
     return () => window.removeEventListener('keydown', toets);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- doeVan hangt alleen van de stap af
   }, [fase, stap, onStop]);
 
   useLayoutEffect(() => { if (fase === 'eind' || fase === 'lijst') kopRef.current?.focus({ preventScroll: true }); }, [fase]);

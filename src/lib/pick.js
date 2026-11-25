@@ -6,7 +6,7 @@ export const MOODS = [
 ];
 
 export function moodTest(moodId, film, m) {
-  const ns = nossyScore(m); // gemiddelde van IMDb/RT/Meta/TMDB waar beschikbaar
+  const ns = appScore(m); // gemiddelde van IMDb/RT/Meta/TMDB waar beschikbaar
   switch (moodId) {
     case 'kort': return !!(m && m.runtime && m.runtime <= 105);
     case 'topper': return !!(ns && ns >= 7.4);
@@ -27,7 +27,7 @@ export function applyFilters(films, metaByKey, filters, seenSet) {
       if (!m || !m.runtime || m.runtime > filters.maxRuntime) return false;
     }
     if (filters.minVote) {
-      const ns = nossyScore(m);
+      const ns = appScore(m);
       if (!ns || ns < filters.minVote) return false;
     }
     if (filters.genres.length) {
@@ -48,7 +48,7 @@ export function pickWinner(pool, metaByKey, smart, history, rnd = Math.random) {
   const recent = new Set(history.slice(0, 20).map((h) => h.key));
   const weights = pool.map((f) => {
     const m = metaByKey[f.key];
-    const vote = nossyScore(m) ?? 6; // slimme pick weegt op de Nossy-score
+    const vote = appScore(m) ?? 6; // slimme pick weegt op de app-score
     let w = Math.pow(Math.max(vote, 1), 2);
     if (recent.has(f.key)) w *= 0.3;
     return w;
@@ -101,25 +101,27 @@ export function sample(arr, n) {
   return copy.slice(0, n);
 }
 
-// Nossy-score: gewogen gemiddelde van de cijfer-bronnen op een schaal van 10.
+// De app-score (in beeld: lib/merk.js SCORE): gewogen gemiddelde van de cijfer-bronnen op een schaal van 10.
 // Standaard tellen IMDb, Metacritic en TMDB gelijk — de eerdere dubbele
 // IMDb-weging was vooral tegenwicht tegen RT-inflatie, en dat argument
 // verviel toen RT eruit ging. Het recept is instelbaar (Setup): het is
 // tenslotte de Nóssy-score. Rotten Tomatoes telt bewust nooit mee: de
 // Tomatometer is een consensus-percentage, geen cijfer.
-export const DEFAULT_NOSSY_WEIGHTS = { imdb: 1, mc: 1, tmdb: 1 };
-let NOSSY_WEIGHTS = { ...DEFAULT_NOSSY_WEIGHTS };
-export const setNossyWeights = (w) => { NOSSY_WEIGHTS = { ...DEFAULT_NOSSY_WEIGHTS, ...(w || {}) }; };
-export const getNossyWeights = () => NOSSY_WEIGHTS;
+export const DEFAULT_SCORE_WEIGHTS = { imdb: 1, mc: 1, tmdb: 1 };
+let SCORE_WEIGHTS = { ...DEFAULT_SCORE_WEIGHTS };
+export const setScoreWeights = (w) => { SCORE_WEIGHTS = { ...DEFAULT_SCORE_WEIGHTS, ...(w || {}) }; };
+export const getScoreWeights = () => SCORE_WEIGHTS;
+// Je recept uit de instellingen (heette tot versie 6 nossyWeights)
+export const receptUit = (settings) => settings?.scoreWeights || settings?.nossyWeights || null;
 
-export function nossyScore(m) {
+export function appScore(m) {
   if (!m) return null;
   const parts = []; // [waarde, gewicht]
-  if (m.ext?.imdb && NOSSY_WEIGHTS.imdb > 0) parts.push([m.ext.imdb, NOSSY_WEIGHTS.imdb]);
-  if (m.ext?.mc && NOSSY_WEIGHTS.mc > 0) parts.push([m.ext.mc / 10, NOSSY_WEIGHTS.mc]);
+  if (m.ext?.imdb && SCORE_WEIGHTS.imdb > 0) parts.push([m.ext.imdb, SCORE_WEIGHTS.imdb]);
+  if (m.ext?.mc && SCORE_WEIGHTS.mc > 0) parts.push([m.ext.mc / 10, SCORE_WEIGHTS.mc]);
   // Een opgeblazen TMDB-cijfer (fans of bots, door IMDb niet bevestigd) telt
   // niet mee: Gabriel's Inferno III kreeg anders een 7,4 uit IMDb 6,5 en TMDB 8,3
-  if (m.vote && NOSSY_WEIGHTS.tmdb > 0 && !beoordeelCijfer(m).opgeblazen) parts.push([m.vote, NOSSY_WEIGHTS.tmdb]);
+  if (m.vote && SCORE_WEIGHTS.tmdb > 0 && !beoordeelCijfer(m).opgeblazen) parts.push([m.vote, SCORE_WEIGHTS.tmdb]);
   if (!parts.length) return null;
   const som = parts.reduce((a, [v, w]) => a + v * w, 0);
   const gewicht = parts.reduce((a, [, w]) => a + w, 0);

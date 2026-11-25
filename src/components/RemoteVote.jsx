@@ -32,7 +32,7 @@ export default function RemoteVote({ code, pollMs = 10000 }) {
   const winnaarBekend = !!sessie?.winner;
   usePoll(laad, pollMs, fase !== 'verstuurd' && !winnaarBekend);
 
-  useEffect(() => { laad(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [code]);
+  useEffect(() => { laad(); }, [code]); // eslint-disable-line react-hooks/exhaustive-deps -- alleen opnieuw bij een andere code
 
   const toggle = (key) => setPicks((p) => (p.includes(key) ? p.filter((k) => k !== key) : [...p, key]));
 
@@ -61,6 +61,8 @@ export default function RemoteVote({ code, pollMs = 10000 }) {
     return <div className="wrap" style={{ maxWidth: 560, margin: '60px auto', textAlign: 'center' }}><p>{tr('remote.loading')}</p></div>;
   }
 
+  // Een gastheer zonder naam (de server zet dan 'host'): een neutrale kop
+  const host = sessie.host && sessie.host !== 'host' ? sessie.host : null;
   const winnaar = sessie.winner ? sessie.films.find((f) => f.key === sessie.winner) : null;
   if (winnaar) {
     return (
@@ -79,7 +81,7 @@ export default function RemoteVote({ code, pollMs = 10000 }) {
       <div className="wrap" style={{ maxWidth: 560, margin: '60px auto', textAlign: 'center' }}>
         <div className="card">
           <p className="big" style={{ marginBottom: 6 }}><Check size={18} style={{ verticalAlign: -3 }} /> {tr('remote.sentTitle')}</p>
-          <p style={{ color: 'var(--fog)' }}>{tr('remote.sentWait', { host: sessie.host })}</p>
+          <p style={{ color: 'var(--fog)' }}>{host ? tr('remote.sentWait', { host }) : tr('remote.sentWaitZonder')}</p>
           <button className="btn ghost" style={{ marginTop: 14 }} onClick={() => setFase('stemmen')}>{tr('remote.changeVote')}</button>
         </div>
       </div>
@@ -88,7 +90,7 @@ export default function RemoteVote({ code, pollMs = 10000 }) {
 
   return (
     <div className="wrap" style={{ maxWidth: 720, margin: '30px auto', padding: '0 14px' }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>{tr('remote.title', { host: sessie.host })}</h1>
+      <h1 style={{ fontSize: 22, marginBottom: 4 }}>{host ? tr('remote.title', { host }) : tr('remote.titleZonder')}</h1>
       <p style={{ color: 'var(--fog)', marginBottom: 16 }}>{tr('remote.explain')}</p>
       <div className="poster-grid" style={{ marginBottom: 18 }}>
         {sessie.films.map((f) => (

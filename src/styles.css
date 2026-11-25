@@ -439,7 +439,7 @@ a.prov-link:hover { border-color: var(--paper); }
 .scores-preview .sp-before { color: var(--fog); }
 .scores-preview .sp-after { border-color: var(--line-strong); }
 .scores-preview .sp-src { color: var(--fog-dim); font-size: 11.5px; letter-spacing: 0.04em; }
-.scores-preview .sp-nossy { color: var(--paper); font-weight: 600; }
+.scores-preview .sp-app { color: var(--paper); font-weight: 600; }
 .scores-preview .sp-arrow { color: var(--fog-dim); }
 
 /* Spook-chipje op de scorerij: subtiele uitnodiging, nooit een popup */
@@ -987,6 +987,12 @@ a.prov-link:hover { border-color: var(--paper); }
 .voorpagina.breed .hoofdfilm-titel { font-size: 112px; }
 .hoofdfilm-titel.lang { font-size: 52px; }
 .voorpagina.breed .hoofdfilm-titel.lang { font-size: 80px; }
+/* Op een telefoon een breder, lager beeld: zo staat de kassa eerder in beeld */
+@media (max-width: 560px) {
+  .hoofdfilm-beeld { aspect-ratio: 2.39 / 1; }
+  .hoofdfilm-titel { font-size: 58px; }
+  .hoofdfilm-titel.lang { font-size: 44px; }
+}
 /* Het titelblok van een filmposter: de kleine woorden tussen de namen in */
 .titelblok { font-family: var(--font-kop); font-stretch: 62%; font-weight: 700; font-size: 16px; line-height: 1.15; color: rgba(255, 255, 255, 0.9); }
 .voorpagina.breed .titelblok { font-size: 20px; }
@@ -1072,6 +1078,17 @@ a.prov-link:hover { border-color: var(--paper); }
 .kop-setup { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; color: var(--fog); font-size: 13.5px; }
 .kop-setup svg { display: none; }
 .kop-setup:hover, .kop-setup.active { color: var(--paper); }
+/* Op een breed scherm blijft de kop staan (de navigatie altijd bij de hand);
+   een anker waar je naartoe springt, komt er niet onder te zitten */
+@media (min-width: 721px) {
+  .kop { position: sticky; top: 0; z-index: 30; background: var(--ink); }
+  html { scroll-padding-top: 76px; }
+}
+/* Een stip: hier wacht iets op je (de vraag over gisteren) */
+.kop-knop, .nav-btn { position: relative; }
+.nav-stip { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--paper); }
+.kop-knop .nav-stip { top: -3px; right: -9px; }
+.nav-btn .nav-stip { top: 6px; right: calc(50% - 16px); }
 .label-breed { font-family: var(--font-kop); font-stretch: 125%; font-size: 11px; font-weight: 600; color: var(--fog); font-variant-numeric: tabular-nums; }
 .content { max-width: 1040px; }
 .page-title { font-family: var(--font-kop); font-stretch: 62%; font-weight: 800; font-size: 84px; line-height: 0.84; letter-spacing: -0.015em; }
@@ -1087,6 +1104,18 @@ a.prov-link:hover { border-color: var(--paper); }
   .bottombar .nav-btn { gap: 4px; font-size: 11px; min-width: 60px; }
   .bottombar .nav-btn.active { font-weight: 700; }
 }
+
+/* Hoe kiezen jullie? (Avond.jsx): drie manieren als woorden, met een regel
+   eronder; dezelfde vorm als de tabs van het archief */
+.manier { margin: 4px 0 22px; }
+.manier-keuzes { display: flex; flex-wrap: wrap; gap: 4px 30px; margin-top: 8px; border-bottom: 1px solid var(--line-strong); }
+.manier-knop { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 44px; padding: 0 0 10px; margin-bottom: -1px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--fog); text-align: left; cursor: pointer; }
+.manier-knop:hover { color: var(--paper); }
+.manier-knop.actief { color: var(--paper); border-bottom-color: var(--paper); }
+.manier-titel { font-size: 17px; font-weight: 600; }
+.manier-sub { font-size: 12.5px; color: var(--fog-dim); }
+.manier-intro { max-width: 640px; margin-bottom: 14px; color: var(--fog); font-size: 13.5px; }
+@media (max-width: 560px) { .manier-keuzes { gap: 4px 20px; } .manier-titel { font-size: 16px; } }
 
 /* Het archief (Bieb.jsx): tabs als woorden, een filterzin, films per decennium */
 .archief-tabs { display: flex; gap: 22px; margin-top: 16px; border-bottom: 1px solid var(--line-strong); }

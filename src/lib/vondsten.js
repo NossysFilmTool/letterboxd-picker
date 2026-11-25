@@ -101,7 +101,7 @@ export function gevondenKaartjes(vondsten = {}, { diary = [], gezienOp = {}, own
 }
 
 // Recente logs uit je dagboek die (nog) niet in de doos zitten: daar kun je
-// zelf "Gevonden via Nossy" op zeggen
+// zelf "Gevonden via" (de tool) op zeggen
 export function recentGelogd(diary = [], inDoosKeys = new Set(), { nu = Date.now(), dagen = 30 } = {}) {
   const vanaf = dag(nu - dagen * DAG);
   const gezien = new Set();

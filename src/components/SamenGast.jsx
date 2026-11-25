@@ -27,7 +27,7 @@ export default function SamenGast({ code, pollMs = 10000 }) {
   const laad = async () => {
     try { setSessie(await getSession(code)); setFout(null); } catch (e) { if (!sessie) setFout(e.message); }
   };
-  useEffect(() => { laad(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [code]);
+  useEffect(() => { laad(); }, [code]); // eslint-disable-line react-hooks/exhaustive-deps -- alleen opnieuw bij een andere code
   usePoll(laad, pollMs, fase === 'verstuurd' && !sessie?.winner);
 
   const verstuur = async (scores) => {

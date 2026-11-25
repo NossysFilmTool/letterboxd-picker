@@ -90,7 +90,7 @@ export function aanraderReden(film, tr) {
 // een aanrader waarom, en wie hem voordroeg
 export function ZaalFilmInhoud({ film, badge }) {
   const { t: tr } = useT();
-  const gegevens = [film.year, film.runtime ? tr('zaal.minuten', { n: film.runtime }) : null, film.score != null ? `Nossy ${fmtScore(film.score)}` : null].filter(Boolean);
+  const gegevens = [film.year, film.runtime ? tr('zaal.minuten', { n: film.runtime }) : null, film.score != null ? `${tr('winner.appScore')} ${fmtScore(film.score)}` : null].filter(Boolean);
   return (
     <>
       <span className="zs-film-poster" aria-hidden="true">

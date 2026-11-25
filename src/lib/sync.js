@@ -106,6 +106,8 @@ const naarHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padS
 const naarB64 = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
 const vanB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
+// De voorvoegsels hieronder zijn vaste zoutjes, geen naam: elke bestaande
+// koppelcode is ermee afgeleid. Nooit veranderen, ook niet bij een nieuwe naam.
 export async function sleutelsVan(code) {
   const tekst = new TextEncoder();
   const id = naarHex(await subtle().digest('SHA-256', tekst.encode(`nossy-sync-id:${code}`)));

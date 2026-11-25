@@ -1,4 +1,4 @@
-import { nossyScore, fmtScore } from './pick.js';
+import { appScore, fmtScore } from './pick.js';
 
 // Het bioscoopkaartje van een pick ("De zaal", DESIGN.md). Alles op het
 // kaartje is echt: aanvang is nu (afgerond op het volgende vijftal minuten),
@@ -47,11 +47,11 @@ export function kaartjeInhoud(film, meta, { tr, lang, personen = 1, namen = null
   else if (meta?.director) aftiteling = tr('kaartje.aftitelingRegie', { regie: meta.director });
   else if (cast.length) aftiteling = tr('kaartje.aftitelingCast', { namen: namenLijst(cast, tr('kaartje.en')) });
 
-  // Het cijfer: Nossy bij twee of meer bronnen, anders TMDB (een opgeblazen
-  // TMDB-cijfer laat nossyScore al weg; dan staat er geen cijfer)
-  const ns = nossyScore(meta);
+  // Het cijfer: de app-score bij twee of meer bronnen, anders TMDB (een opgeblazen
+  // TMDB-cijfer laat appScore al weg; dan staat er geen cijfer)
+  const ns = appScore(meta);
   const bronnen = meta ? [meta.ext?.imdb, meta.ext?.mc, meta.vote].filter((v) => v != null).length : 0;
-  const cijfer = ns == null ? null : { label: bronnen >= 2 ? tr('winner.nossy') : 'TMDB', waarde: fmtScore(ns) };
+  const cijfer = ns == null ? null : { label: bronnen >= 2 ? tr('winner.appScore') : 'TMDB', waarde: fmtScore(ns) };
 
   const flat = meta?.flat || [];
   const rent = meta?.rent || [];
@@ -84,7 +84,7 @@ export function kaartjeInhoud(film, meta, { tr, lang, personen = 1, namen = null
 // Een streepjescode als reeks [x, breedte], vast per code: dezelfde film
 // geeft altijd dezelfde streepjes. Geen echte barcode, wel herkenbaar.
 export function streepjes(code, breedte = 190) {
-  const s = String(code || 'nossy');
+  const s = String(code || 'kaartje');
   const uit = [];
   let x = 0;
   let i = 0;

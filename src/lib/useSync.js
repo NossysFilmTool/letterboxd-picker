@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { opWijziging, leesOpslag, schrijfOpslag } from './storage.js';
+import { logFout } from './foutlog.js';
 import { synchroniseer, wisselCode, kolomVan, vingerafdruk, maakCode, GESYNCTE_SLEUTELS } from './sync.js';
 
 // De sync tussen je apparaten laten lopen (lib/sync.js): bij het openen, als
@@ -40,6 +41,7 @@ export function useSync({ pasToe, uit = false }) {
       bewaar({ ...staat, code: s.code });
       if (toegepast.length) pasToeRef.current?.(toegepast);
     } catch (e) {
+      logFout('sync', e);
       bewaar({ ...standRef.current, fout: e.message, laatst: Date.now() });
     } finally {
       bezigRef.current = false;
@@ -87,6 +89,7 @@ export function useSync({ pasToe, uit = false }) {
       if (toegepast.length) pasToeRef.current?.(toegepast);
       return true;
     } catch (e) {
+      logFout('sync', e);
       bewaar({ ...standRef.current, fout: e.message, laatst: Date.now() });
       return false;
     } finally {

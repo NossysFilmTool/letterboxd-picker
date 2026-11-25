@@ -1,13 +1,15 @@
 {
-  "name": "nossy-letterboxd-picker",
+  "name": "shutterbox",
   "private": true,
-  "version": "5.8.0",
+  "version": "6.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:los": "vite build --mode los",
     "preview": "vite preview",
-    "test": "vitest run smoke.test.jsx idb.test.jsx stijl.test.js --environment jsdom"
+    "test": "vitest run",
+    "lint": "eslint src tests worker public/sw.js vite.config.js eslint.config.js"
   },
   "dependencies": {
     "jszip": "^3.10.1",
@@ -17,12 +19,17 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@testing-library/react": "^16.3.2",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^5.2.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "fake-indexeddb": "^6.2.5",
+    "globals": "^15.15.0",
     "jsdom": "^29.1.1",
-    "vite": "^5.4.11",
-    "vite-plugin-singlefile": "^2.0.3",
+    "vite": "^7.3.8",
+    "vite-plugin-singlefile": "^2.3.4",
     "vitest": "^4.1.10"
   }
 }

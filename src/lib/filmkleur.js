@@ -1,3 +1,4 @@
+import { NS } from './naamruimte.js';
 import { useEffect, useState } from 'react';
 import { IMG } from './tmdb.js';
 
@@ -11,7 +12,7 @@ import { IMG } from './tmdb.js';
 
 const STANDAARD = '#3a3632';
 const geheugen = new Map();
-const OPSLAG = 'nossyV2.filmkleuren';
+const OPSLAG = `${NS}.filmkleuren`;
 let opgeslagen = null;
 const leesOpslag = () => {
   if (opgeslagen) return opgeslagen;

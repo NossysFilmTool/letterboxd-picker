@@ -134,7 +134,7 @@ import { t as tt, getLang } from './i18n.js';
 import { genreLabel } from './tmdb.js';
 const lblFromEn = (gn) => { const g = GENRES.find((x) => x.en === gn); return g ? genreLabel(g) : gn; };
 
-// Thema-nadruk is instelbaar (net als de Nossy-weging). 0 = thema's tellen niet
+// Thema-nadruk is instelbaar (net als de weging van de app-score). 0 = thema's tellen niet
 // mee (klassiek gedrag), 1 = standaard, tot 2 = sterk themagedreven. De weging
 // wordt in matchScore verrekend zodat de componenten samen altijd 1 zijn.
 export const DEFAULT_THEME_EMPHASIS = 1;

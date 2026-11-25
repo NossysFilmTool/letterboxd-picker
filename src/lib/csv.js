@@ -1,5 +1,4 @@
 import Papa from 'papaparse';
-import JSZip from 'jszip';
 import { filmKey } from './storage.js';
 
 function parseCsvText(text) {
@@ -72,6 +71,8 @@ export async function parseLetterboxdFiles(fileList) {
   for (const file of fileList) {
     const lower = file.name.toLowerCase();
     if (lower.endsWith('.zip')) {
+      // Pas laden bij een ZIP: wie de CSV's los kiest, heeft hem niet nodig
+      const { default: JSZip } = await import('jszip');
       const zip = await JSZip.loadAsync(file);
       for (const [path, entry] of Object.entries(zip.files)) {
         if (entry.dir) continue;

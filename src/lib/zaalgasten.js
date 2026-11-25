@@ -18,7 +18,7 @@ import { buildTaste } from './taste.js';
 import { kandidaatVoorSessie, scoorKandidaten, informatieveRatings, ONDERGRENS } from './samen.js';
 import { maakHerkenner } from './gezien.js';
 import { leesOpslag } from './storage.js';
-import { nossyScore } from './pick.js';
+import { appScore } from './pick.js';
 
 // Het onthouden profiel op een gast-telefoon: { profiel }
 export const MIJN_LETTERBOXD = 'zaalMijnLetterboxd';
@@ -102,7 +102,7 @@ export function oordeelVan(kandidaten, profiel) {
 // nog wel zien of je hem al zag (op titel en jaar).
 export function vraagUitPot(pool, meta, max = MAX_VRAAG) {
   return pool
-    .map((f) => ({ f, w: (meta[f.key]?.genres?.length ? 20 : 0) + (meta[f.key]?.trailer ? 10 : 0) + (nossyScore(meta[f.key]) ?? 6) }))
+    .map((f) => ({ f, w: (meta[f.key]?.genres?.length ? 20 : 0) + (meta[f.key]?.trailer ? 10 : 0) + (appScore(meta[f.key]) ?? 6) }))
     .sort((a, b) => b.w - a.w)
     .slice(0, max)
     .map(({ f }) => kandidaatVoorSessie(f, meta[f.key]));

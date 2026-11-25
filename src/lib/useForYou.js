@@ -13,6 +13,7 @@ import { PRIJSLIJSTEN } from './prijzen.js';
 import { opgeblazenReden } from './opgeblazen.js';
 import { fetchExtRatings } from './omdb.js';
 import { KLASSIEK_TOT } from './foryou.js';
+import { logFout } from './foutlog.js';
 
 const HIST_PER_SESSIE = 60;
 const GEEN = [];
@@ -81,6 +82,17 @@ export function useForYou(app, actief) {
   const themaGeladen = useRef(''); // signatuur van de top-thema's waarop al gejaagd is
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  // Lukt het ophalen wel? '?' nog niets geprobeerd, 'ok' iets kwam binnen,
+  // 'mis' alles wat we probeerden mislukte (geen netwerk, de server plat).
+  // Zo zegt een leeg Voor jou niet "alles beoordeeld" als het niet lukte.
+  const [net, setNet] = useState('?');
+  const viaNet = (p) => p.then(
+    (r) => { if (mounted.current) setNet('ok'); return r; },
+    (e) => { logFout('voorjou', e); if (mounted.current) setNet((n) => (n === 'ok' ? n : 'mis')); throw e; },
+  );
+  // Opnieuw proberen na een mislukking: alles wat deze sessie al geprobeerd
+  // werd, mag nog eens
+  const [poging, setPoging] = useState(0);
 
   // Kandidaat-details: per TMDB-id, slank gecachet, per regio. Verken vraagt
   // ze op voor wat zichtbaar is en voor de sterkste kandidaten.
@@ -236,7 +248,7 @@ export function useForYou(app, actief) {
         for (const s of simTodo) {
           if (!mounted.current) return;
           try {
-            const sims = await fetchSimilar(meta[s.key].id, key);
+            const sims = await viaNet(fetchSimilar(meta[s.key].id, key));
             setMeta((prev) => (prev[s.key] ? { ...prev, [s.key]: { ...prev[s.key], sims } } : prev));
           } catch { /* similar is bonus */ }
         }
@@ -256,7 +268,7 @@ export function useForYou(app, actief) {
         }
         // 3. Profiel-discover: instroom die aan géén bestaande film hangt
         if (profielTodo && mounted.current) {
-          const batches = await Promise.all(profielQueries(1, true).map((q) => discoverGems(key, q).catch(() => ({ results: [] }))));
+          const batches = await Promise.all(profielQueries(1, true).map((q) => viaNet(discoverGems(key, q)).catch(() => ({ results: [] }))));
           const cands = batches.reduce((acc, b) => voegNieuweToe(acc, b.results), []);
           // vooraan zetten, maar wat "Andere suggesties" intussen al ophaalde behouden
           if (mounted.current) setProfielCands((prev) => voegNieuweToe(cands, prev));
@@ -267,7 +279,7 @@ export function useForYou(app, actief) {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actief, tmdbKey, seedSig, dirSig, enrich.running, blendTick]);
+  }, [actief, tmdbKey, seedSig, dirSig, enrich.running, blendTick, poging]);
 
   // Thema-jacht: films die jouw top-thema's delen, automatisch zodra die
   // bestaan. We jagen op páren thema's die allebei in de film moeten zitten:
@@ -287,7 +299,7 @@ export function useForYou(app, actief) {
   };
   const jaag = async (key, page) => {
     let fout = false;
-    const lijsten = await Promise.all(themaJachten().map((j) => discoverByKeywords(key, j.ids, { minVotes: 40, page, alle: true })
+    const lijsten = await Promise.all(themaJachten().map((j) => viaNet(discoverByKeywords(key, j.ids, { minVotes: 40, page, alle: true }))
       // Merk elke treffer met de thema's waarop gejaagd is, zodat de kaart kan uitleggen waarom
       .then((d) => d.results.map((r) => ({ ...r, viaTheme: j.namen })))
       .catch(() => { fout = true; return []; })));
@@ -308,7 +320,7 @@ export function useForYou(app, actief) {
       setThemaPage(1);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tmdbKey, actief, themaSig, enrich.running]);
+  }, [tmdbKey, actief, themaSig, enrich.running, poging]);
 
   // "Nu op jouw diensten": welke diensten jij hebt (onthouden), de lijst van
   // diensten in je regio (eens per 30 dagen), en wat daar nu staat en bij je
@@ -399,7 +411,7 @@ export function useForYou(app, actief) {
     canonBezig.current = true;
     (async () => {
       try {
-        const batches = await Promise.all(canonQueries().map((q) => discoverGems(tmdbKey, q).catch(() => null)));
+        const batches = await Promise.all(canonQueries().map((q) => viaNet(discoverGems(tmdbKey, q)).catch(() => null)));
         if (!mounted.current || batches.every((b) => !b)) return;
         const films = batches.filter(Boolean).reduce((acc, b) => voegNieuweToe(acc, b.results), []);
         setCanon({ sig: canonSig, at: Date.now(), films });
@@ -408,7 +420,7 @@ export function useForYou(app, actief) {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actief, tmdbKey, canonSig, enrich.running]);
+  }, [actief, tmdbKey, canonSig, enrich.running, poging]);
   const canonCands = canon?.films || [];
   // Prijslijsten (lib/prijzen.js): pas als je profiel sterk genoeg is om de
   // winnaars op jóuw smaak te sorteren, anders is het een willekeurige lijst
@@ -470,7 +482,7 @@ export function useForYou(app, actief) {
     setVersLaden(true);
     try {
       const nieuwePage = profielPage + 1;
-      const batches = await Promise.all(profielQueries(nieuwePage, false).map((q) => discoverGems(tmdbKey, q).catch(() => ({ results: [] }))));
+      const batches = await Promise.all(profielQueries(nieuwePage, false).map((q) => viaNet(discoverGems(tmdbKey, q)).catch(() => ({ results: [] }))));
       setProfielCands((prev) => batches.reduce((acc, b) => voegNieuweToe(acc, b.results), prev));
       setProfielPage(nieuwePage);
     } catch { /* volgende klik probeert opnieuw */ }
@@ -536,7 +548,17 @@ export function useForYou(app, actief) {
     [watchlist, meta, ratedFilms, ratings, seenSet, shortlist, skipped, seeds, regisseurs, oeuvres, profielCands, themeCands, dienstCands, canonCands, prijsLijsten, eigenFilms, taste, details, regio, lang, model],
   );
 
+  const opnieuw = () => {
+    simTried.current = new Set();
+    dirTried.current = new Set();
+    profielGeladen.current = false;
+    themaGeladen.current = '';
+    setNet('?');
+    setPoging((n) => n + 1);
+  };
+
   return {
+    net, opnieuw,
     taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden,
     mijnDiensten, setMijnDiensten, dienstenKeuze,
     seeds, eigenRijen, setEigenRijen, eigenGeladen,

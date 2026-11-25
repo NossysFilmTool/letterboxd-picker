@@ -2,16 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useT } from '../lib/i18n.js';
 import { drukletters, kaartjeDatum, aanvangTijd, streepjes } from '../lib/kaartje.js';
-import { premiereInhoud } from '../lib/premiere.js';
+import { premiereInhoud, PREMIERE_VERSIE } from '../lib/premiere.js';
+import { NAAM } from '../lib/merk.js';
 import { leesOpslag } from '../lib/storage.js';
 import { ontgrendel } from '../lib/zaalgeluid.js';
 import Pitch from './Pitch.jsx';
 
-// De première van Nossy 5 (DESIGN.md, "De première"). Eerst je kaartje bij de
+// De première (DESIGN.md, "De première"). Eerst je kaartje bij de
 // deur: echt, met de aanvang van nu en jouw aantallen. Tik erop en de strook
 // scheurt af; die tik zet ook het geluid aan, want een browser wil eerst een
 // tik. Dan gaat het licht uit en volgt een trailer van je eigen tijd met
-// Nossy (Pitch.jsx met de inhoud uit lib/premiere.js). Met "beperk beweging"
+// de tool (Pitch.jsx met de inhoud uit lib/premiere.js). Met "beperk beweging"
 // ga je meteen naar het eindbeeld, zonder geluid.
 
 const stilGewenst = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -65,7 +66,7 @@ export default function Premiere({ app, onKlaar }) {
   }
 
   const klok = new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(aanvangTijd(nu));
-  const balken = streepjes('NOSSY 5.0', 120);
+  const balken = streepjes(`${NAAM.toUpperCase()} ${PREMIERE_VERSIE}`, 120);
   const velden = [
     { k: tr('kaartje.aanvang'), v: klok },
     inhoud.inDeDoos ? { k: tr('premiere.veldDoos'), v: String(inhoud.inDeDoos) } : null,
@@ -81,8 +82,8 @@ export default function Premiere({ app, onKlaar }) {
       <button ref={knopRef} type="button" className={`kaartje-premiere${fase === 'scheurt' ? ' scheurt' : ''}`}
         onClick={binnen} aria-label={tr('premiere.binnenAria')}>
         <span className="kaartje-premiere-strook" aria-hidden="true">
-          <span className="kaartje-premiere-merk">{drukletters('Nossy', lang)}</span>
-          <span className="kaartje-premiere-vijf">5</span>
+          <span className="kaartje-premiere-merk">{drukletters(NAAM, lang)}</span>
+          <span className="kaartje-premiere-vijf">{PREMIERE_VERSIE.split('.')[0]}</span>
         </span>
         <span className="kaartje-premiere-body" aria-hidden="true">
           <span className="kaartje-premiere-kop"><span>{drukletters(tr('kaartje.kop'), lang)}</span><span>{kaartjeDatum(nu, lang)}</span></span>

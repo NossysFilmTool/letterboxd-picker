@@ -31,16 +31,19 @@ export function Pictogram({ naam, size = 24 }) {
   );
 }
 
-export default function Shell({ tab, setTab, onUitleg, children }) {
+// stippen: tabs waar iets op je wacht (de vraag over gisteren op Vanavond)
+export default function Shell({ tab, setTab, onUitleg, stippen = [], children }) {
   const { t, lang } = useT();
   const datum = new Intl.DateTimeFormat(lang, { weekday: 'short', day: 'numeric', month: 'long' }).format(new Date());
   const knop = (id, key, klasse, metPictogram) => {
     const label = t(`nav.${key}`);
+    const stip = stippen.includes(id) && tab !== id;
     return (
       <button key={id} type="button" className={`${klasse} ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}
-        aria-label={label} aria-current={tab === id ? 'page' : undefined}>
+        aria-label={label} aria-current={tab === id ? 'page' : undefined} aria-describedby={stip ? `stip-${id}` : undefined}>
         {metPictogram && <Pictogram naam={id} />}
         <span>{label}</span>
+        {stip && <span className="nav-stip" data-stip={id} aria-hidden="true" />}
       </button>
     );
   };
@@ -66,6 +69,7 @@ export default function Shell({ tab, setTab, onUitleg, children }) {
           </button>
         </span>
       </header>
+      {stippen.filter((id) => id !== tab).map((id) => <span key={id} id={`stip-${id}`} hidden>{t(`nav.stip_${id}`)}</span>)}
       <main className="main">
         <div className="content">{children}</div>
       </main>

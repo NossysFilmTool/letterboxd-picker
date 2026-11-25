@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Clapperboard, Check, ArrowLeft } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
-import { nossyScore, fmtScore } from '../lib/pick.js';
+import { appScore, fmtScore } from '../lib/pick.js';
 import { useT } from '../lib/i18n.js';
 import Winner from '../components/Winner.jsx';
 import Kaartjesdoos, { KaartjeBeheer } from '../components/Kaartjesdoos.jsx';
@@ -95,7 +95,7 @@ export default function Bieb({ app }) {
     if (genre) list = list.filter((f) => meta[f.key]?.genres?.includes(genre));
     if (prov) list = list.filter((f) => meta[f.key]?.flat?.includes(prov));
 
-    const score = (f) => nossyScore(meta[f.key]) ?? -1;
+    const score = (f) => appScore(meta[f.key]) ?? -1;
     const runtime = (f) => meta[f.key]?.runtime ?? null;
     const sorted = [...list];
     switch (sort) {
@@ -131,7 +131,7 @@ export default function Bieb({ app }) {
     let beste = null;
     watchlist.forEach((f) => {
       const m = meta[f.key];
-      const ns = nossyScore(m);
+      const ns = appScore(m);
       if (!m?.backdrop || ns == null || seenSet.has(f.key)) return;
       if (!beste || ns > beste.ns) beste = { f, m, ns };
     });
@@ -186,7 +186,7 @@ export default function Bieb({ app }) {
 
   const tegel = (f, i) => {
     const m = meta[f.key];
-    const ns = nossyScore(m);
+    const ns = appScore(m);
     const eigen = ratings[f.key] ?? f.rating; // ratedFilms dragen hun rating zelf mee
     return (
       <button key={f.key} type="button" className="archief-film" data-uitleg="archief-film" style={{ opacity: busyKey === f.key ? 0.6 : 1 }} onClick={() => open(f)}

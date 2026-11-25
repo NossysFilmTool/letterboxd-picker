@@ -1,6 +1,6 @@
 {
-  "name": "Nossy's Letterboxd Watchlist Picker",
-  "short_name": "Nossy",
+  "name": "ShutterBox",
+  "short_name": "ShutterBox",
   "description": "Laad je Letterboxd-watchlist en laat de tool kiezen wat je vanavond kijkt.",
   "start_url": "./",
   "scope": "./",

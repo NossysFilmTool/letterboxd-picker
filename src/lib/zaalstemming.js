@@ -11,7 +11,7 @@
 // Gasten kunnen hun eigen Letterboxd laten meetellen (lib/zaalgasten.js),
 // en als de gastheer dat wil zelf een film voordragen (hieronder).
 import { PROXY_URL } from './tmdb.js';
-import { nossyScore, pickWinner } from './pick.js';
+import { appScore, pickWinner } from './pick.js';
 import { metZaal } from './zaalgasten.js';
 
 export const zaalBeschikbaar = () => !!PROXY_URL;
@@ -124,7 +124,7 @@ export function filmVoorZaal(f, m, aanrader = null, voor = null) {
   const film = {
     key: f.key, name: f.name, year: f.year || null, id: m?.id || null,
     poster: m?.poster || null, runtime: m?.runtime || null,
-    trailer: youtubeId(m?.trailer), score: nossyScore(m),
+    trailer: youtubeId(m?.trailer), score: appScore(m),
   };
   if (aanrader) {
     Object.assign(film, { aanrader: true, bronnen: aanrader.bronnen || 0, via: (aanrader.via || []).slice(0, 2), parel: !!aanrader.parel, votes: m?.votes || null });

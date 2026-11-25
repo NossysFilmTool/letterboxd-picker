@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Play, RefreshCw, Eye, EyeOff, Share2, Clapperboard, Plus, Check, X } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { imdbLink, jwLink } from '../lib/links.js';
-import { nossyScore, fmtScore, getNossyWeights } from '../lib/pick.js';
+import { appScore, fmtScore, getScoreWeights } from '../lib/pick.js';
 import { renderShareCard, shareOrDownload } from '../lib/extra.js';
 import { useT, decimaal } from '../lib/i18n.js';
 import Sterren from './Sterren.jsx';
@@ -51,18 +51,18 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
 
   // De cijfers als grote getallen met een klein label eronder
   const cijfers = (() => {
-    const ns = nossyScore(meta);
+    const ns = appScore(meta);
     const bronnen = meta ? [meta.ext?.imdb, meta.ext?.mc, meta.vote].filter((v) => v != null).length : 0;
-    const heeftNossy = ns != null && bronnen >= 2;
-    const bronTitle = (() => { const w = getNossyWeights(); return tr('winner.bronTitle', { count: bronnen, imdb: w.imdb, mc: w.mc, tmdb: w.tmdb }); })();
+    const heeftAppScore = ns != null && bronnen >= 2;
+    const bronTitle = (() => { const w = getScoreWeights(); return tr('winner.bronTitle', { count: bronnen, imdb: w.imdb, mc: w.mc, tmdb: w.tmdb }); })();
     const heeftBronnen = meta?.ext || meta?.vote != null;
-    if (!heeftNossy && !heeftBronnen) return null;
+    if (!heeftAppScore && !heeftBronnen) return null;
     return (
       <div className="wcijfers">
-        {heeftNossy && (
-          <div className="wcijfer nossy-big" title={bronTitle}>
+        {heeftAppScore && (
+          <div className="wcijfer appscore-big" title={bronTitle}>
             <span className="n">{fmtScore(ns)}</span>
-            <span className="lbl">{tr('winner.nossy')}</span>
+            <span className="lbl">{tr('winner.appScore')}</span>
           </div>
         )}
         {meta?.ext?.imdb != null && <div className="wcijfer"><span className="n">{fmtScore(meta.ext.imdb)}</span><span className="lbl">IMDb</span></div>}

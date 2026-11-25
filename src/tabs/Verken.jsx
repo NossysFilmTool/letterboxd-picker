@@ -39,6 +39,7 @@ export default function Verken({ app }) {
   const [gekozenMode, setMode] = useLS('verkenMode', null);
   const mode = gekozenMode || (Object.keys(meta).length ? 'voorJou' : 'zoeken');
   const {
+    net, opnieuw,
     taste, recs, seededOnRatings, seedFilms, regisseurs, blendBusy, versLaden, laadVers, haalMeer, vraagDetails, detailsLaden,
     mijnDiensten, setMijnDiensten, dienstenKeuze,
     seeds, eigenRijen, setEigenRijen, eigenGeladen,
@@ -515,10 +516,22 @@ export default function Verken({ app }) {
           </div>
         );
       }
+      // Leeg, maar waarom: het ophalen lukte niet, er zijn nog geen sterren om
+      // op te leunen, of je hebt echt alles gehad
+      if (net === 'mis') {
+        return (
+          <div className="empty card" data-leeg="net">
+            <p className="big">{tr('verken.netMisTitel')}</p>
+            <p>{tr('verken.netMis')}</p>
+            <button className="btn primary" style={{ marginTop: 14 }} onClick={opnieuw}>{tr('verken.opnieuw')}</button>
+          </div>
+        );
+      }
+      const geenSterren = !seeds.length && !(app.ratedFilms || []).length;
       return (
-        <div className="empty card">
-          <p className="big">{tr('verken.forNowEmpty')}</p>
-          <p>{tr('verken.allRatedEmpty')}</p>
+        <div className="empty card" data-leeg={geenSterren ? 'sterren' : 'op'}>
+          <p className="big">{tr(geenSterren ? 'verken.geenSterrenTitel' : 'verken.forNowEmpty')}</p>
+          <p>{tr(geenSterren ? 'verken.geenSterren' : 'verken.allRatedEmpty')}</p>
           {tmdbKey && (
             <button className="btn primary" style={{ marginTop: 14 }} onClick={laadVers} disabled={versLaden}>
               {versLaden ? tr('verken.tapping') : tr('verken.loadFresh')}

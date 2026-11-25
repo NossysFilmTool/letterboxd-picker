@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Plus, Check, Sparkles, ArrowLeft } from 'lucide-react';
+import { X, Plus, Check, ArrowLeft } from 'lucide-react';
 import { useT } from '../lib/i18n.js';
 import { IMG, fetchDetailById } from '../lib/tmdb.js';
 import Winner from './Winner.jsx';

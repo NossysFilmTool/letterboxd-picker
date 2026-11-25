@@ -1,7 +1,7 @@
 import { Clapperboard } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { useT, decimaal } from '../lib/i18n.js';
-import { fmtScore, nossyScore } from '../lib/pick.js';
+import { fmtScore, appScore } from '../lib/pick.js';
 import { drukletters } from '../lib/kaartje.js';
 import { useFilmkleur } from '../lib/filmkleur.js';
 import { sterrenTekst } from './Kaartjesdoos.jsx';
@@ -58,7 +58,7 @@ export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig, voorfilm 
   const { film, m, dienst, reden } = keuze;
   const kleur = useFilmkleur(m.poster);
   const einde = m.runtime ? new Date(aanvang.getTime() + m.runtime * 60000) : null;
-  const ns = nossyScore(m);
+  const ns = appScore(m);
   const redenTekst = (() => {
     const klaar = einde ? klok(einde, lang) : '';
     switch (reden.soort) {
@@ -98,7 +98,7 @@ export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig, voorfilm 
         <p className="hoofdfilm-meta meta">
           {film.year ? <span>{film.year}</span> : null}
           {m.runtime ? <span>{m.runtime} min</span> : null}
-          {ns != null ? <span>{tr('winner.nossy')} {fmtScore(ns)}</span> : null}
+          {ns != null ? <span>{tr('winner.appScore')} {fmtScore(ns)}</span> : null}
           {dienst ? <span>{tr('voorpagina.nuOp', { p: dienst })}</span> : null}
         </p>
         <div className="hoofdfilm-acties" data-uitleg="hoofdfilm-acties">
@@ -118,7 +118,7 @@ export function Programmaregels({ regels, meta, onKies }) {
     <ul className="programmaregels">
       {regels.map(({ film, dienst, sinds }) => {
         const m = meta[film.key] || {};
-        const ns = nossyScore(m);
+        const ns = appScore(m);
         const d = new Date(sinds);
         return (
           <li key={film.key}>

@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
 import { KeyRound, Check, Trash2, Download, Upload, X } from 'lucide-react';
 import { testKey } from '../lib/tmdb.js';
-import { testOmdbKey, checkOmdbKey } from '../lib/omdb.js';
-import { DEFAULT_NOSSY_WEIGHTS } from '../lib/pick.js';
+import { checkOmdbKey } from '../lib/omdb.js';
+import { DEFAULT_SCORE_WEIGHTS, receptUit } from '../lib/pick.js';
+import { SLUG } from '../lib/merk.js';
 import { DEFAULT_THEME_EMPHASIS } from '../lib/taste.js';
 import { REGIONS, DEFAULT_REGION, PROXY_URL } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
-import { exportAll, importAll, clearAll, storageUsage, currentProfile, listProfiles, addProfile, switchProfile, deleteProfile } from '../lib/storage.js';
-import { idbAvailable } from '../lib/idb.js';
+import { exportAll, importAll, controleerBackup, clearAll, storageUsage, currentProfile, listProfiles, addProfile, switchProfile, deleteProfile } from '../lib/storage.js';
+import Foutlogboek from '../components/Foutlogboek.jsx';
 import { downloadText } from '../lib/csv.js';
 import ImportPanel from '../components/ImportPanel.jsx';
 import ScoresPreview from '../components/ScoresPreview.jsx';
@@ -19,7 +20,6 @@ import HoeWerktDit from '../components/HoeWerktDit.jsx';
 
 export default function Instellingen({ app }) {
   const { t: tr, lang } = useT();
-  const idbSetup = idbAvailable();
   const [keyInput, setKeyInput] = useState(app.settings.tmdbKey || '');
   const [editKeys, setEditKeys] = useState(false);
   const [multiKeys, setMultiKeys] = useState((app.omdbKeys?.length || 0) > 1);
@@ -46,15 +46,22 @@ export default function Instellingen({ app }) {
   };
 
   const wipe = async () => {
-    if (!await bevestig(tr('setup.confirmClearAll'), { ja: tr('setup.wipeAll'), gevaar: true })) return;
+    // Met huisgenoten op dit apparaat: alleen dit profiel, en dat zeggen we
+    const vraag = listProfiles().length ? tr('setup.confirmClearAllProfiel') : tr('setup.confirmClearAll');
+    if (!await bevestig(vraag, { ja: tr('setup.wipeAll'), gevaar: true })) return;
     await clearAll();
     location.reload();
   };
 
+  // Terugzetten vervangt wat er nu staat: eerst vragen, dan wachten tot alles
+  // (ook de filmcache) terug is, en pas dan herladen
   const restore = async (files) => {
     if (!files?.length) return;
     try {
-      importAll(await files[0].text());
+      const tekst = await files[0].text();
+      controleerBackup(tekst);
+      if (!await bevestig(tr('setup.confirmRestore'), { ja: tr('setup.restoreJa'), gevaar: true })) return;
+      await importAll(tekst);
       location.reload();
     } catch (e) {
       meld(e.message === 'INVALID_BACKUP' ? tr('setup.invalidBackup') : e.message, { soort: 'fout' });
@@ -293,9 +300,9 @@ export default function Instellingen({ app }) {
       </div>
 
       <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-recept">
-        <p className="label" style={{ marginBottom: 10 }}>{tr('setup.nossyRecipe')}</p>
+        <p className="label" style={{ marginBottom: 10 }}>{tr('setup.scoreRecipe')}</p>
         <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>
-          {tr('setup.nossyExplain')} <HoeWerktDit app={app} h="setup" stap="recept" />
+          {tr('setup.scoreExplain')} <HoeWerktDit app={app} h="setup" stap="recept" />
         </p>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           {[['imdb', 'IMDb'], ['mc', 'Metacritic'], ['tmdb', 'TMDB']].map(([id, label]) => (
@@ -303,9 +310,13 @@ export default function Instellingen({ app }) {
               {label}
               <select
                 className="field" style={{ width: 70 }}
-                value={(app.settings.nossyWeights || DEFAULT_NOSSY_WEIGHTS)[id] ?? 1}
+                value={(receptUit(app.settings) || DEFAULT_SCORE_WEIGHTS)[id] ?? 1}
                 aria-label={tr('setup.weightAria', { label })}
-                onChange={(e) => app.setSettings((s) => ({ ...s, nossyWeights: { ...DEFAULT_NOSSY_WEIGHTS, ...(s.nossyWeights || {}), [id]: +e.target.value } }))}
+                onChange={(e) => app.setSettings((s) => {
+                  const nieuw = { ...s, scoreWeights: { ...DEFAULT_SCORE_WEIGHTS, ...(receptUit(s) || {}), [id]: +e.target.value } };
+                  delete nieuw.nossyWeights; // de oude naam (tot versie 6)
+                  return nieuw;
+                })}
               >
                 {[0, 1, 2, 3].map((w) => <option key={w} value={w}>{w}×</option>)}
               </select>
@@ -398,7 +409,7 @@ export default function Instellingen({ app }) {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {/* De filmcache staat in IndexedDB, niet in localStorage: geef hem mee,
               anders mist de back-up alle filmdata */}
-          <button className="btn" onClick={() => downloadText('nossy-picker-backup.json', exportAll(app.meta), 'application/json')}>
+          <button className="btn" onClick={() => downloadText(`${SLUG}-backup.json`, exportAll(app.meta), 'application/json')}>
             <Download size={15} /> {tr('setup.exportAll')}
           </button>
           <button className="btn" onClick={() => fileRef.current?.click()}><Upload size={15} /> {tr('setup.restoreBackup')}</button>
@@ -411,6 +422,8 @@ export default function Instellingen({ app }) {
           </button>
         </div>
       </div>
+
+      <Foutlogboek />
 
       <p style={{ color: 'var(--fog-dim)', fontSize: 12.5 }} data-uitleg="setup-versie">
         {tr('setup.versionLine', { v: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev' })}

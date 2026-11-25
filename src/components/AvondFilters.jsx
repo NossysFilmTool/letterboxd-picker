@@ -108,7 +108,7 @@ export default function AvondFilters({ filters, onChange, aantal, genres, decenn
         <div className="af-chips">
           {[0, 6.5, 7, 7.5].map((s) => (
             <Chip key={s} aan={f.minScore === s} onClick={() => zet({ minScore: s })}>
-              {s ? `${tr('winner.nossy')} ${decimaal(s.toFixed(1))}+` : tr('avond.fCijferAlle')}
+              {s ? `${tr('winner.appScore')} ${decimaal(s.toFixed(1))}+` : tr('avond.fCijferAlle')}
             </Chip>
           ))}
           <Chip aan={f.alleenStreaming} onClick={() => zet({ alleenStreaming: !f.alleenStreaming })}>

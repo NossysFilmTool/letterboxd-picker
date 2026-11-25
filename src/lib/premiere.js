@@ -1,7 +1,7 @@
-// De première van Nossy 5 (components/Premiere.jsx, DESIGN.md "De première"):
+// De première (components/Premiere.jsx, DESIGN.md "De première"):
 // wie 5.0 voor het eerst opent en de tool al gebruikte, krijgt één keer een
 // premièrekaartje bij de deur en daarna een trailer van zijn eigen tijd met
-// Nossy. Alles in die trailer komt uit je eigen gegevens; een zin waar geen
+// de tool. Alles in die trailer komt uit je eigen gegevens; een zin waar geen
 // gegevens voor zijn, valt weg.
 
 import { inDeDoos, jaarOverzicht } from './kaartjesdoos.js';

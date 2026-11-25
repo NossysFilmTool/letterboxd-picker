@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
-import { idbAvailable, idbGetAll, idbApply, idbClear } from './idb.js';
+import { NS, OUD_NS } from './naamruimte.js';
+import { idbAvailable, idbGetAll, idbApply, idbClear, dbNaam } from './idb.js';
 
-const ROOT = 'nossyV2.';
+const ROOT = `${NS}.`;
 // Profielen: het klassieke, ongeprefixte gegevensbestand is het profiel
 // "Standaard"; extra profielen (huisgenoten) krijgen een eigen voorvoegsel
 // en een eigen IndexedDB. Wisselen is een herlaad; twee globale sleutels
@@ -17,7 +18,9 @@ const PREFIX = PROFILE ? `${ROOT}p.${PROFILE}.` : ROOT;
 const isOwnKey = (k) => k.startsWith(PREFIX)
   && (PROFILE ? true : (!k.startsWith(`${ROOT}p.`) && !GLOBALS.includes(k)));
 // Kale naam (zonder welk profiel-voorvoegsel dan ook), voor back-ups.
-const bareKey = (k) => k.replace(/^nossyV2\.(p\.[^.]+\.)?/, '');
+// Ook de oude naam (back-ups van voor versie 6, lib/naamruimte.js).
+const KAAL = new RegExp(`^(${NS}|${OUD_NS})\\.(p\\.[^.]+\\.)?`);
+const bareKey = (k) => k.replace(KAAL, '');
 
 // Losse lees- en schrijfhulp voor het actieve profiel (achtergrondwerk, sync)
 export function leesOpslag(key, standaard = null) {
@@ -26,12 +29,32 @@ export function leesOpslag(key, standaard = null) {
     return raw !== null ? JSON.parse(raw) : standaard;
   } catch { return standaard; }
 }
+// De ruwe tekst, voor wie zelf wil zien of er iets veranderde
+export function leesOpslagRuw(key) {
+  try { return localStorage.getItem(PREFIX + key); } catch { return null; }
+}
 export function schrijfOpslag(key, waarde) {
   try { localStorage.setItem(PREFIX + key, JSON.stringify(waarde)); } catch { reportStorageError(); }
 }
 // Een seintje bij elke opgeslagen wijziging (voor de sync tussen apparaten)
 const luisteraars = new Set();
 export function opWijziging(fn) { luisteraars.add(fn); return () => luisteraars.delete(fn); }
+
+// Alle hooks per sleutel in dit tabblad: schrijft er een, dan zien de andere
+// het meteen (twee schermen met dezelfde sleutel lopen zo nooit uiteen)
+const abonnees = new Map(); // sleutel -> Set(fn(tekst | null))
+const meldAbonnees = (key, tekst, behalve = null) => {
+  abonnees.get(key)?.forEach((fn) => { if (fn !== behalve) fn(tekst); });
+};
+
+// Sleutels wissen, ook in de schermen die nu openstaan: die gaan terug naar
+// hun beginwaarde
+export function wisOpslag(keys) {
+  keys.forEach((k) => {
+    try { localStorage.removeItem(PREFIX + k); } catch { /* geblokkeerd */ }
+    meldAbonnees(k, null);
+  });
+}
 
 export function useLS(key, defaultValue) {
   const [value, setValue] = useState(() => {
@@ -42,9 +65,47 @@ export function useLS(key, defaultValue) {
       return defaultValue;
     }
   });
+  const standaard = useRef(defaultValue);
+  standaard.current = defaultValue;
+  // De tekst die net van buiten kwam (een ander tabblad of een andere hook):
+  // die schrijven we niet terug, en de sync hoort er hier niets over
+  const vanBuiten = useRef(undefined);
+  const ikZelf = useRef(null);
   useEffect(() => {
+    const neem = (tekst) => {
+      if (tekst === null) {
+        vanBuiten.current = JSON.stringify(standaard.current);
+        setValue(standaard.current);
+        return;
+      }
+      try { const v = JSON.parse(tekst); vanBuiten.current = tekst; setValue(v); } catch { /* onleesbaar: laten */ }
+    };
+    ikZelf.current = neem;
+    if (!abonnees.has(key)) abonnees.set(key, new Set());
+    abonnees.get(key).add(neem);
+    // Een ander tabblad schreef deze sleutel: overnemen, anders overschrijft
+    // dit tabblad straks wat daar gebeurde
+    const opStorage = (e) => {
+      if (e.key !== PREFIX + key) return;
+      try { if (e.storageArea && e.storageArea !== localStorage) return; } catch { return; }
+      neem(e.newValue);
+    };
+    window.addEventListener('storage', opStorage);
+    return () => {
+      abonnees.get(key)?.delete(neem);
+      window.removeEventListener('storage', opStorage);
+    };
+  }, [key]);
+  useEffect(() => {
+    const tekst = JSON.stringify(value);
+    if (vanBuiten.current !== undefined) {
+      const was = vanBuiten.current;
+      vanBuiten.current = undefined;
+      if (tekst === was) return;
+    }
     try {
-      localStorage.setItem(PREFIX + key, JSON.stringify(value));
+      localStorage.setItem(PREFIX + key, tekst);
+      meldAbonnees(key, tekst, ikZelf.current);
       luisteraars.forEach((fn) => { try { fn(key); } catch { /* een luisteraar mag het opslaan niet breken */ } });
     } catch (e) {
       console.warn('Opslag vol of geblokkeerd voor', key, e);
@@ -54,44 +115,77 @@ export function useLS(key, defaultValue) {
   return [value, setValue];
 }
 
+// Wat bij dit apparaat hoort en niet bij je gegevens. Een back-up neemt het
+// niet mee, terugzetten laat het staan.
+const APPARAAT = ['foutlog', 'nieuwOp5'];
+// De koppeling met je andere apparaten: gaat wel mee in een back-up (zo blijft
+// een verhuisd apparaat gekoppeld), maar terugzetten vervangt nooit de
+// koppeling die hier al staat
+const KOPPELING = 'sync';
+// De naam in een back-upbestand; oudere back-ups heten nog anders
+export const BACKUP_ID = 'shutterbox';
+const BACKUP_IDS = [BACKUP_ID, 'nossy-picker'];
+
 export function exportAll(metaObj) {
   const out = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && isOwnKey(k)) out[`${ROOT}${bareKey(k)}`] = localStorage.getItem(k);
+    if (k && isOwnKey(k) && !APPARAAT.includes(bareKey(k))) out[`${ROOT}${bareKey(k)}`] = localStorage.getItem(k);
   }
   // Op het IndexedDB-pad zit de filmcache niet in localStorage; voeg hem toe
   // onder dezelfde sleutel als vroeger, zodat oude en nieuwe back-ups
   // uitwisselbaar blijven in beide richtingen.
   const metaKey = `${PREFIX}meta`;
   if (metaObj && !(metaKey in out)) out[metaKey] = JSON.stringify(metaObj);
-  return JSON.stringify({ app: 'nossy-picker', version: 2, data: out });
+  return JSON.stringify({ app: BACKUP_ID, version: 2, data: out });
+}
+
+// Een back-up terugzetten vervangt je gegevens: wat niet in de back-up staat,
+// gaat weg (behalve wat bij dit apparaat hoort). Eerst alles controleren,
+// dan pas iets aanraken. De aanroeper herlaadt de app erna.
+// Is dit een back-up van deze tool? Geeft de regels terug, of gooit
+// INVALID_BACKUP. Los te gebruiken, zodat je pas om bevestiging vraagt als
+// het bestand klopt.
+export function controleerBackup(json) {
+  let parsed;
+  try { parsed = JSON.parse(json); } catch { throw new Error('INVALID_BACKUP'); }
+  if (!parsed || !BACKUP_IDS.includes(parsed.app) || !parsed.data || typeof parsed.data !== 'object') {
+    throw new Error('INVALID_BACKUP');
+  }
+  const regels = Object.entries(parsed.data).filter(([k, v]) => (k.startsWith(ROOT) || k.startsWith(`${OUD_NS}.`)) && typeof v === 'string');
+  if (!regels.length) throw new Error('INVALID_BACKUP');
+  return regels;
 }
 
 export async function importAll(json) {
-  const parsed = JSON.parse(json);
-  if (!parsed || parsed.app !== 'nossy-picker' || !parsed.data) {
-    throw new Error('INVALID_BACKUP');
+  const regels = controleerBackup(json);
+  const heeftKoppeling = localStorage.getItem(`${PREFIX}${KOPPELING}`) !== null;
+  const weg = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && isOwnKey(k) && !APPARAAT.includes(bareKey(k)) && bareKey(k) !== KOPPELING) weg.push(k);
   }
-  for (const [k, v] of Object.entries(parsed.data)) {
-    if (!k.startsWith(ROOT)) continue;
+  weg.forEach((k) => localStorage.removeItem(k));
+  for (const [k, v] of regels) {
     const kaal = bareKey(k);
-    if (!kaal || kaal === 'activeProfile' || kaal === 'profiles') continue;
+    if (!kaal || kaal === 'activeProfile' || kaal === 'profiles' || APPARAAT.includes(kaal)) continue;
+    if (kaal === KOPPELING && heeftKoppeling) continue;
     if (kaal === 'meta' && idbAvailable()) {
       // Filmcache hoort in IndexedDB; de aanroeper herlaadt de app erna.
-      try { await idbClear(); await idbApply(JSON.parse(v), []); } catch { localStorage.setItem(k, v); }
+      try { await idbClear(); await idbApply(JSON.parse(v), []); } catch { localStorage.setItem(`${PREFIX}meta`, v); }
     } else {
       localStorage.setItem(`${PREFIX}${kaal}`, v);
     }
   }
 }
 
+// Alles van dit profiel wissen. De profielen van huisgenoten blijven staan.
 export async function clearAll() {
   if (idbAvailable()) { try { await idbClear(); } catch { /* dan alleen LS */ } }
   const keys = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && k.startsWith(PREFIX)) keys.push(k);
+    if (k && isOwnKey(k)) keys.push(k);
   }
   keys.forEach((k) => localStorage.removeItem(k));
 }
@@ -238,6 +332,6 @@ export function deleteProfile(naam) {
   }
   dood.forEach((k) => localStorage.removeItem(k));
   localStorage.setItem(`${ROOT}profiles`, JSON.stringify(listProfiles().filter((x) => x !== naam)));
-  try { indexedDB.deleteDatabase(`nossyV2-p-${naam}`); } catch { /* geen IDB */ }
+  try { indexedDB.deleteDatabase(dbNaam(naam)); } catch { /* geen IDB */ }
   if (PROFILE === naam) switchProfile('');
 }

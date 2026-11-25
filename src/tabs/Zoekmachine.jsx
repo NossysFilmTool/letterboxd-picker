@@ -5,7 +5,7 @@ import ImdbA from '../components/ImdbA.jsx';
 import { Search, Clapperboard, Plus, X, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { IMG, GENRES, genreLabelById, genreLabel, discover, searchMovies, searchPersons, personFilms } from '../lib/tmdb.js';
 import { matchScore } from '../lib/taste.js';
-import { nossyScore, fmtScore } from '../lib/pick.js';
+import { appScore, fmtScore } from '../lib/pick.js';
 import { fetchExtRatings } from '../lib/omdb.js';
 import { fetchDetailById } from '../lib/tmdb.js';
 import { filmKey } from '../lib/storage.js';
@@ -19,7 +19,7 @@ const DECADE_PRESETS = [[2020, 2029, "'20"], [2010, 2019, "'10"], [2000, 2009, "
 const LANG_CODES = ['en', 'nl', 'ar', 'bn', 'bs', 'bg', 'ca', 'zh', 'yue', 'da', 'de', 'et', 'fi', 'fr', 'ka', 'el', 'he', 'hi', 'hu', 'ga', 'is', 'id', 'it', 'ja', 'ko', 'hr', 'lv', 'lt', 'ml', 'no', 'fa', 'pl', 'pt', 'ro', 'ru', 'sr', 'sk', 'sl', 'es', 'ta', 'te', 'th', 'cs', 'tr', 'uk', 'vi', 'sv'];
 
 const SORTS = [['vote_average.desc', 'bestScore'], ['popularity.desc', 'popular'], ['primary_release_date.desc', 'newest'], ['primary_release_date.asc', 'oldest']];
-const SORT_NOSSY = 'nossy';
+const SORT_APP = 'appScore';
 const RUNTIMES = [['', 'anyDuration'], [60, 'runtime60'], [90, 'runtime90'], [120, 'runtime120']];
 // Snelkoppelingen voor de stemmen-band; vullen simpelweg de twee invulvelden
 // Geijkt op TMDB, waar veel minder gestemd wordt dan op IMDb: Inception ~40k
@@ -44,7 +44,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
     ['niet-en', tr('zoek.notEnglish')],
     ...LANG_CODES.map((code) => [code, langName(code)]).sort((a, b) => a[1].localeCompare(b[1], uiLang)),
   ]), [uiLang, langName, tr]);
-  const { settings, tmdbKey } = app;
+  const { tmdbKey } = app;
   const [tekst, setTekst] = useState('');
   const [genres, setGenres] = useState([]);
   const [excl, setExcl] = useState([]);
@@ -65,10 +65,10 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
   const [maker, setMaker] = useState(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [scores, setScores] = useState({}); // tmdbId -> ext (on-demand Nossy)
+  const [scores, setScores] = useState({}); // tmdbId -> ext (op verzoek, voor de app-score)
   const [scoresLaden, setScoresLaden] = useState(false);
 
-  // Nossy-scores voor de zichtbare resultaten ophalen (kost OMDb-calls, dus opt-in)
+  // App-scores voor de zichtbare resultaten ophalen (kost OMDb-calls, dus opt-in)
   const laadScores = async () => {
     if (!app.tmdbKey || !app.omdbKeys.length || scoresLaden) return;
     setScoresLaden(true);
@@ -97,7 +97,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
       yearTo: jaarTot !== '' ? +jaarTot : undefined,
       lang,
       minRuntime: runtime || undefined,
-      sortBy: sortBy === SORT_NOSSY ? 'vote_average.desc' : sortBy,
+      sortBy: sortBy === SORT_APP ? 'vote_average.desc' : sortBy,
     };
   };
 
@@ -169,11 +169,11 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
     let list = films.map((r) => {
       const ext = scores[r.id] || (app.meta && Object.values(app.meta).find((m) => m && m.id === r.id)?.ext);
       const withExt = ext ? { ...r, ext } : r;
-      const ns = nossyScore(withExt);
+      const ns = appScore(withExt);
       const key = filmKey(r.title, r.year);
       const gezien = app.seenSet.has(key) || seenIds.has(r.id) || !!isGezien?.(r);
       const bekend = gezien || ownIdsAll.has(r.id) || ownKeysAll.has(key) || !!isBekend?.(r);
-      return { ...withExt, ...matchScore(r, taste), nossy: ns, bekend, gezien, jouwScore: gezien ? app.ratings[key] : null };
+      return { ...withExt, ...matchScore(r, taste), appScore: ns, bekend, gezien, jouwScore: gezien ? app.ratings[key] : null };
     });
     if (verbergGezien) {
       const voor = list.length;
@@ -199,8 +199,8 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
   };
 
   let lijst = maker ? verwerk(maker.films) : res ? verwerk(res.films) : [];
-  if (sortBy === SORT_NOSSY) {
-    lijst = [...lijst].sort((a, b) => (b.nossy ?? -1) - (a.nossy ?? -1));
+  if (sortBy === SORT_APP) {
+    lijst = [...lijst].sort((a, b) => (b.appScore ?? -1) - (a.appScore ?? -1));
   }
   const chip = (on) => `chip ${on ? 'on' : ''}`;
 
@@ -262,7 +262,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
               </select>
               <select className="field" style={{ width: 'auto' }} value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label={tr('bieb.sortLabel')}>
                 {SORTS.map(([v, l]) => <option key={v} value={v}>{tr(`sort.${l}`)}</option>)}
-                <option value={SORT_NOSSY}>{tr('sort.nossyScore')}</option>
+                <option value={SORT_APP}>{tr('sort.appScore')}</option>
               </select>
             </div>
 
@@ -312,8 +312,8 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
           </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {app.omdbKeys.length > 0 && (
-              <button className="btn ghost" style={{ fontSize: 12 }} onClick={laadScores} disabled={scoresLaden} title={tr('zoek.loadNossyTitle')}>
-                {scoresLaden ? tr('zoek.loadingScores') : tr('zoek.loadNossy')}
+              <button className="btn ghost" style={{ fontSize: 12 }} onClick={laadScores} disabled={scoresLaden} title={tr('zoek.loadScoresTitle')}>
+                {scoresLaden ? tr('zoek.loadingScores') : tr('zoek.loadScores')}
               </button>
             )}
             <button className={chip(hideKnown ? 'on-g' : '')} style={{ fontSize: 12 }} onClick={() => setHideKnown(!hideKnown)}>{tr('zoek.hideKnown')}</button>
@@ -364,7 +364,7 @@ export default function Zoekmachine({ app, taste, openDetail, addToShortlist, sh
               <p className="meta" style={{ color: 'var(--fog)', fontSize: 13, marginTop: 4 }}>
                 {[r.year, r.rol === 'regie' ? tr('winner.regie') : null, r.lang ? langName(r.lang) : null].filter(Boolean).map((x) => <span key={x}>{x}</span>)}
                 {r.vote ? <span>TMDB {uiLang === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote)}{r.votes != null && <span style={{ color: 'var(--fog-dim)' }}> ({r.votes >= 1000 ? `${Math.round(r.votes / 1000)}k` : r.votes})</span>}</span> : null}
-                {r.nossy != null && <span style={{ color: 'var(--paper)', fontWeight: 600 }} title="Nossy-score (IMDb/Metacritic/TMDB)">Nossy {fmtScore(r.nossy)}</span>}
+                {r.appScore != null && <span style={{ color: 'var(--paper)', fontWeight: 600 }} title={`${tr('winner.appScore')} (IMDb/Metacritic/TMDB)`}>{tr('winner.appScore')} {fmtScore(r.appScore)}</span>}
                 {taste.sterk && !r.bekend && <span className="chip on-b" style={{ padding: '2px 8px', fontSize: 11 }}>{tr('zoek.matchPct', { pct: r.score })}</span>}
                 {r.bekend && (
                   <span className="chip on-g" style={{ padding: '2px 8px', fontSize: 11 }}>

@@ -12,7 +12,7 @@ export const STANDAARD_FILTERS = {
   genres: [], // zin in: minstens een hiervan
   nietGenres: [], // liever niet: geen van deze
   taal: 'alle', // 'alle' | 'en' | 'anders'
-  minScore: 0, // minimale Nossy-score
+  minScore: 0, // minimale app-score
   jaarVan: '',
   jaarTot: '',
   alleenStreaming: false,
@@ -23,7 +23,7 @@ export const metStandaard = (f) => ({ ...STANDAARD_FILTERS, ...(f || {}) });
 // De pot na de filters. Wat we niet weten (geen looptijd, taal of genres
 // bekend) krijgt het voordeel van de twijfel, behalve bij een maximale duur:
 // daar moet de film aantoonbaar kort genoeg zijn.
-//   score: (meta) => Nossy-score of null
+//   score: (meta) => app-score of null
 //   diensten: de diensten die je in Verken koos; dan betekent "alleen op
 //   streaming" alleen op jouw diensten
 export function filterPot(pot, meta, filters, score, { diensten = [] } = {}) {

@@ -10,7 +10,6 @@ export default function MatchPicker({ films, app, onClose }) {
   const [idx, setIdx] = useState(0);
   const [kandidaten, setKandidaten] = useState([]);
   const [laden, setLaden] = useState(false);
-  const [klaar, setKlaar] = useState([]); // keys die je hebt afgehandeld
 
   const film = films[idx];
   const huidige = film ? app.meta[film.key] : null;
@@ -34,13 +33,11 @@ export default function MatchPicker({ films, app, onClose }) {
 
   const kies = async (kandidaat) => {
     await app.pickMatch(film.key, kandidaat.id);
-    setKlaar((k) => [...k, film.key]);
     volgende();
   };
 
   const negeer = () => {
     app.ignoreFilm(film.key);
-    setKlaar((k) => [...k, film.key]);
     volgende();
   };
 

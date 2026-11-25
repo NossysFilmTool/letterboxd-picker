@@ -1,4 +1,4 @@
-// TMDB-proxy voor Nossy's Letterboxd Watchlist Picker.
+// TMDB-proxy en kleine server voor ShutterBox (src/lib/merk.js).
 //
 // Wat dit doet: de tool praat met deze Worker in plaats van rechtstreeks met
 // TMDB, en de Worker plakt er serverzijde de geheime sleutel aan vast.
@@ -15,8 +15,11 @@
 //   per datacenter, dus een drempel tegen scrapers — geen fort. Voor een
 //   vriendenkring ruim voldoende.
 
+// Waar de tool draait. Verhuist de site (een eigen domein), dan alleen hier.
+const SITE_ORIGIN = 'https://nossysfilmtool.github.io';
+const SITE_URL = `${SITE_ORIGIN}/letterboxd-picker/`;
 const ALLOWED_ORIGINS = [
-  'https://nossysfilmtool.github.io',
+  SITE_ORIGIN,
   'http://localhost:5173',
 ];
 
@@ -531,7 +534,7 @@ export default {
     if (lb) {
       const res = await fetch(`https://letterboxd.com/${lb[1]}/rss/`, {
         headers: {
-          'User-Agent': 'NossyPicker/1.0 (+https://nossysfilmtool.github.io/letterboxd-picker/)',
+          'User-Agent': `ShutterBox/1.0 (+${SITE_URL})`,
           Accept: 'application/rss+xml, application/xml;q=0.9',
         },
         cf: { cacheTtl: 60, cacheEverything: true },

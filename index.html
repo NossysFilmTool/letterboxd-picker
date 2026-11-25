@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0d1115" />
-  <title>Nossy's Letterboxd Watchlist Picker</title>
-  <meta name="description" content="Laad je Letterboxd-watchlist en laat de tool kiezen wat je vanavond kijkt. Op mood, met vrienden, of gewogen op jouw smaak. Draait volledig in je browser." />
+  <title>ShutterBox</title>
+  <meta name="description" content="ShutterBox: laad je Letterboxd-watchlist en laat de tool kiezen wat je vanavond kijkt. Op mood, met vrienden, of gewogen op jouw smaak. Draait volledig in je browser." />
 
   <!-- Iconen & installeerbaarheid -->
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
@@ -16,7 +16,7 @@
 
   <!-- Link-preview (Open Graph / Twitter) -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Nossy's Letterboxd Watchlist Picker" />
+  <meta property="og:title" content="ShutterBox" />
   <meta property="og:description" content="Eén avond, één film. Laad je watchlist en laat de tool kiezen. Op mood, met vrienden, of gewogen op jouw smaak. 100% in je browser." />
   <meta property="og:url" content="https://nossysfilmtool.github.io/letterboxd-picker/" />
   <meta property="og:image" content="https://nossysfilmtool.github.io/letterboxd-picker/social-card.png" />
@@ -31,8 +31,9 @@
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
   <script>
-    // Service worker alleen op http(s): de offline LAUNCHER (file://) en de
-    // dev-server hebben er niets aan en zouden er alleen fouten van krijgen.
+    // Service worker alleen op http(s): de losse versie (file://, npm run
+    // build:los) en de dev-server hebben er niets aan en zouden er alleen
+    // fouten van krijgen.
     if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !location.hostname.includes('localhost')) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => { /* geen SW is geen ramp */ });

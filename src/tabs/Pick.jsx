@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SlidersHorizontal } from 'lucide-react';
-import { MOODS, moodTest, pickWinner, nossyScore } from '../lib/pick.js';
+import { MOODS, moodTest, pickWinner, appScore } from '../lib/pick.js';
 import { filterPot, metStandaard, afwijkend } from '../lib/avondFilters.js';
 import { aanvangTijd } from '../lib/kaartje.js';
 import { inDeDoos } from '../lib/kaartjesdoos.js';
@@ -57,7 +57,7 @@ function samenvatting(f, { bronNaam, gezienEruit, diensten }, tr) {
   if (f.jaarVan !== '' && f.jaarTot !== '') delen.push(tr('pick.periode', { van: f.jaarVan, tot: f.jaarTot }));
   else if (f.jaarVan !== '') delen.push(tr('pick.vanaf', { van: f.jaarVan }));
   else if (f.jaarTot !== '') delen.push(tr('pick.tot', { tot: f.jaarTot }));
-  if (f.minScore) delen.push(`${tr('winner.nossy')} ${decimaal(f.minScore.toFixed(1))}+`);
+  if (f.minScore) delen.push(`${tr('winner.appScore')} ${decimaal(f.minScore.toFixed(1))}+`);
   if (f.alleenStreaming) delen.push(diensten.length ? tr('avond.fMijnDiensten') : tr('avond.onlyStreaming'));
   return delen;
 }
@@ -121,7 +121,7 @@ export default function Pick({ app }) {
 
   const potZonderMood = useMemo(() => {
     const p = gezienEruit ? basis.filter((f) => !seenSet.has(f.key)) : basis;
-    return filterPot(p, meta, filters, nossyScore, { diensten });
+    return filterPot(p, meta, filters, appScore, { diensten });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basis, meta, seenSet, gezienEruit, JSON.stringify(filters), diensten]);
   const moodTelling = useMemo(() => {
@@ -163,6 +163,8 @@ export default function Pick({ app }) {
   const [hfLog, setHfLog] = useLS('hoofdfilmLog', []);
   const [hfOvergeslagen, setHfOvergeslagen] = useLS('hoofdfilmOvergeslagen', {});
   const vorige = (Array.isArray(hfLog) ? hfLog : []).filter((v) => v.dag !== dag);
+  // Wat vandaag al gekozen werd, blijft staan (lib/voorpagina.js, vast)
+  const vandaagLog = (Array.isArray(hfLog) ? hfLog : []).find((v) => v.dag === dag) || null;
   const [voorkeur, setVoorkeur] = useState(null);
   const binnen = useMemo(() => netBinnen(watchlist, meta, { mijnDiensten: diensten, seenSet }), [watchlist, meta, diensten, seenSet]);
   const keuze = useMemo(() => {
@@ -173,18 +175,20 @@ export default function Pick({ app }) {
     }
     const basisArgs = {
       watchlist, meta, seenSet, ratedFilms, mijnDiensten: diensten, nu: beginNu,
-      taste: app.taste, vorige, overgeslagen: hfOvergeslagen || {}, gepickt: history || [],
+      taste: app.taste, vorige, overgeslagen: hfOvergeslagen || {}, gepickt: history || [], vast: vandaagLog?.key || null,
     };
     return kiesHoofdfilm({ ...basisArgs, weg }) || (weg.length ? kiesHoofdfilm({ ...basisArgs, weg: [] }) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voorkeur, watchlist, meta, seenSet, app.ratedFilms, app.taste, diensten, binnen, dag, weg.join('|'), JSON.stringify(vorige), hfOvergeslagen, history]);
+  }, [voorkeur, watchlist, meta, seenSet, app.ratedFilms, app.taste, diensten, binnen, dag, weg.join('|'), JSON.stringify(vorige), hfOvergeslagen, history, vandaagLog?.key]);
   // Wat vandaag de hoofdfilm is, onthouden voor de afwisseling van morgen
   const keuzeKey = !voorkeur ? keuze?.film.key : null;
   useEffect(() => {
     if (!keuzeKey) return;
     setHfLog((log) => {
       const oud = Array.isArray(log) ? log : [];
-      if (oud.some((v) => v.dag === dag && v.key === keuzeKey)) return log;
+      const nu = oud.find((v) => v.dag === dag);
+      if (nu && nu.key === keuzeKey) return log;
+      // Een andere hoofdfilm: de voorfilm van vandaag mag dan ook opnieuw
       return [...oud.filter((v) => v.dag !== dag), { dag, key: keuzeKey }].slice(-14);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,10 +209,22 @@ export default function Pick({ app }) {
   };
   // De voorfilm: een korte film van je lijst, met een eigen filmkaart
   const voorfilm = useMemo(
-    () => kiesVoorfilm({ watchlist, meta, seenSet, taste: app.taste, nu: beginNu, zonder: keuze?.film.key }),
+    () => kiesVoorfilm({ watchlist, meta, seenSet, taste: app.taste, nu: beginNu, zonder: keuze?.film.key, vast: vandaagLog?.voor || null }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [watchlist, meta, seenSet, app.taste, dag, keuze?.film.key],
+    [watchlist, meta, seenSet, app.taste, dag, keuze?.film.key, vandaagLog?.voor],
   );
+  // De voorfilm van vandaag onthouden, bij de hoofdfilm van vandaag
+  const voorfilmKey = voorfilm?.film.key || null;
+  useEffect(() => {
+    if (!voorfilmKey || !keuzeKey) return;
+    setHfLog((log) => {
+      const oud = Array.isArray(log) ? log : [];
+      const nu = oud.find((v) => v.dag === dag && v.key === keuzeKey);
+      if (!nu || nu.voor === voorfilmKey) return log;
+      return oud.map((v) => (v === nu ? { ...v, voor: voorfilmKey } : v));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voorfilmKey, keuzeKey, dag]);
   const [voorfilmOpen, setVoorfilmOpen] = useState(false);
   const alsHoofdfilm = (film) => {
     setVoorkeur(film.key);
@@ -387,7 +403,9 @@ export default function Pick({ app }) {
           <aside className="voorpagina-kolom zij">{kassaBlok}{vraagBlok}{doosBlok}</aside>
         </>
       ) : (
-        <>{hoofd}{vraagBlok}{kassaBlok}{binnenBlok}{doosBlok}</>
+        // Op een telefoon: de kassa meteen onder de hoofdfilm, de vraag over
+        // gisteren daaronder (hij wacht wel; de knop moet in beeld)
+        <>{hoofd}{kassaBlok}{vraagBlok}{binnenBlok}{doosBlok}</>
       )}
 
       {laOpen && (

@@ -17,7 +17,7 @@ import {
 // je watchlist of niet, en hoe goed hij bij je past (lib/zaalgasten.js).
 
 const KEUZE = 'zaalLbKeuze'; // { [code]: 'ja' | 'nee' }
-const stapSleutel = (code) => `nossyZaalLbStap.${code}`;
+const stapSleutel = (code) => `zaalLbStap.${code}`;
 
 // Wat je in de zaal hebt gekozen, per zaal (de laatste vijf)
 function bewaarKeuze(code, k) {

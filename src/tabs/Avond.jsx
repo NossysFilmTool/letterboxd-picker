@@ -5,7 +5,7 @@ import { useT } from '../lib/i18n.js';
 import { remoteAvailable, createSession, getSession, closeSession, computeWinner } from '../lib/session.js';
 import { Users, Swords, Ban, Clapperboard, RotateCcw, Upload, Info, ArrowLeft, Send } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
-import { sample, nossyScore } from '../lib/pick.js';
+import { sample, appScore } from '../lib/pick.js';
 import { parseLetterboxdFiles } from '../lib/csv.js';
 import Winner from '../components/Winner.jsx';
 import Pitch from '../components/Pitch.jsx';
@@ -36,6 +36,19 @@ function Tile({ film, meta, onClick, struck, label, index = 0, onInfo }) {
       </div>
       <div className="t">{film.name}</div>
       <div className="y">{film.year || ''}</div>
+    </button>
+  );
+}
+
+// Eén manier van kiezen bovenaan Filmavond (Hoe kiezen jullie?); de keuze
+// blijft staan in je instellingen
+function ManierKnop({ id, anker, manier, app }) {
+  const { t: tr } = useT();
+  return (
+    <button type="button" className={`manier-knop${manier === id ? ' actief' : ''}`} aria-pressed={manier === id}
+      onClick={() => app.setSettings((s) => ({ ...s, avondManier: id }))} data-uitleg={anker}>
+      <span className="manier-titel">{tr(`avond.manier_${id}`)}</span>
+      <span className="manier-sub">{tr(`avond.manier_${id}_sub`)}</span>
     </button>
   );
 }
@@ -122,7 +135,7 @@ export default function Avond({ app }) {
   const basePool = useMemo(() => {
     let p = watchlist.filter((f) => !seenSet.has(f.key));
     if (useOverlap && friends.length) p = p.filter((f) => friends.every((fr) => fr.keys.has(f.key)));
-    return filterPot(p, meta, filters, nossyScore, { diensten });
+    return filterPot(p, meta, filters, appScore, { diensten });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlist, seenSet, useOverlap, friends, meta, JSON.stringify(filters), diensten]);
 
@@ -150,7 +163,7 @@ export default function Avond({ app }) {
     try {
       const kandidaten = [...basePool].sort(() => Math.random() - 0.5).slice(0, 12)
         .map((f) => ({ key: f.key, name: f.name, year: f.year, poster: meta[f.key]?.poster || null }));
-      const { code } = await createSession(kandidaten, 'Nossy');
+      const { code } = await createSession(kandidaten, '');
       setRemote({ code, films: kandidaten });
       setRemoteVotes({});
       setRemoteWinner(null);
@@ -161,7 +174,7 @@ export default function Avond({ app }) {
   };
 
   const sluitRemote = async () => {
-    const { winner } = computeWinner(remote.films, remoteVotes, (f) => nossyScore(meta[f.key]));
+    const { winner } = computeWinner(remote.films, remoteVotes, (f) => appScore(meta[f.key]));
     try { await closeSession(remote.code, winner.key); } catch { /* uitslag blijft lokaal geldig */ }
     setRemoteWinner(winner);
   };
@@ -359,6 +372,12 @@ export default function Avond({ app }) {
   }
 
   // ---------- setup ----------
+  // Hoe kiezen jullie: op de bank met één telefoon, in de zaal met een tv en
+  // ieders telefoon, of met een link (Voor ons en Op afstand). Zonder Worker
+  // blijft alleen de bank over, en dan is er niets te kiezen. Je keuze blijft
+  // staan voor de volgende keer.
+  const manieren = ['bank', zaalBeschikbaar() ? 'zaal' : null, remoteAvailable() ? 'link' : null].filter(Boolean);
+  const manier = manieren.includes(app.settings.avondManier) ? app.settings.avondManier : 'bank';
   return (
     <div>
       <div className="toprow">
@@ -367,6 +386,17 @@ export default function Avond({ app }) {
           <p className="page-sub">{tr('avond.pageSub', { count: basePool.length })}</p>
         </div>
       </div>
+
+      {manieren.length > 1 && (
+        <div className="manier" data-uitleg="avond-manier">
+          <p className="label" id="manier-kop">{tr('avond.manierKop')}</p>
+          <div className="manier-keuzes" role="group" aria-labelledby="manier-kop">
+            <ManierKnop id="bank" anker="manier-bank" manier={manier} app={app} />
+            {manieren.includes('zaal') && <ManierKnop id="zaal" anker="manier-zaal" manier={manier} app={app} />}
+            {manieren.includes('link') && <ManierKnop id="link" anker="manier-link" manier={manier} app={app} />}
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 18 }} data-uitleg="avond-pot">
         <p className="label" style={{ marginBottom: 10 }}>{tr('avond.pot')}</p>
@@ -393,116 +423,125 @@ export default function Avond({ app }) {
 
       <AvondFilters filters={filters} onChange={zetFilters} aantal={basePool.length} genres={genresAvail} decennia={decadesAvail} diensten={diensten} uitleg="avond-filters" />
 
-      {zaalBeschikbaar() && (
-        <section className="card zs-kaart" aria-label={tr('zaal.titel')} data-uitleg="zaal-kaart">
-          <div className="zs-kaart-tekst">
-            <h2 className="zs-kaart-kop">{tr('zaal.titel')}</h2>
-            <p>{tr('zaal.uitleg')} <HoeWerktDit app={app} h="samen" stap="zaal" /></p>
-            <div className="zs-kaart-knoppen">
-              <button type="button" className="btn primary" onClick={openZaal} disabled={zaalBezig || basePool.length < 3} data-uitleg="zaal-open">
-                {zaalBezig ? tr('zaal.openen') : tr('zaal.open')}
-              </button>
-              {basePool.length < 3 && <span className="zs-melding">{tr('zaal.teWeinig')}</span>}
-              {zaalMelding && <span className="zs-melding" role="alert">{zaalMelding}</span>}
+      {/* Hoe kiezen jullie? Alleen de manier die je koos staat in beeld; de
+          andere blijven bestaan (een lopende ronde gaat niet verloren) */}
+      <div hidden={manier !== 'bank'}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <div className="card" data-uitleg="avond-veto">
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Ban size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.vetoTitel')}</h2>
+            <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
+              {tr('avond.vetoExplain', { count: Math.min(8, basePool.length) })}
+            </p>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
+              <label style={{ fontSize: 13, color: 'var(--fog)' }}>{tr('avond.players')}</label>
+              <select className="field" style={{ width: 76 }} value={playerCount} onChange={(e) => setPlayerCount(+e.target.value)} aria-label={tr('avond.playerCount')}>
+                {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <button className="btn primary" onClick={startVeto} disabled={basePool.length < 4}><Users size={15} /> {tr('avond.startVeto')}</button>
+            </div>
+            <button type="button" className={`chip ${pitchAan ? 'on' : ''}`} style={{ marginTop: 12, fontSize: 12.5 }} aria-pressed={pitchAan} data-uitleg="avond-trailers"
+              title={tr('avond.pitchAanTitel')} onClick={() => app.setSettings((s) => ({ ...s, vetoPitch: !(s.vetoPitch !== false) }))}>
+              <Clapperboard size={13} style={{ verticalAlign: -2 }} /> {tr('avond.pitchAan')}
+            </button>
+          </div>
+          <div className="card" data-uitleg="avond-bracket">
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Swords size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.bracketTitel')}</h2>
+            <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
+              {basePool.length >= 8 ? tr('avond.bracketUitleg8') : tr('avond.bracketUitleg4')}
+            </p>
+            <div style={{ marginTop: 14 }}>
+              <button className="btn primary" onClick={startBracket} disabled={basePool.length < 4}><Swords size={15} /> {tr('avond.startBracket')}</button>
             </div>
           </div>
-          <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.meedoenKop')} uitleg="zaal-meedoen" />
-        </section>
+        </div>
+        {basePool.length < 4 && <p className="notice warn" style={{ marginTop: 16 }}>{tr('avond.min4')}</p>}
+      </div>
+
+      {zaalBeschikbaar() && (
+        <div hidden={manier !== 'zaal'}>
+          <section className="card zs-kaart" aria-label={tr('zaal.titel')} data-uitleg="zaal-kaart">
+            <div className="zs-kaart-tekst">
+              <h2 className="zs-kaart-kop">{tr('zaal.titel')}</h2>
+              <p>{tr('zaal.uitleg')} <HoeWerktDit app={app} h="samen" stap="zaal" /></p>
+              <div className="zs-kaart-knoppen">
+                <button type="button" className="btn primary" onClick={openZaal} disabled={zaalBezig || basePool.length < 3} data-uitleg="zaal-open">
+                  {zaalBezig ? tr('zaal.openen') : tr('zaal.open')}
+                </button>
+                {basePool.length < 3 && <span className="zs-melding">{tr('zaal.teWeinig')}</span>}
+                {zaalMelding && <span className="zs-melding" role="alert">{zaalMelding}</span>}
+              </div>
+            </div>
+            <ZaalCodeInvoer onCode={app.naarZaal} kop={tr('zaal.meedoenKop')} uitleg="zaal-meedoen" />
+          </section>
+        </div>
       )}
 
       {remoteAvailable() && (
-        <div style={{ marginBottom: 16 }} data-uitleg="samen-host">
-          <SamenHost app={app} pool={basePool} meta={meta} onKies={kiesSamen} />
+        <div hidden={manier !== 'link'}>
+          <p className="manier-intro">{tr('avond.linkUitleg')}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, alignItems: 'start' }}>
+            <div data-uitleg="samen-host">
+              <SamenHost app={app} pool={basePool} meta={meta} onKies={kiesSamen} />
+            </div>
+            <div className="card" data-uitleg="afstand">
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Send size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.remoteTitle')}</h2>
+              {!remote && (
+                <>
+                  <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('avond.remoteExplain')} <HoeWerktDit app={app} h="samen" stap="afstand" /></p>
+                  <ol style={{ color: 'var(--fog)', fontSize: 13, margin: '10px 0 0 18px', display: 'grid', gap: 5 }}>
+                    <li>{tr('avond.remoteHow1')}</li>
+                    <li>{tr('avond.remoteHow2')}</li>
+                    <li>{tr('avond.remoteHow3')}</li>
+                  </ol>
+                  <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button className="btn primary" onClick={startRemote} disabled={remoteBusy || basePool.length < 2}>
+                      <Send size={15} /> {tr('avond.startRemote')}
+                    </button>
+                    {remoteMsg && <span style={{ color: 'var(--dot-o)', fontSize: 13 }}>{remoteMsg}</span>}
+                  </div>
+                </>
+              )}
+              {remote && !remoteWinner && (() => {
+                const link = `${location.origin}${location.pathname}?avond=${remote.code}`;
+                const stemmers = Object.keys(remoteVotes);
+                const telling = {};
+                Object.values(remoteVotes).forEach((picks) => (picks || []).forEach((k) => { telling[k] = (telling[k] || 0) + 1; }));
+                return (
+                  <div style={{ marginTop: 10 }}>
+                    <p style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--paper)' }}>{tr('avond.remoteCode', { code: remote.code })}</p>
+                    <button className="btn" style={{ marginTop: 8 }} onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+                      {copied ? tr('avond.copied') : tr('avond.copyLink')}
+                    </button>
+                    <p style={{ color: 'var(--fog)', fontSize: 13, marginTop: 12 }}>
+                      {stemmers.length ? tr('avond.votesIn', { count: stemmers.length, names: stemmers.join(', ') }) : tr('avond.noVotesYet')}
+                    </p>
+                    <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginTop: 6 }}>{tr('avond.remoteWaitHint')} {tr('avond.remoteValidity')}</p>
+                    {stemmers.length > 0 && (
+                      <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--fog)', fontSize: 13 }}>
+                        {remote.films.filter((f) => telling[f.key]).sort((a, b) => telling[b.key] - telling[a.key]).map((f) => (
+                          <li key={f.key}>{f.name}: {tr('avond.remoteVoteCount', { count: telling[f.key] })}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                      <button className="btn primary" onClick={sluitRemote} disabled={!stemmers.length}>{tr('avond.closeRound')}</button>
+                      <button className="btn ghost" onClick={() => { setRemote(null); setRemoteVotes({}); }}>{tr('avond.stopRound')}</button>
+                    </div>
+                  </div>
+                );
+              })()}
+              {remoteWinner && (
+                <div style={{ marginTop: 12, textAlign: 'center' }}>
+                  <p className="label" style={{ marginBottom: 8 }}>{tr('remote.winnerIs')}</p>
+                  {meta[remoteWinner.key]?.poster && <img src={IMG(meta[remoteWinner.key].poster, 'w342')} alt="" style={{ width: 130, borderRadius: 2, marginBottom: 8 }} />}
+                  <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--paper)' }}>{remoteWinner.name}{remoteWinner.year ? ` (${remoteWinner.year})` : ''}</p>
+                  <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => { setRemote(null); setRemoteWinner(null); setRemoteVotes({}); }}>{tr('avond.stopRound')}</button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-        {remoteAvailable() && (
-          <div className="card" data-uitleg="afstand">
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Send size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.remoteTitle')}</h2>
-            {!remote && (
-              <>
-                <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>{tr('avond.remoteExplain')} <HoeWerktDit app={app} h="samen" stap="afstand" /></p>
-                <ol style={{ color: 'var(--fog)', fontSize: 13, margin: '10px 0 0 18px', display: 'grid', gap: 5 }}>
-                  <li>{tr('avond.remoteHow1')}</li>
-                  <li>{tr('avond.remoteHow2')}</li>
-                  <li>{tr('avond.remoteHow3')}</li>
-                </ol>
-                <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button className="btn primary" onClick={startRemote} disabled={remoteBusy || basePool.length < 2}>
-                    <Send size={15} /> {tr('avond.startRemote')}
-                  </button>
-                  {remoteMsg && <span style={{ color: 'var(--dot-o)', fontSize: 13 }}>{remoteMsg}</span>}
-                </div>
-              </>
-            )}
-            {remote && !remoteWinner && (() => {
-              const link = `${location.origin}${location.pathname}?avond=${remote.code}`;
-              const stemmers = Object.keys(remoteVotes);
-              const telling = {};
-              Object.values(remoteVotes).forEach((picks) => (picks || []).forEach((k) => { telling[k] = (telling[k] || 0) + 1; }));
-              return (
-                <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--paper)' }}>{tr('avond.remoteCode', { code: remote.code })}</p>
-                  <button className="btn" style={{ marginTop: 8 }} onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
-                    {copied ? tr('avond.copied') : tr('avond.copyLink')}
-                  </button>
-                  <p style={{ color: 'var(--fog)', fontSize: 13, marginTop: 12 }}>
-                    {stemmers.length ? tr('avond.votesIn', { count: stemmers.length, names: stemmers.join(', ') }) : tr('avond.noVotesYet')}
-                  </p>
-                  <p style={{ color: 'var(--fog-dim)', fontSize: 12.5, marginTop: 6 }}>{tr('avond.remoteWaitHint')} {tr('avond.remoteValidity')}</p>
-                  {stemmers.length > 0 && (
-                    <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--fog)', fontSize: 13 }}>
-                      {remote.films.filter((f) => telling[f.key]).sort((a, b) => telling[b.key] - telling[a.key]).map((f) => (
-                        <li key={f.key}>{f.name}: {tr('avond.remoteVoteCount', { count: telling[f.key] })}</li>
-                      ))}
-                    </ul>
-                  )}
-                  <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-                    <button className="btn primary" onClick={sluitRemote} disabled={!stemmers.length}>{tr('avond.closeRound')}</button>
-                    <button className="btn ghost" onClick={() => { setRemote(null); setRemoteVotes({}); }}>{tr('avond.stopRound')}</button>
-                  </div>
-                </div>
-              );
-            })()}
-            {remoteWinner && (
-              <div style={{ marginTop: 12, textAlign: 'center' }}>
-                <p className="label" style={{ marginBottom: 8 }}>{tr('remote.winnerIs')}</p>
-                {meta[remoteWinner.key]?.poster && <img src={IMG(meta[remoteWinner.key].poster, 'w342')} alt="" style={{ width: 130, borderRadius: 2, marginBottom: 8 }} />}
-                <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--paper)' }}>{remoteWinner.name}{remoteWinner.year ? ` (${remoteWinner.year})` : ''}</p>
-                <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => { setRemote(null); setRemoteWinner(null); setRemoteVotes({}); }}>{tr('avond.stopRound')}</button>
-              </div>
-            )}
-          </div>
-        )}
-        <div className="card" data-uitleg="avond-veto">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Ban size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.vetoTitel')}</h2>
-          <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
-            {tr('avond.vetoExplain', { count: Math.min(8, basePool.length) })}
-          </p>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
-            <label style={{ fontSize: 13, color: 'var(--fog)' }}>{tr('avond.players')}</label>
-            <select className="field" style={{ width: 76 }} value={playerCount} onChange={(e) => setPlayerCount(+e.target.value)} aria-label={tr('avond.playerCount')}>
-              {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <button className="btn primary" onClick={startVeto} disabled={basePool.length < 4}><Users size={15} /> {tr('avond.startVeto')}</button>
-          </div>
-          <button type="button" className={`chip ${pitchAan ? 'on' : ''}`} style={{ marginTop: 12, fontSize: 12.5 }} aria-pressed={pitchAan} data-uitleg="avond-trailers"
-            title={tr('avond.pitchAanTitel')} onClick={() => app.setSettings((s) => ({ ...s, vetoPitch: !(s.vetoPitch !== false) }))}>
-            <Clapperboard size={13} style={{ verticalAlign: -2 }} /> {tr('avond.pitchAan')}
-          </button>
-        </div>
-        <div className="card" data-uitleg="avond-bracket">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}><Swords size={18} style={{ verticalAlign: -3, color: 'var(--fog)' }} /> {tr('avond.bracketTitel')}</h2>
-          <p style={{ color: 'var(--fog)', fontSize: 13.5, marginTop: 8 }}>
-            {basePool.length >= 8 ? tr('avond.bracketUitleg8') : tr('avond.bracketUitleg4')}
-          </p>
-          <div style={{ marginTop: 14 }}>
-            <button className="btn primary" onClick={startBracket} disabled={basePool.length < 4}><Swords size={15} /> {tr('avond.startBracket')}</button>
-          </div>
-        </div>
-      </div>
-      {basePool.length < 4 && <p className="notice warn" style={{ marginTop: 16 }}>{tr('avond.min4')}</p>}
     </div>
   );
 }

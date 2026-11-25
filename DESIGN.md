@@ -6,7 +6,7 @@ het gedrukte maandprogramma van een filmhuis: grote filmbeelden, titels met
 schaal, korte bijschriften, en de kleur van de film als groot vlak. De zaal
 blijft donker; de posters en de film in beeld praten.
 
-Een aantal regels wordt bewaakt door `stijl.test.js` (ontwerp: geen AI-clichés).
+Een aantal regels wordt bewaakt door `tests/stijl.test.js` (ontwerp: geen AI-clichés).
 Wil je er een breken, pas dan eerst dit document aan.
 
 ## Waarom zo
@@ -22,7 +22,7 @@ app kunnen zijn? Dan is het nog niet af.
 
 ## Het programma
 
-- Bovenaan elk scherm de kop van het huis: "Nossy's bioscoop" en de datum van
+- Bovenaan elk scherm de kop van het huis: de naam van de tool (lib/merk.js) en de datum van
   vandaag, zoals op een gedrukt programma.
 - Een scherm opent waar het kan met een filmbeeld uit je eigen lijst, groot
   en met een bijschrift. Echte beelden, nooit decoratie.
@@ -45,6 +45,13 @@ app kunnen zijn? Dan is het nog niet af.
 - Op een breed scherm staan ze als woorden in de kop. Op een telefoon onderin,
   met zes eigen getekende pictogrammen (`Pictogram` in `Shell.jsx`): gevulde
   vormen, één gewicht. Geen standaardset.
+- Elk scherm heeft een eigen adres: Vanavond is het kale adres, de rest
+  `#archive`, `#programme`, `#movie-night`, `#yearbook` en `#setup`. Terug in
+  de browser gaat naar het vorige scherm; de rondleiding schrijft geen
+  geschiedenis bij.
+- Wacht er op een ander scherm iets op je (de vraag na een avond), dan
+  krijgt dat scherm in de navigatie een stip, met een zin voor wie
+  voorgelezen wordt. Geen banner bovenaan.
 
 ## Kleur
 
@@ -197,7 +204,7 @@ app kunnen zijn? Dan is het nog niet af.
 ## Meldingen
 
 - Nooit een pop-up van de browser (alert, confirm): die is grijs, houdt
-  alles tegen en hoort niet in de zaal. Bewaakt door `stijl.test.js`; alles
+  alles tegen en hoort niet in de zaal. Bewaakt door `tests/stijl.test.js`; alles
   loopt via `src/lib/melding.js`.
 - Een melding staat bovenin als rustig vlak en gaat na zes seconden vanzelf
   weg. Een fout blijft twaalf seconden staan en krijgt een warme rand. Je
@@ -206,6 +213,10 @@ app kunnen zijn? Dan is het nog niet af.
   knoppen die zeggen wat ze doen: "Wis de bibliotheek", niet "OK". Kan het
   niet terug, dan krijgt die knop de waarschuwingskleur en staat annuleren
   klaar. Escape of naast het venster tikken is annuleren.
+- Wat op de achtergrond misgaat (sync, Voor jou, een fout die niemand
+  opving) komt in het foutlogboek (`src/lib/foutlog.js`), niet in een
+  melding per keer. Het blijft op dit apparaat, zonder sleutels of codes. In
+  Setup staat het als "Wat er misging", en alleen als er iets in staat.
 
 ## De trailers
 
@@ -239,6 +250,10 @@ app kunnen zijn? Dan is het nog niet af.
 
 ## De zaalstemming
 
+- Filmavond opent met de vraag hoe jullie kiezen: op de bank (één telefoon:
+  veto-rondes of knock-out), in de zaal (een scherm en ieders telefoon) of
+  met een link (Voor ons en Op afstand, ieder thuis). Alleen de gekozen
+  manier staat open, en de keuze wordt onthouden.
 - Op Filmavond wordt één scherm de zaal (de tv, de laptop) en stemt iedereen
   op de eigen telefoon. Het scherm heeft de watchlist, zet de rondes en telt;
   een telefoon heeft alleen een naam nodig. Wie bij het scherm zit, kan zelf
@@ -384,7 +399,7 @@ app kunnen zijn? Dan is het nog niet af.
   staan. Tik erop en de strook scheurt af. Die tik zet ook het geluid aan,
   want een browser wil eerst een tik.
 - Dan gaat het licht uit en volgt een trailer met de bestaande
-  trailermachine, met jouw tijd met Nossy als film: hoe vaak je koos en
+  trailermachine, met jouw tijd met de tool als film: hoe vaak je koos en
   echt keek, "Met in de hoofdrol" je watchlist, je filmjaar, de titel die
   inslaat, en eronder wat er nieuw is met je eigen getallen. De beelden
   komen uit je eigen kaartjes. Een zin zonder gegevens valt weg.
@@ -455,7 +470,7 @@ app kunnen zijn? Dan is het nog niet af.
   5". Met "beperk beweging" schuift er niets: geen zwaai, iris, flikker of
   kloppende ring, de tussentitel staat er meteen en het scherm springt naar
   het onderdeel.
-- `smoke.test.jsx` bewaakt dat elk doel een anker heeft en elk anker bij een
+- `tests/rondleiding.test.jsx` bewaakt dat elk doel een anker heeft en elk anker bij een
   stap hoort, dat elke tekst in beide talen bestaat met dezelfde
   plekhouders, en dat het dun blijft: zeven hoofdstukken, hooguit zeven
   kernstappen per hoofdstuk, en kernteksten van hooguit dertig woorden.

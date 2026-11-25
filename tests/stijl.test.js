@@ -8,8 +8,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
-import nl from './src/lib/dict/nl.js';
-import en from './src/lib/dict/en.js';
+import nl from '../src/lib/dict/nl.js';
+import en from '../src/lib/dict/en.js';
 
 function alleTeksten(obj, out = []) {
   for (const v of Object.values(obj)) {

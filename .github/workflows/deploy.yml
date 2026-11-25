@@ -1,5 +1,5 @@
 # Bouwt en publiceert de tool naar GitHub Pages bij elke push naar main.
-# De tests draaien eerst: een kapotte versie komt nooit live.
+# Lint en de tests draaien eerst: een kapotte versie komt nooit live.
 name: Deploy naar GitHub Pages
 
 on:
@@ -23,10 +23,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - name: Dependencies installeren
         run: npm ci
+      - name: Lint (een fout = geen deploy)
+        run: npm run lint
       - name: Tests draaien (falen = geen deploy)
         run: npm test
       - name: Bouwen

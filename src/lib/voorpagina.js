@@ -5,7 +5,7 @@
 // openen. "Een andere film" schuift naar de volgende; dat geldt de rest van
 // de dag.
 
-import { nossyScore } from './pick.js';
+import { appScore } from './pick.js';
 import { avondRuimte } from './foryou.js';
 import { netBinnen } from './aanbod.js';
 import { matchScore } from './taste.js';
@@ -17,14 +17,14 @@ import { GENRES, genreLabel } from './tmdb.js';
 export const KORTE_FILM = 40;
 const isKort = (m) => !!m?.runtime && m.runtime < KORTE_FILM;
 
-// Een cijfer dat je kunt vertrouwen: de Nossy-score (met IMDb en Metacritic
+// Een cijfer dat je kunt vertrouwen: de app-score (met IMDb en Metacritic
 // als die er zijn), anders TMDB, maar nooit een opgeblazen TMDB-cijfer. Weinig
 // stemmen trekt het naar het neutrale midden (6,2), zoals de match in
 // taste.js: een 8,6 van twaalf stemmers is geen 8,6. Met een tweede mening
 // (IMDb of Metacritic) is er minder demping nodig.
 export function betrouwbaarCijfer(m) {
   if (!m) return NEUTRAAL_CIJFER;
-  let c = nossyScore(m);
+  let c = appScore(m);
   if (c == null) c = beoordeelCijfer(m).opgeblazen ? null : (m.vote || null);
   if (c == null) return NEUTRAAL_CIJFER;
   const tweede = m.ext?.imdb != null || m.ext?.mc != null;
@@ -110,13 +110,16 @@ export function beschrijfHoofdfilm(film, { meta, ratedFilms = [], mijnDiensten =
 //   - het lot van de dag beslist tussen films die dicht bij elkaar liggen
 // Alles over eerdere dagen; wat je vandaag doet, verandert de keuze van
 // vandaag niet (behalve "Een andere film").
+//   vast:        de hoofdfilm die vandaag al gekozen is: die blijft, zolang
+//                hij nog kan (niet gezien, niet weggeklikt). Zo wisselt hij
+//                niet als je later op de dag opent of er filmdata bijkomt.
 //   weg:         films die je vandaag al wegklikte
 //   vorige:      [{ dag, key }] de hoofdfilms van eerdere dagen
 //   overgeslagen: { key: [dag] } de dagen waarop je een film wegklikte
 //   gepickt:     [{ key, date }] je pick-geschiedenis
 export function kiesHoofdfilm({
   watchlist, meta, seenSet = new Set(), ratedFilms = [], mijnDiensten = [], weg = [], nu = new Date(),
-  taste = null, vorige = [], overgeslagen = {}, gepickt = [],
+  taste = null, vorige = [], overgeslagen = {}, gepickt = [], vast = null,
 }) {
   const wegSet = new Set(weg);
   const alle = watchlist.filter((f) => meta[f.key] && !seenSet.has(f.key));
@@ -148,6 +151,9 @@ export function kiesHoofdfilm({
     const c = betrouwbaarCijfer(meta[f.key]);
     if (!hoogste || c > hoogste.c) hoogste = { key: f.key, c };
   });
+
+  const vandaagAl = vast && !wegSet.has(vast) && kandidaten.find((f) => f.key === vast);
+  if (vandaagAl) return beschrijfHoofdfilm(vandaagAl, { meta, ratedFilms, mijnDiensten, binnen, hoogsteKey: hoogste?.key, taste, nu });
 
   let beste = null;
   kandidaten.forEach((f) => {
@@ -182,9 +188,12 @@ export function kiesHoofdfilm({
 
 // De voorfilm: in de bioscoop draaide er een korte film voor de hoofdfilm.
 // Een korte film van je lijst die je nog niet zag, op cijfer en smaak, met
-// het lot van de dag. Geen korte films op je lijst: geen voorfilm.
-export function kiesVoorfilm({ watchlist, meta, seenSet = new Set(), taste = null, nu = new Date(), zonder = null }) {
+// het lot van de dag. Geen korte films op je lijst: geen voorfilm. Net als
+// de hoofdfilm blijft de voorfilm van vandaag staan (vast) zolang hij kan.
+export function kiesVoorfilm({ watchlist, meta, seenSet = new Set(), taste = null, nu = new Date(), zonder = null, vast = null }) {
   const dag = vandaag(nu);
+  const al = vast && vast !== zonder && !seenSet.has(vast) && watchlist.find((f) => f.key === vast);
+  if (al && isKort(meta[al.key])) return { film: al, m: meta[al.key] };
   let beste = null;
   watchlist.forEach((f) => {
     const m = meta[f.key];

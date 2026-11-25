@@ -1,4 +1,5 @@
 import { useT } from '../lib/i18n.js';
+import { SCORE } from '../lib/merk.js';
 
 // Het voor/na-blokje: laat in één oogopslag zíen wat OMDb-sleutels toevoegen,
 // in plaats van het uit te leggen. Puur decoratief (aria-hidden); de tekst
@@ -13,7 +14,7 @@ export default function ScoresPreview() {
       </div>
       <span className="sp-arrow">→</span>
       <div className="sp-card sp-after">
-        <span className="sp-nossy"><span className="sp-src">Nossy</span> {d('7,9')}</span>
+        <span className="sp-app"><span className="sp-src">{SCORE}</span> {d('7,9')}</span>
         <span><span className="sp-src">IMDb</span> {d('7,8')}</span>
         <span><span className="sp-src">RT</span> 93%</span>
         <span><span className="sp-src">Meta</span> 81</span>

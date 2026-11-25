@@ -78,6 +78,8 @@ const naarZoeken = { sluit: terugUitVoorJou, klik: 'zoek-tab' };
 // Filmavond: terug uit even spieken, en na een winnaar naar een nieuwe ronde
 // (het kaartje is dan al gegeven). Een lopende ronde blijft staan.
 const naarAvond = { sluit: ['avond-terug', 'avond-nieuw'] };
+// En dan de manier van kiezen (bovenaan Filmavond) waar de stap over gaat
+const naarManier = (m) => ({ ...naarAvond, klik: `manier-${m}` });
 // Staat Filmavond niet op het begin (een ronde loopt), dan vallen de stappen
 // over dat scherm meteen weg
 const opAvond = opScherm('avond', 'avond-kop');
@@ -229,23 +231,23 @@ export const HOOFDSTUKKEN = [
     // Samen kiezen: op één telefoon, de zaalstemming en op afstand
     id: 'samen', tab: 'avond', duur: 3, nodigLijst: true,
     stappen: [
-      ...deel('samen', [{ id: 'welke', meer: true, tab: 'avond' }], metAfstand),
+      ...deel('samen', [{ id: 'welke', meer: true, doel: 'avond-manier', tab: 'avond', voor: naarAvond, alleenAls: opAvond }], metAfstand),
       ...deel('filmavond', [
         { id: 'avond', ...N, doel: 'avond-kop', tab: 'avond', voor: naarAvond, vb: ({ el }) => ({ n: getal(el, 'n') }) },
         { id: 'pot', ...N, doel: 'avond-pot', tab: 'avond', alleenAls: opAvond },
         { id: 'filters', ...N, doel: 'avond-filters', tab: 'avond', alleenAls: opAvond },
         // Eerst terug naar het begin van Filmavond (na een winnaar), dan pas kijken
-        { id: 'veto', meer: true, doel: 'avond-veto', tab: 'avond', voor: naarAvond },
-        { id: 'trailers', ...N, doel: 'avond-trailers', tab: 'avond', alleenAls: opAvond },
-        { id: 'bracket', ...N, doel: 'avond-bracket', tab: 'avond', alleenAls: opAvond },
+        { id: 'veto', meer: true, doel: 'avond-veto', tab: 'avond', voor: naarManier('bank') },
+        { id: 'trailers', ...N, doel: 'avond-trailers', tab: 'avond', voor: naarManier('bank'), alleenAls: opAvond },
+        { id: 'bracket', ...N, doel: 'avond-bracket', tab: 'avond', voor: naarManier('bank'), alleenAls: opAvond },
         { id: 'winnaar', ...N },
       ]),
       // De zaal, voor wie hem opent: open hem als je wilt, dan valt het licht
       // op de lobby; het verloop van een avond met de oefenstemming
       ...deel('zaal', [
-        { id: 'zaal', ...N, doel: 'zaal-kaart', tab: 'avond', voor: naarAvond },
+        { id: 'zaal', ...N, doel: 'zaal-kaart', tab: 'avond', voor: naarManier('zaal') },
         {
-          id: 'open', meer: true, doel: 'zaal-open', tab: 'avond', voor: naarAvond, alleenAls: opScherm('avond', 'zaal-open'),
+          id: 'open', meer: true, doel: 'zaal-open', tab: 'avond', voor: naarManier('zaal'), alleenAls: opAvond,
           // Te weinig films in de pot: dan kan het niet, en is het een kijkstap
           doe: { klaar: zaalOpen, toon: 'zaal-open', knop: 'zaal', kan: ({ vind }) => !vind?.('zaal-open')?.disabled },
         },
@@ -268,7 +270,7 @@ export const HOOFDSTUKKEN = [
       // De zaal, voor wie meestemt op de eigen telefoon (de telefoon legt het
       // zelf ook uit, met een oefenkaart in de lobby)
       ...deel('zaalgast', [
-        { id: 'gast', ...N, doel: 'zaal-meedoen', tab: 'avond', voor: naarAvond, leeg: true },
+        { id: 'gast', ...N, doel: 'zaal-meedoen', tab: 'avond', voor: naarManier('zaal'), leeg: true },
         { id: 'gastnaam', ...N },
         { id: 'gastletterboxd', ...N },
         { id: 'voordragen', ...N },
@@ -277,10 +279,10 @@ export const HOOFDSTUKKEN = [
         { id: 'gastkaartje', ...N },
       ], metZaal),
       ...deel('afstand', [
-        { id: 'voorons', meer: true, doel: 'samen-host', tab: 'avond', voor: naarAvond },
+        { id: 'voorons', meer: true, doel: 'samen-host', tab: 'avond', voor: naarManier('link') },
         { id: 'vrienden', ...N },
         { id: 'rang', ...N },
-        { id: 'afstand', ...N, doel: 'afstand', tab: 'avond', voor: naarAvond, alleenAls: opScherm('avond', 'afstand') },
+        { id: 'afstand', ...N, doel: 'afstand', tab: 'avond', voor: naarManier('link'), alleenAls: opAvond },
         { id: 'afstandwinnaar', ...N },
       ], metAfstand),
     ],
@@ -291,8 +293,8 @@ export const HOOFDSTUKKEN = [
     stappen: deel('jaarboek', [
       { id: 'wat', ...N, tab: 'inzicht' },
       // Het kijkritme komt uit het dagboek: zonder dagboek de lege tekst
-      { id: 'ritme', ...N, doel: 'jaarboek-ritme', tab: 'inzicht', leeg: true, wacht: 400 },
       { id: 'cijfers', ...N, doel: 'jaarboek-cijfers', tab: 'inzicht', vb: ({ el }) => ({ n: getal(el, 'n'), nog: getal(el, 'nog') }) },
+      { id: 'ritme', ...N, doel: 'jaarboek-ritme', tab: 'inzicht', leeg: true, wacht: 400 },
       { id: 'profiel', meer: true, doel: 'jaarboek-profiel', tab: 'inzicht' },
       // Meten laat niets na: dat mag je zelf, of de rondleiding doet het voor
       { id: 'meten', meer: true, doel: 'jaarboek-meten', tab: 'inzicht', doe: { klaar: heeft('jaarboek-meting'), toon: 'jaarboek-meet-knop' } },

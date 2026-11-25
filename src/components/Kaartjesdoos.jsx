@@ -21,7 +21,7 @@ const alsDatum = (s) => new Date(String(s).length === 10 ? `${s}T12:00:00` : s);
 const posterVan = (k, meta) => meta[k.key]?.poster || k.poster || null;
 
 export function bronTekst(k, tr) {
-  if (k.bron === 'gevonden') return tr(`kaartje.gevonden_${['voorjou', 'zoeken', 'vergelijkbaar', 'zaal'].includes(k.vondst) ? k.vondst : 'nossy'}`);
+  if (k.bron === 'gevonden') return tr(`kaartje.gevonden_${['voorjou', 'zoeken', 'vergelijkbaar', 'zaal'].includes(k.vondst) ? k.vondst : 'app'}`);
   if (k.bron === 'zoeken') return tr('kaartje.bronZoeken');
   if (k.bron === 'samen') return tr('kaartje.bronSamen', { namen: (k.namen || []).join(', ') || k.personen });
   if (k.bron === 'zaal') return tr('kaartje.bronZaal', { namen: (k.namen || []).join(', ') || k.personen });
@@ -152,7 +152,7 @@ export default function Kaartjesdoos({ kaartjes, buiten = [], gelogd = [], meta,
   );
 
   // Je recente Letterboxd-logs die nog niet in de doos zitten: vond je er
-  // een via Nossy, dan voeg je hem hier zelf toe
+  // een via de tool, dan voeg je hem hier zelf toe
   const gelogdLijst = gelogd.length > 0 && onGevonden && (
     <section className="kd-buiten" data-uitleg="kaartjes-gelogd">
       <button type="button" className="linkbtn" onClick={() => setGelogdOpen((v) => !v)} aria-expanded={gelogdOpen}>

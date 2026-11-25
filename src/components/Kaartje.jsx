@@ -13,7 +13,8 @@ export default function Kaartje({ film, meta, personen = 1, namen, kleur }) {
   // Aanvang en einde staan vast zolang dit kaartje er ligt
   const inhoud = useMemo(
     () => kaartjeInhoud(film, meta, { tr, lang, personen, namen }),
-    [film.key, meta, lang, personen, namen?.join('|')], // tr hoort bij lang
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- vast per film; tr hoort bij lang, de namen tellen als tekst
+    [film.key, meta, lang, personen, namen?.join('|')],
   );
   const balken = useMemo(() => streepjes(inhoud.code || film.key), [inhoud.code, film.key]);
 

@@ -3,12 +3,12 @@ export const IMG = (path, size = 'w342') => (path ? `https://image.tmdb.org/t/p/
 
 // --- TMDB-toegang via de tool-proxy (Cloudflare Worker) --------------------
 // Vul hier de Worker-URL in zodra die live is (bijv.
-// 'https://nossy-tmdb.<account>.workers.dev'). Leeg = proxy uit: dan werkt
+// 'https://<worker>.<account>.workers.dev'). Leeg = proxy uit: dan werkt
 // alles precies zoals voorheen, met uitsluitend eigen sleutels.
 export const PROXY_URL = 'https://nossy-tmdb.songason1-nossytool.workers.dev';
 // Interne sentinel: "gebruik de proxy". Gaat als sleutel door de bestaande
 // code zodat alle guards (`if (!key)`) ongewijzigd blijven werken.
-export const PROXY_KEY = '__nossy_proxy__';
+export const PROXY_KEY = '__proxy__';
 // Effectieve toegang: eigen sleutel wint (override), anders de proxy.
 export const effectiveTmdbKey = (ownKey) => ownKey || (PROXY_URL ? PROXY_KEY : '');
 

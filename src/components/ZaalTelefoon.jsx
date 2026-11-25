@@ -46,7 +46,7 @@ export default function ZaalTelefoon({ code, onWeg, onCode, onKaartje, pollMs = 
   const laad = async () => {
     try { setZaal(await haalZaal(code)); setOngeldig(false); } catch (e) { if (e.message === 'NOT_FOUND') setOngeldig(true); }
   };
-  useEffect(() => { laad(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [code]);
+  useEffect(() => { laad(); }, [code]); // eslint-disable-line react-hooks/exhaustive-deps -- alleen opnieuw bij een andere code
   usePoll(laad, pollMs, !!zaal && !ongeldig && zaal.fase !== 'uitslag' && zaal.fase !== 'gesloten');
 
   // Botsten twee aanmeldingen, dan ontbreekt je naam: meld je dan stil opnieuw
