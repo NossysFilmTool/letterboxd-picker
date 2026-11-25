@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!--
+  De linkkaart (public/social-card.png, 1200 x 630): wat WhatsApp, Discord en
+  andere apps tonen bij een gedeelde link. Zelfde stijl als de app (DESIGN.md):
+  warm zwart, Archivo, en het kaartje dat uit de kassa schuift.
+
+  Opnieuw maken (bijvoorbeeld na een nieuwe naam in src/lib/merk.js) met
+  Chrome. Geef bij --screenshot een volledig pad, anders zet Chrome het
+  plaatje in zijn eigen map:
+    chrome --headless=new --hide-scrollbars --window-size=1200,630
+      --virtual-time-budget=8000 --screenshot=<repo>/public/social-card.png
+      file:///<repo>/ontwerp/social-card.html
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Archivo+Narrow:wght@500;600;700&family=DotGothic16&display=block" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #121110; --char: #1b1a18; --char-2: #252320;
+    --fog: #a69f94; --paper: #ece6dc; --film: #6b2a26;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; background: var(--ink); }
+  body {
+    position: relative; color: var(--paper); font-family: 'Archivo', sans-serif;
+    /* een zweem van de filmkleur, zoals licht van het doek */
+    background:
+      radial-gradient(ellipse 620px 520px at 940px 320px, rgba(107, 42, 38, 0.34), transparent 70%),
+      var(--ink);
+  }
+  .links { position: absolute; left: 84px; top: 0; bottom: 0; width: 560px; display: flex; flex-direction: column; justify-content: center; }
+  .boven { font-stretch: 125%; font-weight: 600; font-size: 21px; color: var(--fog); margin-bottom: 18px; }
+  h1 { font-stretch: 62%; font-weight: 800; font-size: 150px; line-height: 0.84; letter-spacing: -0.015em; color: var(--paper); }
+  .zin { margin-top: 30px; font-size: 29px; line-height: 1.32; color: var(--fog); max-width: 520px; }
+  .zin b { font-weight: 500; color: var(--paper); }
+
+  /* De kassa: een sleuf, en het kaartje dat eruit schuift */
+  .sleuf { position: absolute; left: 702px; top: 104px; width: 456px; height: 10px; border-radius: 5px; background: #050505; box-shadow: none; }
+  .uit { position: absolute; left: 716px; top: 109px; width: 428px; height: 440px; overflow: hidden; }
+  .kaartje { display: flex; width: 428px; background: var(--paper); color: #1b1a18; border-radius: 0 0 3px 3px; }
+  .kbody { flex: 1; min-width: 0; padding: 16px 20px 18px; border-right: 2px dashed rgba(27, 26, 24, 0.45); }
+  .kkop { display: flex; justify-content: space-between; font-family: 'DotGothic16', monospace; font-size: 14px; border-bottom: 2px solid #1b1a18; padding-bottom: 8px; }
+  .ktitel { font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 50px; line-height: 0.92; margin: 16px 0 6px; }
+  .kaftiteling { font-family: 'Archivo Narrow', sans-serif; font-weight: 500; font-size: 15px; color: #4a4640; }
+  dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-top: 18px; }
+  dt { font-size: 12px; color: #6f6a62; margin-bottom: 3px; }
+  dd { font-family: 'DotGothic16', monospace; font-size: 17px; line-height: 1.15; }
+  .kvoet { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-top: 18px; }
+  .kcode { display: flex; flex-direction: column; gap: 3px; font-family: 'DotGothic16', monospace; font-size: 12px; }
+  .kcode svg { display: block; fill: #1b1a18; }
+  .ktoegang { font-family: 'DotGothic16', monospace; font-size: 13px; border: 2px solid #1b1a18; padding: 5px 9px; white-space: nowrap; }
+  .kstrook { position: relative; width: 92px; flex-shrink: 0; background: var(--film); }
+  .kgat { position: absolute; left: -12px; width: 22px; height: 22px; border-radius: 50%; background: #1a1210; }
+  .kgat.boven { top: -11px; }
+  .kgat.onder { bottom: -11px; }
+  .kstrook span.nr { position: absolute; inset: 0; display: grid; place-items: center; writing-mode: vertical-rl; transform: rotate(180deg); font-family: 'DotGothic16', monospace; font-size: 15px; color: rgba(255, 255, 255, 0.72); letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+  <div class="links">
+    <p class="boven">One night, one film</p>
+    <h1>ShutterBox</h1>
+    <p class="zin">Load your Letterboxd watchlist and let the tool pick. <b>By mood, together, or to your taste.</b></p>
+  </div>
+
+  <div class="sleuf"></div>
+  <div class="uit">
+    <article class="kaartje">
+      <div class="kbody">
+        <div class="kkop"><span>SHUTTERBOX</span><span>TONIGHT</span></div>
+        <h2 class="ktitel">What are we watching tonight?</h2>
+        <p class="kaftiteling">A film from your watchlist</p>
+        <dl>
+          <div><dt>Starts</dt><dd>8:30 PM</dd></div>
+          <div><dt>Screen</dt><dd>1</dd></div>
+          <div><dt>Watch on</dt><dd>Your couch</dd></div>
+          <div><dt>Price</dt><dd>Included</dd></div>
+        </dl>
+        <div class="kvoet">
+          <div class="kcode">
+            <svg width="150" height="30" viewBox="0 0 150 30" aria-hidden="true">
+              <rect x="0" width="3" height="30"/><rect x="5" width="1" height="30"/><rect x="8" width="2" height="30"/><rect x="12" width="1" height="30"/>
+              <rect x="15" width="3" height="30"/><rect x="20" width="1" height="30"/><rect x="23" width="1" height="30"/><rect x="26" width="3" height="30"/>
+              <rect x="31" width="2" height="30"/><rect x="35" width="1" height="30"/><rect x="38" width="3" height="30"/><rect x="43" width="1" height="30"/>
+              <rect x="46" width="2" height="30"/><rect x="50" width="1" height="30"/><rect x="53" width="3" height="30"/><rect x="58" width="2" height="30"/>
+              <rect x="62" width="1" height="30"/><rect x="65" width="3" height="30"/><rect x="70" width="1" height="30"/><rect x="73" width="2" height="30"/>
+              <rect x="77" width="1" height="30"/><rect x="80" width="3" height="30"/><rect x="85" width="1" height="30"/><rect x="88" width="2" height="30"/>
+              <rect x="92" width="3" height="30"/><rect x="97" width="1" height="30"/><rect x="100" width="1" height="30"/><rect x="103" width="3" height="30"/>
+              <rect x="108" width="2" height="30"/><rect x="112" width="1" height="30"/><rect x="115" width="3" height="30"/><rect x="120" width="1" height="30"/>
+              <rect x="123" width="2" height="30"/><rect x="127" width="1" height="30"/><rect x="130" width="3" height="30"/><rect x="135" width="1" height="30"/>
+              <rect x="138" width="2" height="30"/><rect x="142" width="1" height="30"/><rect x="145" width="3" height="30"/>
+            </svg>
+            <span>NR 0001</span>
+          </div>
+          <span class="ktoegang">ADMIT 2</span>
+        </div>
+      </div>
+      <div class="kstrook"><span class="kgat boven"></span><span class="kgat onder"></span><span class="nr">SCREEN 1</span></div>
+    </article>
+  </div>
+</body>
+</html>

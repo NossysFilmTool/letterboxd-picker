@@ -1,12 +1,12 @@
 {
   "name": "ShutterBox",
   "short_name": "ShutterBox",
-  "description": "Laad je Letterboxd-watchlist en laat de tool kiezen wat je vanavond kijkt.",
+  "description": "Load your Letterboxd watchlist and let the tool pick what to watch tonight.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0d1115",
-  "theme_color": "#171d23",
+  "background_color": "#121110",
+  "theme_color": "#121110",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
