@@ -247,6 +247,11 @@ export default {
       const sleutel = `z:${z[1]}`;
       const zaal = await lees(sleutel);
       if (!zaal) return json({ error: 'NOT_FOUND' }, 404);
+      // KV kent geen transacties. Wie de zaal schrijft, leest hem daarom vlak
+      // ervoor opnieuw en verandert alleen wat van hem is. Anders veegt een
+      // oude kopie weg wat een ander intussen schreef: een gast die meedoet
+      // terwijl het scherm een ronde zet, of andersom.
+      const vers = async () => (await lees(sleutel)) || zaal;
       const spelerSleutel = (naam) => `${sleutel}:p:${slug(naam)}`;
       const vraagSleutel = `${sleutel}:k`;
       const smaakSleutel = (naam) => `${sleutel}:s:${slug(naam)}`;
@@ -306,25 +311,26 @@ export default {
           const films = [...oud.filter((f) => !keys.has(f.key)), ...nieuw].slice(-400);
           const v = (zaal.vraag || 0) + 1;
           if (!(await schrijf(vraagSleutel, { v, films }))) return druk();
-          if (!(await schrijf(sleutel, { ...zaal, vraag: v }))) return druk();
+          if (!(await schrijf(sleutel, { ...(await vers()), vraag: v }))) return druk();
           return json({ ok: true, v, n: films.length });
         }
         const s = body.staat && typeof body.staat === 'object' ? body.staat : {};
         const FASEN = ['lobby', 'genre', 'trailers', 'film', 'uitslag', 'gesloten'];
+        const nu = await vers();
         // Wie er meedoet, houdt de Worker zelf bij (zie /meedoen)
         const nieuw = {
           type: 'zaal', v: 1, at: Date.now(),
-          fase: FASEN.includes(s.fase) ? s.fase : zaal.fase,
-          ronde: heel(s.ronde, 0, 99) ?? zaal.ronde,
-          spelers: zaal.spelers || [],
+          fase: FASEN.includes(s.fase) ? s.fase : nu.fase,
+          ronde: heel(s.ronde, 0, 99) ?? nu.ronde,
+          spelers: nu.spelers || [],
           _geheim: zaal._geheim,
         };
         // Mogen gasten hun Letterboxd laten meetellen (lb), en de laatste
         // vraag (zie /vraag): die blijven staan tot het scherm iets anders zegt
-        if (typeof s.lb === 'boolean' ? s.lb : zaal.lb === true) nieuw.lb = true;
-        if (zaal.vraag) nieuw.vraag = zaal.vraag;
+        if (typeof s.lb === 'boolean' ? s.lb : nu.lb === true) nieuw.lb = true;
+        if (nu.vraag) nieuw.vraag = nu.vraag;
         // Hoeveel voordrachten van gasten er op tafel kunnen (0 tot 3)
-        const vd = s.vd != null ? heel(s.vd, 0, 3) : zaal.vd;
+        const vd = s.vd != null ? heel(s.vd, 0, 3) : nu.vd;
         if (vd) nieuw.vd = vd;
         if (Array.isArray(s.opties)) {
           nieuw.opties = s.opties.slice(0, 12)
@@ -405,11 +411,16 @@ export default {
         if (!inDeZaal && zaal.fase !== 'lobby') return json({ error: 'BEGONNEN' }, 409);
         if (!inDeZaal && (zaal.spelers || []).length >= 12) return json({ error: 'VOL' }, 409);
         if (!speler && !(await schrijf(spelerSleutel(naam), { naam, t: th, stemmen: {} }))) return druk();
-        if (!inDeZaal) {
-          zaal.spelers = [...(zaal.spelers || []), naam];
-          if (!(await schrijf(sleutel, zaal))) return druk();
+        // Vers gelezen: begon het scherm intussen, dan is het te laat
+        const binnen = (zl) => (zl.spelers || []).find((n) => slug(n) === slug(naam));
+        let nu = await vers();
+        if (!binnen(nu)) {
+          if (!inDeZaal && nu.fase !== 'lobby') return json({ error: 'BEGONNEN' }, 409);
+          if ((nu.spelers || []).length >= 12) return json({ error: 'VOL' }, 409);
+          nu = { ...nu, spelers: [...(nu.spelers || []), naam] };
+          if (!(await schrijf(sleutel, nu))) return druk();
         }
-        return json({ ok: true, naam: inDeZaal ? zaal.spelers.find((n) => slug(n) === slug(naam)) : naam, zaal: openbaar(zaal) });
+        return json({ ok: true, naam: binnen(nu), zaal: openbaar(nu) });
       }
 
       // Stemmen: alleen in een open ronde, alleen op wat er op tafel ligt. Een

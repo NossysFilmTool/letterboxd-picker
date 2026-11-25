@@ -1059,6 +1059,93 @@ describe('Zaalstemming', () => {
     }
   });
 
+  it('het scherm: lobby-instellingen die je snel na elkaar kiest, komen op volgorde aan', async () => {
+    const { kv, SESSIONS } = nepKV();
+    const echt = via(await laadWorker(), { SESSIONS, TMDB_KEY: 'x' });
+    // De eerste instelling blijft onderweg hangen; zonder rij haalt de rest
+    // hem in, en komt hij als laatste aan met wat je net uitzette
+    let los;
+    const traag = new Promise((r) => { los = r; });
+    const verstuurd = [];
+    global.fetch = async (url, opts = {}) => {
+      if (String(url).endsWith('/zet')) {
+        verstuurd.push(JSON.parse(opts.body).staat);
+        if (verstuurd.length === 1) await traag;
+      }
+      return echt(url, opts);
+    };
+    try {
+      render(<App />);
+      fireEvent.click(screen.getAllByLabelText('Filmavond')[0]);
+      fireEvent.click(screen.getByText('Open de zaal'));
+      expect(await screen.findByText('Pak je telefoon')).toBeTruthy();
+      const code = document.querySelector('.zs-code').textContent;
+      const spel = screen.getByRole('group', { name: 'Zo speelt de zaal' });
+      await waitFor(() => expect(verstuurd).toHaveLength(1));
+      fireEvent.click(within(spel).getByText('Niet vragen'));
+      fireEvent.click(within(spel).getByRole('button', { name: '1 voordracht van gasten' }));
+      await new Promise((r) => { setTimeout(r, 50); });
+      los();
+      await waitFor(() => expect(JSON.parse(kv.get(`z:${code}`)).vd).toBe(1));
+      expect(JSON.parse(kv.get(`z:${code}`)).lb).toBeUndefined();
+      // de tussenstap ging nooit de deur uit: alleen de nieuwste wachtte
+      expect(verstuurd.map((s) => [s.lb, s.vd])).toEqual([[true, 0], [false, 1]]);
+    } finally {
+      delete global.fetch;
+    }
+  });
+
+  it('de Worker: wie de zaal schrijft, veegt niet weg wat een ander intussen schreef', async () => {
+    const { kv, SESSIONS } = nepKV();
+    // Een trage lezing: de zaal van nu, maar pas geleverd als los() klinkt
+    const kvGet = SESSIONS.get;
+    let houd = null;
+    SESSIONS.get = async (k) => {
+      const v = await kvGet(k);
+      if (houd && /^z:[A-Z]{4}$/.test(k)) { const h = houd; houd = null; h.geraakt(); await h.wacht; }
+      return v;
+    };
+    const houdVast = () => {
+      let los;
+      let geraakt;
+      const raak = new Promise((r) => { geraakt = r; });
+      houd = { wacht: new Promise((r) => { los = r; }), geraakt };
+      return { raak, los: () => los() };
+    };
+    const vraag = vraagAan(await laadWorker(), { SESSIONS });
+    const { code, geheim } = await (await vraag('/zaal/new', {})).json();
+    const zaal = () => JSON.parse(kv.get(`z:${code}`));
+    const zet = (staat) => vraag(`/zaal/${code}/zet`, { geheim, staat });
+
+    // het scherm zet de lobby met een oude kopie; intussen doet Anna mee
+    let h = houdVast();
+    const lobby = zet({ fase: 'lobby', ronde: 0, vd: 1 });
+    await h.raak;
+    expect((await vraag(`/zaal/${code}/meedoen`, { naam: 'Anna', token: tA })).status).toBe(200);
+    h.los();
+    expect((await lobby).status).toBe(200);
+    expect(zaal()).toMatchObject({ spelers: ['Anna'], vd: 1 });
+
+    // films klaarzetten voor de gasten, terwijl het scherm het voordragen ruimer zet
+    h = houdVast();
+    const films = vraag(`/zaal/${code}/vraag`, { geheim, films: [{ key: 'a|2000', name: 'A', year: 2000 }] });
+    await h.raak;
+    expect((await zet({ fase: 'lobby', ronde: 0, lb: true, vd: 2 })).status).toBe(200);
+    h.los();
+    expect((await films).status).toBe(200);
+    expect(zaal()).toMatchObject({ spelers: ['Anna'], lb: true, vd: 2, vraag: 1 });
+
+    // Bram doet mee met een oude kopie, en het scherm begint intussen: te laat,
+    // en de zaal springt niet terug naar de lobby
+    h = houdVast();
+    const bram = vraag(`/zaal/${code}/meedoen`, { naam: 'Bram', token: tB });
+    await h.raak;
+    expect((await zet({ fase: 'genre', ronde: 1, opties: [{ id: 'Drama', naam: 'Drama', n: 4 }] })).status).toBe(200);
+    h.los();
+    expect((await (await bram).json()).error).toBe('BEGONNEN');
+    expect(zaal()).toMatchObject({ fase: 'genre', ronde: 1, spelers: ['Anna'], vraag: 1 });
+  });
+
   it('de telefoon: zelf een film voordragen, meekijken met de trailers en alvast stemmen, en het kaartje mee naar huis', async () => {
     const { kv, SESSIONS } = nepKV();
     const w = await laadWorker();

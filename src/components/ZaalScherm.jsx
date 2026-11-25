@@ -60,6 +60,8 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   const [vdKan, setVdKan] = useState(true); // false: de Worker kent het voordragen nog niet
   const [wachtOp, setWachtOp] = useState([]); // gasten met Letterboxd die nog moeten antwoorden
   const lobbyZet = useRef(null);
+  const lobbyRij = useRef(null);
+  if (!lobbyRij.current) lobbyRij.current = stemRij(zetZaal);
   const lbGezet = useRef(false);
   const gevraagd = useRef(new Set()); // films die de gasten al kregen
   const vraagV = useRef(0);
@@ -107,6 +109,9 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
   // Mogen gasten hun Letterboxd laten meetellen, en zelf een film
   // voordragen? Dat hoort de zaal meteen, zodat de telefoons het kunnen
   // vragen. Kent de Worker het nog niet, dan zegt het scherm dat bij de keuze.
+  // Eén tegelijk, en alleen de nieuwste wacht (stemRij): tik je snel twee
+  // keuzes aan, dan kan de eerste anders als laatste aankomen en de zaal
+  // terugzetten naar wat je net uitzette.
   const inLobby = fase === 'lobby';
   useEffect(() => {
     if (!inLobby || (!spel.gasten && !spel.voordragen && !lbGezet.current)) return undefined;
@@ -114,9 +119,9 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
     lbGezet.current = true;
     const aan = !!spel.gasten;
     const vd = spel.voordragen || 0;
-    lobbyZet.current = zetZaal(zaal.code, zaal.geheim, { fase: 'lobby', ronde: 0, lb: aan, vd })
+    lobbyZet.current = lobbyRij.current(zaal.code, zaal.geheim, { fase: 'lobby', ronde: 0, lb: aan, vd })
       .then((r) => {
-        if (weg) return;
+        if (weg || r?.ingehaald) return;
         setLbKan(!aan || r?.zaal?.lb === true);
         setVdKan(!vd || r?.zaal?.vd === vd);
       })
