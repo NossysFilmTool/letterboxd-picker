@@ -1157,9 +1157,6 @@ describe('de rondleiding: jaarboek en setup', () => {
     rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Letterboxd live' });
     rVolgende(titel);
-    titel = await screen.findByRole('dialog', { name: 'Het ShutterScore-recept' });
-    expect(titel.textContent).toContain('(16 + 7 + 7,5) / 4 = 7,6');
-    rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Thema-nadruk' });
     rVolgende(titel);
     titel = await screen.findByRole('dialog', { name: 'Als app op je telefoon' });
@@ -1170,18 +1167,6 @@ describe('de rondleiding: jaarboek en setup', () => {
     await screen.findByRole('dialog', { name: `Dat was ${SETUP}` });
   });
 
-  it('het rekenvoorbeeld van het recept klopt met de echte ShutterScore', async () => {
-    const { appScore, setScoreWeights } = await import('../src/lib/pick.js');
-    const m = { ext: { imdb: 8, mc: 70 }, vote: 7.5 };
-    try {
-      setScoreWeights(null);
-      expect(appScore(m)).toBe(7.5);
-      setScoreWeights({ imdb: 2 });
-      expect(appScore(m)).toBe(7.6);
-    } finally {
-      setScoreWeights(null);
-    }
-  });
 });
 
 // "Hoe werkt dit?": de stille ingangen bij de kaarten met veel opzet. Ze
@@ -1206,9 +1191,7 @@ describe('de rondleiding: Hoe werkt dit?', () => {
     await stop('Op al je apparaten');
     fireEvent.click(hoe('setup-live'));
     await stop('Letterboxd live');
-    fireEvent.click(hoe('setup-recept'));
-    await stop('Het ShutterScore-recept');
-    expect(rInstellingen().uitleg.bezig).toEqual({ h: 'setup', s: 11, deel: 'extras' });
+    expect(rInstellingen().uitleg.bezig).toEqual({ h: 'setup', s: 10, deel: 'extras' });
     fireEvent.click(screen.getAllByLabelText('Jaarboek')[0]);
     fireEvent.click(hoe('jaarboek-leren'));
     await stop('Leer mijn smaak');

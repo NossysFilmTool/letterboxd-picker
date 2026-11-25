@@ -32,8 +32,12 @@ export const gedempt = (f) => {
 // Kwaliteitsdrempel voor alle rijen. Onbekende waarden geven we het voordeel
 // van de twijfel; TMDB levert ze vrijwel altijd mee. Is de looptijd bekend
 // (via de kandidaat-details), dan vallen korte films en segmenten af.
+// Een film die zich mooier voordeed (een opgeblazen TMDB-cijfer, lib/
+// opgeblazen.js) moet het met zijn echte cijfer verdienen: 6,5 in plaats van
+// 6. Zo blijft The Best of Me (TMDB 7,5; IMDb en critici samen 6,0) eruit.
+export const DEGELIJK = { cijfer: 6, opgeblazen: 6.5 };
 export const degelijk = (f) => (f.votes == null || f.votes >= 50)
-  && (f.vote == null || f.vote >= 6)
+  && (f.vote == null || f.vote >= (f.opgeblazen ? DEGELIJK.opgeblazen : DEGELIJK.cijfer))
   && (f.runtime == null || f.runtime >= 40);
 
 // De filters van Voor jou. Looptijd en streamingaanbod komen uit de

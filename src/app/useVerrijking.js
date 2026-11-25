@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLS } from '../lib/storage.js';
 import { enrichAll, refreshProviders, resolveFilm, fetchDetailById, herstelFestivalJaar, FESTIVAL_DREMPEL } from '../lib/tmdb.js';
 import { fetchExtRatings } from '../lib/omdb.js';
+import { extTeHalen } from '../lib/pick.js';
 import { meld } from '../lib/melding.js';
 import { logFout } from '../lib/foutlog.js';
 
@@ -67,13 +68,19 @@ export function useVerrijking({ settings, bieb, tmdbKey, tr }) {
     }
   };
 
-  // Tweede laag: IMDb/RT/Metacritic via OMDb (optioneel, exact via imdbId)
-  const startExtEnrich = async (films, keysOverride = null) => {
+  // Tweede laag: IMDb/RT/Metacritic via OMDb (optioneel, exact via imdbId).
+  // stemmen: ook films waarvan alleen het aantal IMDb-stemmen ontbreekt
+  // (extTeHalen); alleen bij het opstarten, zodat de knop in Setup precies
+  // ophaalt wat zijn kaart als ontbrekend telt
+  const startExtEnrich = async (films, keysOverride = null, { stemmen = false } = {}) => {
     // keysOverride: net opgeslagen sleutels direct gebruiken; de instellingen
     // zijn op dat moment nog niet bijgewerkt
     const keys = keysOverride?.length ? keysOverride : omdbKeys;
     if (!keys.length) return;
-    const todo = films.filter((f) => metaRef.current[f.key] && !metaRef.current[f.key].ext);
+    const todo = films.filter((f) => {
+      const m = metaRef.current[f.key];
+      return stemmen ? extTeHalen(m) : !!m && !m.ext;
+    });
     if (todo.length) runExtQueue(todo, keys);
   };
 
@@ -113,11 +120,12 @@ export function useVerrijking({ settings, bieb, tmdbKey, tr }) {
   startEnrichRef.current = startEnrich;
 
   // Scores horen vanzelf te komen: staan er OMDb-sleutels en zijn er films
-  // zonder scores, dan start het ophalen bij het openen van de app
+  // zonder scores (of zonder het aantal IMDb-stemmen, zie extTeHalen), dan
+  // start het ophalen bij het openen van de app
   useEffect(() => {
     if (!omdbKeys.length || !watchlist.length) return;
-    const mist = watchlist.some((f) => meta[f.key] && !meta[f.key].ext);
-    if (mist) startExtEnrich(watchlist);
+    const mist = watchlist.some((f) => extTeHalen(meta[f.key]));
+    if (mist) startExtEnrich(watchlist, null, { stemmen: true });
     // bewust één keer per sessie, bij het opstarten
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

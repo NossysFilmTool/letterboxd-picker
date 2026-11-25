@@ -1032,9 +1032,9 @@ describe('V2 smoke (1/4)', () => {
     const bestOfMe = { vote: 7.48, votes: 2775, lijsten: 173, bios: true };
     // zonder tweede mening verandert er niets: een vermoeden is geen bewijs
     expect(beoordeelCijfer(bestOfMe)).toEqual({ opgeblazen: null, cijfer: 7.48, bevestigd: false });
-    // IMDb 6,7 en Metacritic 29: samen 4,8
-    expect(beoordeelCijfer({ ...bestOfMe, imdb: 6.7, mc: 29 })).toEqual({ opgeblazen: 'publiek', cijfer: 4.8, bevestigd: false });
-    expect(beoordeelCijfer({ ...bestOfMe, ext: { imdb: 6.7, mc: 29 } }).cijfer).toBe(4.8); // uit een filmkaart
+    // IMDb 6,7 en Metacritic 29 (op dezelfde schaal 5,3): samen 6,0
+    expect(beoordeelCijfer({ ...bestOfMe, imdb: 6.7, mc: 29 })).toEqual({ opgeblazen: 'publiek', cijfer: 6.0, bevestigd: false });
+    expect(beoordeelCijfer({ ...bestOfMe, ext: { imdb: 6.7, mc: 29 } }).cijfer).toBe(6.0); // uit een filmkaart
     expect(beoordeelCijfer({ ...bestOfMe, imdb: 6.7 }).cijfer).toBe(6.7); // alleen IMDb bekend
     // IMDb en critici dicht bij TMDB: het cijfer staat
     expect(beoordeelCijfer({ ...bestOfMe, imdb: 7.3, mc: 74 })).toEqual({ opgeblazen: null, cijfer: 7.48, bevestigd: true });
@@ -1113,10 +1113,10 @@ describe('V2 smoke (1/4)', () => {
     const basis = { watchlist: [], meta, ratedFilms, seeds: bepaalSeeds({ watchlist: [], ratedFilms, meta }), regisseurs: [], taste: buildTaste({ watchlist: [], ratedFilms, meta }), uitleg: (k) => k };
     const zonder = Object.fromEntries(scoorKandidaten(basis).recs.map((r) => [r.title, r]));
     const met = Object.fromEntries(scoorKandidaten({ ...basis, details }).recs.map((r) => [r.title, r]));
-    expect(met['Met mening']).toMatchObject({ opgeblazen: 'publiek', vote: 4.8, tmdbVote: 7.48 });
+    expect(met['Met mening']).toMatchObject({ opgeblazen: 'publiek', vote: 6.0, tmdbVote: 7.48 });
     expect(met['Met mening'].redenen).toContain('verken.opgeblazenPubliek');
     expect(met['Met mening'].match).toBeLessThan(zonder['Met mening'].match);
-    // onder de kwaliteitsdrempel: hij komt in geen enkele rij meer
+    // een opgeblazen film moet 6,5 halen (foryou.js DEGELIJK): hij komt in geen enkele rij meer
     expect(degelijk(met['Met mening'])).toBe(false);
     // zonder tweede mening: precies als voorheen
     expect(met['Zonder mening'].opgeblazen).toBeUndefined();
@@ -1128,7 +1128,7 @@ describe('V2 smoke (1/4)', () => {
       vote: 7.48, votes: 2775, lijsten: 173, bios: true, ext: { imdb: 6.7, mc: 29, rt: 12 }, at: Date.now(),
       flat: [], rent: ['Path\u00e9 Thuis', 'Amazon Video', 'Path\u00e9 Thuis', 'Amazon Video'], jwLink: 'https://www.justwatch.com/nl',
     }} />);
-    expect(screen.getByText('Het TMDB-publiek is hier veel milder dan IMDb en de critici. Voor jou rekent met hun gemiddelde (4,8).')).toBeTruthy();
+    expect(screen.getByText('Het TMDB-publiek is hier veel milder dan IMDb en de critici. Voor jou rekent met hun gemiddelde (6,0).')).toBeTruthy();
     expect(screen.getAllByText('Huur/koop: Path\u00e9 Thuis').length).toBe(1);
     expect(screen.getAllByText('Huur/koop: Amazon Video').length).toBe(1);
     expect(document.body.textContent).not.toContain('bots');

@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import { KeyRound, Check, Trash2, Download, Upload, X } from 'lucide-react';
 import { testKey } from '../lib/tmdb.js';
 import { checkOmdbKey } from '../lib/omdb.js';
-import { DEFAULT_SCORE_WEIGHTS, receptUit } from '../lib/pick.js';
 import { SLUG } from '../lib/merk.js';
 import { DEFAULT_THEME_EMPHASIS } from '../lib/taste.js';
 import { REGIONS, DEFAULT_REGION, PROXY_URL } from '../lib/tmdb.js';
@@ -297,32 +296,6 @@ export default function Instellingen({ app }) {
           )}
           </>
         )}
-      </div>
-
-      <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-recept">
-        <p className="label" style={{ marginBottom: 10 }}>{tr('setup.scoreRecipe')}</p>
-        <p style={{ color: 'var(--fog)', fontSize: 13.5, marginBottom: 12 }}>
-          {tr('setup.scoreExplain')} <HoeWerktDit app={app} h="setup" stap="recept" />
-        </p>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          {[['imdb', 'IMDb'], ['mc', 'Metacritic'], ['tmdb', 'TMDB']].map(([id, label]) => (
-            <label key={id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--fog)' }}>
-              {label}
-              <select
-                className="field" style={{ width: 70 }}
-                value={(receptUit(app.settings) || DEFAULT_SCORE_WEIGHTS)[id] ?? 1}
-                aria-label={tr('setup.weightAria', { label })}
-                onChange={(e) => app.setSettings((s) => {
-                  const nieuw = { ...s, scoreWeights: { ...DEFAULT_SCORE_WEIGHTS, ...(receptUit(s) || {}), [id]: +e.target.value } };
-                  delete nieuw.nossyWeights; // de oude naam (tot versie 6)
-                  return nieuw;
-                })}
-              >
-                {[0, 1, 2, 3].map((w) => <option key={w} value={w}>{w}×</option>)}
-              </select>
-            </label>
-          ))}
-        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 18 }} data-uitleg="setup-taal">

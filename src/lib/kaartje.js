@@ -1,4 +1,4 @@
-import { appScore, fmtScore } from './pick.js';
+import { appScore, fmtScore, aantalBronnen } from './pick.js';
 
 // Het bioscoopkaartje van een pick ("De zaal", DESIGN.md). Alles op het
 // kaartje is echt: aanvang is nu (afgerond op het volgende vijftal minuten),
@@ -50,8 +50,7 @@ export function kaartjeInhoud(film, meta, { tr, lang, personen = 1, namen = null
   // Het cijfer: de app-score bij twee of meer bronnen, anders TMDB (een opgeblazen
   // TMDB-cijfer laat appScore al weg; dan staat er geen cijfer)
   const ns = appScore(meta);
-  const bronnen = meta ? [meta.ext?.imdb, meta.ext?.mc, meta.vote].filter((v) => v != null).length : 0;
-  const cijfer = ns == null ? null : { label: bronnen >= 2 ? tr('winner.appScore') : 'TMDB', waarde: fmtScore(ns) };
+  const cijfer = ns == null ? null : { label: aantalBronnen(meta) >= 2 ? tr('winner.appScore') : 'TMDB', waarde: fmtScore(ns) };
 
   const flat = meta?.flat || [];
   const rent = meta?.rent || [];

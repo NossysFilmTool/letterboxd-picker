@@ -628,7 +628,8 @@ export default {
   },
   winner: {
     chosenAria: 'Gekozen film: {name}',
-    bronTitle: { one: 'Gewogen gemiddelde van {count} bron. Jouw recept: IMDb {imdb}\u00d7, Metacritic {mc}\u00d7, TMDB {tmdb}\u00d7 (instelbaar bij Setup). Rotten Tomatoes telt niet mee: dat is een consensus-percentage, geen cijfer.', other: 'Gewogen gemiddelde van {count} bronnen. Jouw recept: IMDb {imdb}\u00d7, Metacritic {mc}\u00d7, TMDB {tmdb}\u00d7 (instelbaar bij Setup). Rotten Tomatoes telt niet mee: dat is een consensus-percentage, geen cijfer.' },
+    bronTitle: { one: 'Het gemiddelde van {count} bron. Metacritic rekent de tool eerst om naar dezelfde schaal als IMDb en TMDB. Rotten Tomatoes telt niet mee: dat is een percentage, geen cijfer.', other: 'Het gemiddelde van {count} bronnen. Metacritic rekent de tool eerst om naar dezelfde schaal als IMDb en TMDB. Rotten Tomatoes telt niet mee: dat is een percentage, geen cijfer.' },
+    voorlopig: 'voorlopig', appScoreVoorlopig: '{appScore}, voorlopig', voorlopigTitle: 'Voorlopig: er zitten nog geen duizend stemmen achter, dus het cijfer kan nog schuiven.',
     eyebrow: 'Jouw pick voor vanavond', appScore: '{appScore}', trailer: 'Trailer', more: 'meer', less: 'minder',
     notFoundStreaming: 'Niet gevonden bij streamingdiensten in jouw regio',
     opgeblazen: 'Dit TMDB-cijfer lijkt opgeblazen door fans of bots: {waarom}. Voor jou telt het niet mee.',
@@ -695,7 +696,7 @@ export default {
     noUsableKeys: 'Geen bruikbare sleutels: allemaal ongeldig of geblokkeerd (zie hieronder).',
     reloadData: 'Letterboxd-data (opnieuw) laden', fetchData: 'Filmdata (opnieuw) ophalen',
     fetching: 'Bezig met ophalen\u2026', busy: 'Bezig\u2026', fetchMissing: 'Ontbrekende scores ophalen',
-    scoreRecipe: 'Het {appScore}-recept: jouw score, jouw weging', metacritic: 'Metacritic',
+    metacritic: 'Metacritic',
     themeEmphasis: 'Thema-nadruk: hoe sterk je thema\u0027s de aanbevelingen sturen',
     themeOff: 'Uit, geen thema\u0027s', themeLight: 'Licht accent', themeStandard: 'Standaard',
     themeStrong: 'Nadrukkelijk', themeVeryStrong: 'Sterk themagedreven',
@@ -722,8 +723,7 @@ export default {
     omdbSet1: 'Er staat al een OMDb-sleutel ingesteld.', omdbSetN: 'Er staan {count} OMDb-sleutels ingesteld (met automatische rotatie).',
     statusOk: 'werkt (tegoed beschikbaar)', statusLimit: 'daglimiet bereikt, morgen weer bruikbaar',
     statusInvalid: 'ongeldig of gedeactiveerd door OMDb', statusNetwork: 'onbereikbaar. Blokkeert een adblocker omdbapi.com?',
-    scoreExplain: 'De {appScore} is het gewogen gemiddelde van de cijfer-bronnen. Standaard tellen ze gelijk; stel hier je eigen recept in (0 = bron negeren). Rotten Tomatoes telt nooit mee in het gemiddelde (het is een consensus-percentage, geen cijfer) maar blijft zichtbaar op elke kaart.',
-    weightAria: 'Gewicht {label}', themeExplain: 'Naast genre en tijdperk leert de tool je thema\u0027s (TMDB-trefwoorden als "coming of age" of "vervreemding") uit je hoogst beoordeelde films. Bepaal hier hoe zwaar die meewegen in "Voor jou" en de matchscores. 0 = negeren, 1 = standaard (thema \u2248 20%), 2 = sterk themagedreven.',
+    themeExplain: 'Naast genre en tijdperk leert de tool je thema\u0027s (TMDB-trefwoorden als "coming of age" of "vervreemding") uit je hoogst beoordeelde films. Bepaal hier hoe zwaar die meewegen in "Voor jou" en de matchscores. 0 = negeren, 1 = standaard (thema \u2248 20%), 2 = sterk themagedreven.',
     restoreBackup: 'Herstel back-up', invalidBackup: 'Geen geldig back-upbestand van deze tool.', wipeAll: 'Wis alle data',
     versionLine: '{app}, versie {v}',
     footer: 'Fan-made tool, niet verbonden aan Letterboxd. This product uses the TMDB API but is not endorsed or certified by TMDB. Streamingaanbod via TMDB/JustWatch-data en kan afwijken. Alles draait lokaal in je browser; er wordt niets ge\u00fcploud.',
@@ -897,7 +897,7 @@ export default {
         },
         kaart: {
           kop: 'Je kaartje',
-          tekst: 'Op je kaartje staan de aanvang, het einde en waar je hem kijkt. Eronder de cijfers: de {appScore} is het gemiddelde van de bronnen die er zijn. Met een OMDb-sleutel tellen IMDb en Metacritic mee.',
+          tekst: 'Op je kaartje staan de aanvang, het einde en waar je hem kijkt. Eronder de cijfers: de {appScore} is het gemiddelde van IMDb, Metacritic en TMDB, voor zover die er zijn. Metacritic rekent de tool eerst om naar dezelfde schaal. Zitten er nog geen duizend stemmen achter, dan staat er voorlopig bij. Met een OMDb-sleutel tellen IMDb en Metacritic mee.',
         },
         knoppen: {
           kop: 'Wat je met je pick doet',
@@ -1328,7 +1328,7 @@ export default {
       },
       setup: {
         titel: 'Setup: je gegevens en de extra’s',
-        zoek: 'setup instellingen tmdb sleutel api filmdata export opnieuw laden bijwerken verkeerde film match jaar afwijkend hoort niet op mijn filmlijst geen serie terugzetten taal nederlands engels regio land streaming justwatch profielen huisgenoten back-up backup herstel verhuizen terug naar start wissen wis alle data omdb imdb rotten tomatoes metacritic scores activatielink daglimiet meerdere sleutels test ontbrekende sync apparaten code koppellink wissel ontkoppel versleuteld letterboxd live dagboek gebruikersnaam {appScore} recept score gewicht weging thema nadruk trefwoorden installeren app beginscherm iphone android premiere versie',
+        zoek: 'setup instellingen tmdb sleutel api filmdata export opnieuw laden bijwerken verkeerde film match jaar afwijkend hoort niet op mijn filmlijst geen serie terugzetten taal nederlands engels regio land streaming justwatch profielen huisgenoten back-up backup herstel verhuizen terug naar start wissen wis alle data omdb imdb rotten tomatoes metacritic scores activatielink daglimiet meerdere sleutels test ontbrekende sync apparaten code koppellink wissel ontkoppel versleuteld letterboxd live dagboek gebruikersnaam thema nadruk trefwoorden installeren app beginscherm iphone android premiere versie',
         tmdb: {
           kop: 'De filmdata van TMDB',
           tekst: 'Posters, scores, trailers, aanbevelingen en het streamingaanbod komen van TMDB. Daar hoef je niets voor te doen: de tool regelt het. Heb je een eigen TMDB-sleutel, dan mag je die hier plakken; hij krijgt dan voorrang.',
@@ -1378,11 +1378,6 @@ export default {
           kop: 'Letterboxd live',
           tekst: 'Vul je Letterboxd-gebruikersnaam in, dan leest de tool je openbare dagboek mee. Wat je logt telt als gezien, en kaartjes scheuren vanzelf af.',
           meer: 'Vul je Letterboxd-gebruikersnaam in en tik op Koppel en lees mee. De tool leest dan je openbare dagboek mee: wat je logt telt als gezien, je sterren tellen mee in je smaak, en kaartjes scheuren vanzelf af. Voor wat je kijkt, hoef je dan geen nieuwe export meer te laden.',
-        },
-        recept: {
-          kop: 'Het {appScore}-recept',
-          tekst: 'De {appScore} is het gewogen gemiddelde van IMDb, Metacritic en TMDB. Standaard tellen ze even zwaar. Geef een bron hier 0 tot 3 keer gewicht; 0 laat hem weg. Rotten Tomatoes telt niet mee, want dat is een percentage en geen cijfer. Je ziet het wel op elke kaart.',
-          vb: 'Een voorbeeld: IMDb 8,0, Metacritic 70 (telt als 7,0) en TMDB 7,5 geven samen 7,5. Zet IMDb op 2× en het wordt (16 + 7 + 7,5) / 4 = 7,6.',
         },
         thema: {
           kop: 'Thema-nadruk',

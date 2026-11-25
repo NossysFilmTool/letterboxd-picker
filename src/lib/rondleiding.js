@@ -307,7 +307,7 @@ export const HOOFDSTUKKEN = [
   },
   {
     // Setup: je lijst bijwerken, back-up, meer scores, sync en live; daarnaast
-    // taal en land, profielen, je eigen recept en als app
+    // taal en land, profielen, thema-nadruk en als app
     id: 'setup', tab: 'instellingen', duur: 2,
     stappen: [
       ...deel('setup', [
@@ -324,7 +324,6 @@ export const HOOFDSTUKKEN = [
         { id: 'omdb', meer: true, doel: 'setup-omdb', tab: 'instellingen' },
         { id: 'sync', meer: true, doel: 'setup-sync', tab: 'instellingen', alleenAls: metWorker },
         { id: 'live', meer: true, doel: 'setup-live', tab: 'instellingen', alleenAls: metWorker },
-        { id: 'recept', ...N, doel: 'setup-recept', tab: 'instellingen', vb: altijd },
         { id: 'thema', ...N, doel: 'setup-thema', tab: 'instellingen' },
         { id: 'installeren', ...N },
         { id: 'premiere', ...N, doel: 'setup-versie', tab: 'instellingen' },

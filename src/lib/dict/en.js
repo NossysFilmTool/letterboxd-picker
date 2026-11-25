@@ -627,7 +627,8 @@ export default {
   },
   winner: {
     chosenAria: 'Chosen film: {name}',
-    bronTitle: { one: 'Weighted average of {count} source. Your recipe: IMDb {imdb}\u00d7, Metacritic {mc}\u00d7, TMDB {tmdb}\u00d7 (adjustable in Setup). Rotten Tomatoes does not count: it\u0027s a consensus percentage, not a score.', other: 'Weighted average of {count} sources. Your recipe: IMDb {imdb}\u00d7, Metacritic {mc}\u00d7, TMDB {tmdb}\u00d7 (adjustable in Setup). Rotten Tomatoes does not count: it\u0027s a consensus percentage, not a score.' },
+    bronTitle: { one: 'The average of {count} source. The tool first converts Metacritic to the same scale as IMDb and TMDB. Rotten Tomatoes does not count: it is a percentage, not a score.', other: 'The average of {count} sources. The tool first converts Metacritic to the same scale as IMDb and TMDB. Rotten Tomatoes does not count: it is a percentage, not a score.' },
+    voorlopig: 'provisional', appScoreVoorlopig: '{appScore}, provisional', voorlopigTitle: 'Provisional: fewer than a thousand votes so far, so the score may still shift.',
     eyebrow: 'Your pick for tonight', appScore: '{appScore}', trailer: 'Trailer', more: 'more', less: 'less',
     notFoundStreaming: 'Not found on your region\u2019s streaming services',
     opgeblazen: 'This TMDB score looks inflated by fans or bots: {waarom}. For you ignores it.',
@@ -694,7 +695,7 @@ export default {
     noUsableKeys: 'No usable keys: all invalid or blocked (see below).',
     reloadData: 'Load Letterboxd data (again)', fetchData: 'Fetch film data (again)',
     fetching: 'Fetching\u2026', busy: 'Working\u2026', fetchMissing: 'Fetch missing scores',
-    scoreRecipe: 'The {appScore} recipe: your score, your weighting', metacritic: 'Metacritic',
+    metacritic: 'Metacritic',
     themeEmphasis: 'Theme emphasis: how strongly your themes steer the recommendations',
     themeOff: 'Off, no themes', themeLight: 'Light accent', themeStandard: 'Standard',
     themeStrong: 'Emphasised', themeVeryStrong: 'Strongly theme-driven',
@@ -721,8 +722,7 @@ export default {
     omdbSet1: 'An OMDb key is already set.', omdbSetN: '{count} OMDb keys are set (with automatic rotation).',
     statusOk: 'works (credit available)', statusLimit: 'daily limit reached, usable again tomorrow',
     statusInvalid: 'invalid or deactivated by OMDb', statusNetwork: 'unreachable. Is an adblocker blocking omdbapi.com?',
-    scoreExplain: 'The {appScore} is the weighted average of the numeric sources. By default they count equally; set your own recipe here (0 = ignore a source). Rotten Tomatoes never counts in the average (it\u0027s a consensus percentage, not a score) but stays visible on every card.',
-    weightAria: 'Weight {label}', themeExplain: 'Besides genre and era, the tool learns your themes (TMDB keywords like "coming of age" or "alienation") from your highest-rated films. Set here how heavily they count in "For you" and the match scores. 0 = ignore, 1 = standard (theme \u2248 20%), 2 = strongly theme-driven.',
+    themeExplain: 'Besides genre and era, the tool learns your themes (TMDB keywords like "coming of age" or "alienation") from your highest-rated films. Set here how heavily they count in "For you" and the match scores. 0 = ignore, 1 = standard (theme \u2248 20%), 2 = strongly theme-driven.',
     restoreBackup: 'Restore backup', invalidBackup: 'Not a valid backup file from this tool.', wipeAll: 'Erase all data',
     versionLine: '{app}, version {v}',
     footer: 'Fan-made tool, not affiliated with Letterboxd. This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability via TMDB/JustWatch data and may differ. Everything runs locally in your browser; nothing is uploaded.',
@@ -896,7 +896,7 @@ export default {
         },
         kaart: {
           kop: 'Your ticket',
-          tekst: 'Your ticket shows the start, the end and where you watch it. Below are the scores: the {appScore} is the average of the sources available. With an OMDb key, IMDb and Metacritic count too.',
+          tekst: 'Your ticket shows the start, the end and where you watch it. Below are the scores: the {appScore} is the average of IMDb, Metacritic and TMDB, where available. The tool first converts Metacritic to the same scale. With fewer than a thousand votes behind it, it says provisional. With an OMDb key, IMDb and Metacritic count too.',
         },
         knoppen: {
           kop: 'What you do with your pick',
@@ -1327,7 +1327,7 @@ export default {
       },
       setup: {
         titel: 'Setup: your data and the extras',
-        zoek: 'setup settings tmdb key api film data export reload update wrong match year differs does not belong on my list a series put back language dutch english region country streaming justwatch profiles housemates backup restore move to start erase all omdb imdb rotten tomatoes metacritic scores activation link daily limit several keys test missing sync devices code change disconnect encrypted letterboxd live diary username {appScore} recipe score weight weighting theme emphasis keywords install app home screen iphone android premiere version',
+        zoek: 'setup settings tmdb key api film data export reload update wrong match year differs does not belong on my list a series put back language dutch english region country streaming justwatch profiles housemates backup restore move to start erase all omdb imdb rotten tomatoes metacritic scores activation link daily limit several keys test missing sync devices code change disconnect encrypted letterboxd live diary username theme emphasis keywords install app home screen iphone android premiere version',
         tmdb: {
           kop: 'Film data from TMDB',
           tekst: 'Posters, scores, trailers, recommendations and what is streaming come from TMDB. You do not need to do anything for that: the tool takes care of it. If you have your own TMDB key, you can paste it here; it then takes priority.',
@@ -1377,11 +1377,6 @@ export default {
           kop: 'Letterboxd live',
           tekst: 'Fill in your Letterboxd username and the tool follows your public diary. What you log counts as watched, and tickets tear off by themselves.',
           meer: 'Fill in your Letterboxd username and tap Connect and follow. The tool then follows your public diary: what you log counts as watched, your ratings count towards your taste, and tickets tear off by themselves. For what you watch, you no longer need to load a new export.',
-        },
-        recept: {
-          kop: 'The {appScore} recipe',
-          tekst: 'The {appScore} is the weighted average of IMDb, Metacritic and TMDB. By default they count the same. Give a source 0 to 3 times the weight here; 0 leaves it out. Rotten Tomatoes does not count, because it is a percentage and not a score. You still see it on every card.',
-          vb: 'An example: IMDb 8.0, Metacritic 70 (counts as 7.0) and TMDB 7.5 make 7.5. Set IMDb to 2× and it becomes (16 + 7 + 7.5) / 4 = 7.6.',
         },
         thema: {
           kop: 'Theme emphasis',

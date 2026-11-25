@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Clapperboard, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { IMG, fetchStills } from '../lib/tmdb.js';
 import { useT, decimaal } from '../lib/i18n.js';
-import { appScore, fmtScore } from '../lib/pick.js';
+import { appScore, fmtScore, aantalBronnen, scoreVoorlopig } from '../lib/pick.js';
 import { beoordeelCijfer } from '../lib/opgeblazen.js';
 import { useFilmkleur } from '../lib/filmkleur.js';
 import { logline, trailerPlan } from '../lib/pitch.js';
@@ -49,8 +49,9 @@ function cijfersVan(meta, tr) {
   if (!meta) return [];
   const uit = [];
   const ns = appScore(meta);
-  const bronnen = [meta.ext?.imdb, meta.ext?.mc, meta.vote].filter((v) => v != null).length;
-  if (ns != null && bronnen >= 2) uit.push({ waarde: ns, decimalen: 1, label: tr('winner.appScore'), groot: true });
+  if (ns != null && aantalBronnen(meta) >= 2) {
+    uit.push({ waarde: ns, decimalen: 1, label: scoreVoorlopig(meta) ? tr('winner.appScoreVoorlopig') : tr('winner.appScore'), groot: true });
+  }
   if (meta.ext?.imdb != null) uit.push({ waarde: meta.ext.imdb, decimalen: 1, label: 'IMDb' });
   if (meta.ext?.rt != null) uit.push({ waarde: meta.ext.rt, decimalen: 0, suffix: '%', label: 'Rotten Tomatoes' });
   if (meta.vote != null) {

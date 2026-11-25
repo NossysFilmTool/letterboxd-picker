@@ -86,6 +86,11 @@ Version 6 gets the tool ready to be hosted for everyone.
   visit, the installed app also starts without a network.
 - **What went wrong**: Setup lists what failed in the background, on this
   device only, ready to copy when you ask for help.
+- **A fairer ShutterScore** (6.1): Metacritic is first converted to the same
+  scale as IMDb and TMDB, so a film no longer drops just because critics
+  score out of a hundred. The score is the same for everyone (the adjustable
+  recipe is gone), and with fewer than a thousand votes behind it, it says
+  "provisional".
 
 ## New in version 5
 
@@ -210,6 +215,12 @@ export blijft op je telefoon. Tijdens de trailers zie je op je telefoon
 welke er draait en kun je alvast stemmen, en na afloop gaat iedereen naar
 huis met het kaartje: te bewaren in de eigen kaartjesdoos of te delen als
 plaatje.
+
+Nieuw in 6.1: een eerlijkere ShutterScore. Metacritic rekent de tool eerst
+om naar dezelfde schaal als IMDb en TMDB, zodat een film niet meer zakt
+alleen omdat critici op honderd punten rekenen. De score is voor iedereen
+hetzelfde (het instelbare recept is weg), en zitten er nog geen duizend
+stemmen achter, dan staat er voorlopig bij.
 
 Nieuw in 6.0: de tool heet voortaan ShutterBox, en de eigen score de
 ShutterScore. Je lijst, kaartjes en instellingen gaan vanzelf mee, en wie

@@ -703,10 +703,10 @@ describe('V2 smoke (2/4)', () => {
   it('slimme pick en moods wegen op de ShutterScore', async () => {
     const { moodTest, pickWinner, appScore } = await import('../src/lib/pick.js');
     const metaMap = {
-      'a|2020': { vote: 6.8, votes: 5000, ext: { imdb: 8.4, rt: 95, mc: 88 } }, // score ≈ 8,2 → topper
+      'a|2020': { vote: 6.8, votes: 5000, ext: { imdb: 8.4, rt: 95, mc: 88 } }, // score 7,8 → topper
       'b|2020': { vote: 6.8, votes: 5000 }, // score 6,8 → geen topper
     };
-    expect(appScore(metaMap['a|2020'])).toBeCloseTo(8.0, 5); // (8.4+8.8+6.8)/3, gelijke weging
+    expect(appScore(metaMap['a|2020'])).toBeCloseTo(7.8, 5); // (8,4 + 8,16 + 6,8) / 3: Metacritic 88 telt als 8,16
     expect(moodTest('topper', { year: 2020 }, metaMap['a|2020'])).toBe(true);
     expect(moodTest('topper', { year: 2020 }, metaMap['b|2020'])).toBe(false);
     const pool = [{ key: 'a|2020' }, { key: 'b|2020' }];

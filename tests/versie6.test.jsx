@@ -244,22 +244,6 @@ describe('de naam', () => {
     expect(t('app.nieuweNaam')).toContain(NAAM);
   });
 
-  it('het recept leest ook de oude instelling, en schrijft de nieuwe', async () => {
-    const { receptUit } = await import('../src/lib/pick.js');
-    expect(receptUit({ nossyWeights: { imdb: 2 } })).toEqual({ imdb: 2 });
-    expect(receptUit({ scoreWeights: { mc: 0 }, nossyWeights: { imdb: 2 } })).toEqual({ mc: 0 });
-    localStorage.setItem('picker.settings', JSON.stringify({ ...JSON.parse(localStorage.getItem('picker.settings') || '{}'), nossyWeights: { imdb: 2, mc: 1, tmdb: 1 } }));
-    render(<App />);
-    fireEvent.click(screen.getAllByLabelText('Setup')[0]);
-    const kaart = document.querySelector('[data-uitleg="setup-recept"]');
-    const schuif = kaart.querySelector('select');
-    expect(schuif.value).toBe('2');
-    fireEvent.change(schuif, { target: { value: '3' } });
-    const s = JSON.parse(localStorage.getItem('picker.settings'));
-    expect(s.nossyWeights).toBeUndefined();
-    expect(s.scoreWeights.imdb).toBe(3);
-  });
-
   it('Op afstand zonder naam: een neutrale kop voor de gasten', async () => {
     global.fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ host: 'host', winner: null, votes: {}, films: [{ key: 'a|2020', name: 'A', year: 2020 }] }) }));
     const RemoteVote = (await import('../src/components/RemoteVote.jsx')).default;

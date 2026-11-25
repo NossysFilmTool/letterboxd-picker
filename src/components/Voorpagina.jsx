@@ -1,7 +1,7 @@
 import { Clapperboard } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { useT, decimaal } from '../lib/i18n.js';
-import { fmtScore, appScore } from '../lib/pick.js';
+import { fmtScore, appScore, aantalBronnen, scoreVoorlopig } from '../lib/pick.js';
 import { drukletters } from '../lib/kaartje.js';
 import { useFilmkleur } from '../lib/filmkleur.js';
 import { sterrenTekst } from './Kaartjesdoos.jsx';
@@ -98,7 +98,12 @@ export function Hoofdfilm({ keuze, aanvang, onKaartje, onAnder, bezig, voorfilm 
         <p className="hoofdfilm-meta meta">
           {film.year ? <span>{film.year}</span> : null}
           {m.runtime ? <span>{m.runtime} min</span> : null}
-          {ns != null ? <span>{tr('winner.appScore')} {fmtScore(ns)}</span> : null}
+          {ns != null ? (
+            <span>
+              {aantalBronnen(m) >= 2 ? tr('winner.appScore') : 'TMDB'} {fmtScore(ns)}
+              {aantalBronnen(m) >= 2 && scoreVoorlopig(m) ? ` (${tr('winner.voorlopig')})` : ''}
+            </span>
+          ) : null}
           {dienst ? <span>{tr('voorpagina.nuOp', { p: dienst })}</span> : null}
         </p>
         <div className="hoofdfilm-acties" data-uitleg="hoofdfilm-acties">

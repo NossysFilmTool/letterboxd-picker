@@ -1,3 +1,5 @@
+import { mcOpTien } from './metacritic.js';
+
 // Opgeblazen TMDB-cijfers herkennen: films waar een fanbase (of bots) het
 // gemiddelde omhoog trekt, zoals Gabriel's Inferno (8,4) of The Way to the
 // Heart (9,9 bij 143 stemmen). Gemeten op 37 goede en 19 verdachte films, en
@@ -63,9 +65,10 @@ export const NEUTRAAL_CIJFER = 6.2;
 // TMDB, 6,5 bij IMDb). Zonder IMDb blijft het cijfer onbetrouwbaar.
 //
 // Bij het milde signaal (publiek) telt ook de critici mee: het gemiddelde van
-// IMDb en Metacritic (op tien). Ligt dat een halve punt of meer onder TMDB,
-// dan rekenen we daarmee (The Best of Me: TMDB 7,5, IMDb 6,7, Metacritic 29,
-// dus 4,8). Arthousefilms beschermt dit vanzelf: critici geven die hoog.
+// IMDb en Metacritic (op dezelfde schaal, lib/metacritic.js). Ligt dat een
+// halve punt of meer onder TMDB, dan rekenen we daarmee (The Best of Me: TMDB
+// 7,5, IMDb 6,7, Metacritic 29, dus 6,0). Arthousefilms beschermt dit
+// vanzelf: critici geven die hoog.
 // Zonder tweede mening blijft het TMDB-cijfer gewoon staan.
 export const IMDB_MARGE = 1;
 //   f: { vote, votes, lijsten, bios, imdb?, mc? } (ook in f.ext.imdb / f.ext.mc)
@@ -95,7 +98,7 @@ export function beoordeelCijfer(f, { reeksVerdacht = false } = {}) {
         : { opgeblazen: null, cijfer: f.vote ?? null, bevestigd: false };
     }
     const mc = f.mc ?? f.ext?.mc ?? null;
-    const tweede = Math.round((mc != null ? (imdb + mc / 10) / 2 : imdb) * 10) / 10;
+    const tweede = Math.round((mc != null ? (imdb + mcOpTien(mc)) / 2 : imdb) * 10) / 10;
     if ((f.vote ?? 0) - tweede < PUBLIEK.marge) return { opgeblazen: null, cijfer: f.vote, bevestigd: true };
     return { opgeblazen: reden, cijfer: tweede, bevestigd: false };
   }

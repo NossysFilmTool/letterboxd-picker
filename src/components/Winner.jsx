@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Play, RefreshCw, Eye, EyeOff, Share2, Clapperboard, Plus, Check, X } from 'lucide-react';
 import { IMG } from '../lib/tmdb.js';
 import { imdbLink, jwLink } from '../lib/links.js';
-import { appScore, fmtScore, getScoreWeights } from '../lib/pick.js';
+import { appScore, fmtScore, aantalBronnen, scoreVoorlopig } from '../lib/pick.js';
 import { renderShareCard, shareOrDownload } from '../lib/extra.js';
 import { useT, decimaal } from '../lib/i18n.js';
 import Sterren from './Sterren.jsx';
@@ -52,9 +52,10 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
   // De cijfers als grote getallen met een klein label eronder
   const cijfers = (() => {
     const ns = appScore(meta);
-    const bronnen = meta ? [meta.ext?.imdb, meta.ext?.mc, meta.vote].filter((v) => v != null).length : 0;
+    const bronnen = aantalBronnen(meta);
     const heeftAppScore = ns != null && bronnen >= 2;
-    const bronTitle = (() => { const w = getScoreWeights(); return tr('winner.bronTitle', { count: bronnen, imdb: w.imdb, mc: w.mc, tmdb: w.tmdb }); })();
+    const voorlopig = heeftAppScore && scoreVoorlopig(meta);
+    const bronTitle = tr('winner.bronTitle', { count: bronnen }) + (voorlopig ? ` ${tr('winner.voorlopigTitle')}` : '');
     const heeftBronnen = meta?.ext || meta?.vote != null;
     if (!heeftAppScore && !heeftBronnen) return null;
     return (
@@ -62,7 +63,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
         {heeftAppScore && (
           <div className="wcijfer appscore-big" title={bronTitle}>
             <span className="n">{fmtScore(ns)}</span>
-            <span className="lbl">{tr('winner.appScore')}</span>
+            <span className="lbl">{voorlopig ? tr('winner.appScoreVoorlopig') : tr('winner.appScore')}</span>
           </div>
         )}
         {meta?.ext?.imdb != null && <div className="wcijfer"><span className="n">{fmtScore(meta.ext.imdb)}</span><span className="lbl">IMDb</span></div>}
@@ -127,7 +128,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
             // IMDb als tweede mening: bevestigd (niets melden) of rechtgezet.
             const oordeel = beoordeelCijfer(meta);
             if (!oordeel.opgeblazen) return null;
-            const fmt = (v) => (lang === 'nl' ? String(v).replace('.', ',') : String(v));
+            const fmt = fmtScore; // altijd één decimaal: "6,0", geen kale "6"
             // Een mild publiek is geen fan- of botleger: eigen uitleg
             if (oordeel.opgeblazen === 'publiek') {
               return <p className="opgeblazen-melding">{tr('winner.opgeblazenPubliek', { cijfer: fmt(oordeel.cijfer) })}</p>;

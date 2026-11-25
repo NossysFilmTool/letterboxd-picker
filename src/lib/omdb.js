@@ -5,7 +5,13 @@ const BASE = 'https://www.omdbapi.com/';
 function parseRatings(d) {
   const out = { at: Date.now() };
   const imdb = parseFloat(d.imdbRating);
-  if (!isNaN(imdb)) out.imdb = imdb;
+  if (!isNaN(imdb)) {
+    out.imdb = imdb;
+    // Hoeveel stemmen erachter zitten ("12,345"), voor "voorlopig" bij de
+    // ShutterScore. null: IMDb gaf het niet door
+    const stemmen = parseInt(String(d.imdbVotes ?? '').replace(/[^\d]/g, ''), 10);
+    out.imdbVotes = isNaN(stemmen) ? null : stemmen;
+  }
   (d.Ratings || []).forEach((r) => {
     if (r.Source === 'Rotten Tomatoes') {
       const rt = parseInt(r.Value);

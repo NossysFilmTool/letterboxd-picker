@@ -57,12 +57,12 @@ describe('V2 smoke (3/4)', () => {
     expect(document.body.textContent).toContain('1 van 6 films');
   });
 
-  it('app-score: gewogen (IMDb dubbel) en één decimaal', async () => {
+  it('app-score: het gemiddelde, Metacritic omgerekend, en één decimaal', async () => {
     const { appScore, fmtScore } = await import('../src/lib/pick.js');
-    // RT telt niet mee: (7.8*2 + 8.1 + 7.7) / 4 = 7.85 -> 7.9
-    expect(appScore({ vote: 7.7, ext: { imdb: 7.8, rt: 93, mc: 81 } })).toBeCloseTo(7.9, 5);
+    // RT telt niet mee: (7,8 + 7,82 + 7,7) / 3 = 7,8 (Metacritic 81 telt als 7,82)
+    expect(appScore({ vote: 7.7, ext: { imdb: 7.8, rt: 93, mc: 81 } })).toBeCloseTo(7.8, 5);
     // zelfde film zonder RT geeft exact dezelfde score
-    expect(appScore({ vote: 7.7, ext: { imdb: 7.8, mc: 81 } })).toBeCloseTo(7.9, 5);
+    expect(appScore({ vote: 7.7, ext: { imdb: 7.8, mc: 81 } })).toBeCloseTo(7.8, 5);
     // RT-only levert geen app-score op (1 bron: alleen TMDB telt dan)
     expect(appScore({ vote: 7.0, ext: { rt: 95 } })).toBeCloseTo(7.0, 5);
     expect(fmtScore(8)).toBe('8,0');
