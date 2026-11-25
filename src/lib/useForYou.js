@@ -11,7 +11,7 @@ import { normaliseer, handtekening, zoekVragen } from './eigenrijen.js';
 import { useT } from './i18n.js';
 import { PRIJSLIJSTEN } from './prijzen.js';
 import { opgeblazenReden } from './opgeblazen.js';
-import { fetchExtRatings } from './omdb.js';
+import { vraagTweedeMening } from './omdb.js';
 import { KLASSIEK_TOT } from './foryou.js';
 import { logFout } from './foutlog.js';
 
@@ -108,17 +108,7 @@ export function useForYou(app, actief) {
   const isVers = (d) => detailVers(d, regio) && !(omdbKeys.length && d.imdb === undefined && opgeblazenReden(d));
   // Tweede mening voor een verdacht TMDB-cijfer: IMDb en Metacritic via OMDb.
   // undefined = (nog) niet gelukt; imdb null = IMDb kent hem niet.
-  const tweedeMening = async (d) => {
-    for (const k of omdbKeys) {
-      try {
-        const ext = await fetchExtRatings(d, { name: d.title, year: d.year }, k);
-        return { imdb: ext?.imdb ?? null, mc: ext?.mc ?? null };
-      } catch (e) {
-        if (e.message !== 'LIMIT' && e.message !== 'KEY_INVALID') return undefined;
-      }
-    }
-    return undefined;
-  };
+  const tweedeMening = (d) => vraagTweedeMening(d, omdbKeys);
   const draaiDetails = async () => {
     detailLoopt.current = true;
     setDetailsLaden(true);

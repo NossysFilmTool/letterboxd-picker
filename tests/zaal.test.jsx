@@ -207,6 +207,45 @@ describe('Zaalstemming', () => {
     expect(vragen).toHaveLength(2);
   });
 
+  it('aanraders: een 8 van een handvol stemmen telt alleen als IMDb het bevestigt', async () => {
+    const { zoekAanraders } = await import('../src/lib/aanraders.js');
+    const films = {
+      701: { ...tmdbFilm(701, 'Tandenfee', 2025, { vote: 8.5, votes: 67, lijsten: 21 }), imdb_id: 'tt701' },
+      702: { ...tmdbFilm(702, 'Kleine Parel', 2019, { vote: 8.1, votes: 62, lijsten: 21 }), imdb_id: 'tt702' },
+      703: tmdbFilm(703, 'Oneens', 2016, { vote: 7.8, votes: 500 }),
+      704: tmdbFilm(704, 'Gewoon Een', 2010, { vote: 7.4, votes: 3000 }),
+      705: tmdbFilm(705, 'Gewoon Twee', 2005, { vote: 7.3, votes: 3000 }),
+    };
+    const ontdek = async () => ({ results: Object.values(films).map((f) => gevonden(f)) });
+    const zoek = async (extra = {}) => (await metTmdb(films, () => zoekAanraders({
+      sleutel: 'x', meta: {}, genre: { namen: [], wijze: 'alles' }, filters: {}, aantal: 5,
+      uit: { ids: new Set(), keys: new Set() }, rnd: () => 0.5, ontdek, ...extra,
+    }))).map((a) => a.film.name);
+    // Zonder OMDb: niets om het cijfer aan te toetsen, dus geen van beide
+    const zonder = await zoek();
+    expect(zonder).not.toContain('Tandenfee');
+    expect(zonder).not.toContain('Kleine Parel');
+    expect(zonder).toContain('Gewoon Een');
+    // Met OMDb vraagt de zaal het zelf, alleen voor de verdachte films:
+    // IMDb bevestigt de parel en zet de tandenfee op zijn plek (5,2)
+    const gevraagd = [];
+    const imdb = { tt701: 5.2, tt702: 7.6 };
+    const met = await zoek({ tweedeMening: async (m) => { gevraagd.push(m.id); return { imdb: imdb[m.imdbId], mc: null }; } });
+    expect(met).toContain('Kleine Parel');
+    expect(met).not.toContain('Tandenfee');
+    expect(gevraagd.sort()).toEqual([701, 702]);
+    // Wat Voor jou al wist, hoeft niet opnieuw; en ligt IMDb ver onder TMDB
+    // (Oneens: 7,8 tegen 6,0), dan telt IMDb en haalt hij de lat niet
+    gevraagd.length = 0;
+    const uitCache = await zoek({ details: { 701: { imdb: 5.2 }, 702: { imdb: 7.6 }, 703: { imdb: 6.0 } }, tweedeMening: async (m) => { gevraagd.push(m.id); return null; } });
+    expect(uitCache).toContain('Kleine Parel');
+    expect(uitCache).not.toContain('Oneens');
+    expect(gevraagd).toEqual([]);
+    // Een kapotte OMDb is geen ramp: dan zonder
+    const kapot = await zoek({ tweedeMening: async () => { throw new Error('OMDb 500'); } });
+    expect(kapot).toEqual(zonder);
+  });
+
   it('aanraders: de films op tafel en de favorieten wegen, liever-niet zakt, afgewezen en al gezien vallen af', async () => {
     const { zoekAanraders, verzamelKandidaten } = await import('../src/lib/aanraders.js');
     const meta = {

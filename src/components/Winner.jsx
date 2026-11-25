@@ -134,7 +134,11 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
             }
             const waarom = oordeel.opgeblazen === 'onmogelijk'
               ? tr('winner.opgeblazenOnmogelijk', { cijfer: fmt(meta.vote), stemmen: meta.votes })
-              : tr(oordeel.opgeblazen === 'lijsten' ? 'winner.opgeblazenLijsten' : 'winner.opgeblazenStreaming');
+              : oordeel.opgeblazen === 'weinig'
+                ? tr('winner.opgeblazenWeinig', { cijfer: fmt(meta.vote), stemmen: meta.votes })
+                : oordeel.opgeblazen === 'oneens'
+                  ? tr('winner.opgeblazenOneens', { cijfer: fmt(meta.vote) })
+                  : tr(oordeel.opgeblazen === 'lijsten' ? 'winner.opgeblazenLijsten' : 'winner.opgeblazenStreaming');
             return (
               <p className="opgeblazen-melding">
                 {oordeel.cijfer != null ? tr('winner.opgeblazenImdb', { waarom, imdb: fmt(oordeel.cijfer) }) : tr('winner.opgeblazen', { waarom })}

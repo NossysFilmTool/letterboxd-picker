@@ -19,6 +19,22 @@ function parseRatings(d) {
   return out;
 }
 
+// De tweede mening voor een verdacht TMDB-cijfer: IMDb en Metacritic, langs
+// de sleutels tot er een werkt (Voor jou en de zaal). d: filmdata met imdbId,
+// title, year. Geeft { imdb, mc } (imdb null: IMDb kent hem niet), of
+// undefined als het (nu) niet lukte.
+export async function vraagTweedeMening(d, sleutels = []) {
+  for (const k of sleutels) {
+    try {
+      const ext = await fetchExtRatings(d, { name: d.title, year: d.year }, k);
+      return { imdb: ext?.imdb ?? null, mc: ext?.mc ?? null };
+    } catch (e) {
+      if (e.message !== 'LIMIT' && e.message !== 'KEY_INVALID') return undefined;
+    }
+  }
+  return undefined;
+}
+
 export async function fetchExtRatings(meta, film, key) {
   const params = meta.imdbId
     ? { i: meta.imdbId }

@@ -1045,6 +1045,55 @@ describe('V2 smoke (1/4)', () => {
     expect(appScore({ ...bestOfMe, ext: { imdb: 6.7, mc: 29 } })).toBeLessThan(metTmdb);
   });
 
+  it('opgeblazen cijfers: een 8 van een handvol stemmen, en IMDb die het er niet mee eens is', async () => {
+    const { opgeblazenReden, beoordeelCijfer } = await import('../src/lib/opgeblazen.js');
+    const { appScore } = await import('../src/lib/pick.js');
+    const { scoorKandidaten, bepaalSeeds } = await import('../src/lib/kandidaten.js');
+    const { buildTaste } = await import('../src/lib/taste.js');
+    // A Tooth Fairy Tale (2025): lijsten en bioscoop zien er normaal uit
+    const tandenfee = { vote: 8.5, votes: 67, lijsten: 21, bios: true };
+    expect(opgeblazenReden(tandenfee)).toBe('weinig');
+    // Zonder tweede mening een vermoeden: op je eigen lijst blijft het cijfer
+    expect(beoordeelCijfer(tandenfee)).toMatchObject({ opgeblazen: null, cijfer: 8.5, ongetoetst: true });
+    expect(appScore(tandenfee)).toBe(8.5);
+    // Met IMDb telt IMDb, ook in de ShutterScore
+    expect(beoordeelCijfer({ ...tandenfee, imdb: 5.2 })).toMatchObject({ opgeblazen: 'weinig', cijfer: 5.2 });
+    expect(appScore({ ...tandenfee, ext: { imdb: 5.2 } })).toBe(5.2);
+    // Een echte kleine film: IMDb bevestigt, het cijfer staat
+    expect(beoordeelCijfer({ vote: 8.1, votes: 62, imdb: 7.6 })).toMatchObject({ opgeblazen: null, cijfer: 8.1, bevestigd: true });
+    // Onder de 8, of vanaf 100 stemmen: geen signaal
+    expect(opgeblazenReden({ vote: 7.9, votes: 40 })).toBeNull();
+    expect(opgeblazenReden({ vote: 8.2, votes: 120, lijsten: 40, bios: true })).toBeNull();
+    // Oneens: IMDb anderhalve punt of meer lager, bij minder dan 1000 stemmen
+    expect(beoordeelCijfer({ vote: 7.8, votes: 500, imdb: 6.1 })).toMatchObject({ opgeblazen: 'oneens', cijfer: 6.1 });
+    expect(appScore({ vote: 7.8, votes: 500, ext: { imdb: 6.1 } })).toBe(6.1);
+    expect(beoordeelCijfer({ vote: 7.8, votes: 500, imdb: 6.5 }).opgeblazen).toBeNull(); // 1,3: een verschil van smaak
+    // Bij veel stemmen is TMDB zelf betrouwbaar (een laag IMDb kan een actie tegen de film zijn)
+    expect(beoordeelCijfer({ vote: 7.0, votes: 12000, imdb: 4.9 }).opgeblazen).toBeNull();
+
+    // Voor jou: de film blijft, maar zonder IMDb geeft het cijfer geen voorsprong
+    const f = (id, title, vote, votes) => ({ id, title, year: 2024, vote, votes, genre_ids: [18] });
+    const meta = {
+      'a|2000': { id: 1, genres: ['Drama'], recs: [f(20, 'Tandenfee', 8.5, 67), f(21, 'Kleine Parel', 8.1, 62), f(22, 'Gewoon', 7.2, 3000)] },
+      'b|2001': { id: 2, genres: ['Drama'], recs: [] },
+      'c|2002': { id: 3, genres: ['Drama'], recs: [] },
+    };
+    const ratedFilms = [{ key: 'a|2000', name: 'A', year: 2000, rating: 5 }, { key: 'b|2001', name: 'B', year: 2001, rating: 4.5 }, { key: 'c|2002', name: 'C', year: 2002, rating: 4.5 }];
+    const basis = { watchlist: [], meta, ratedFilms, seeds: bepaalSeeds({ watchlist: [], ratedFilms, meta }), regisseurs: [], taste: buildTaste({ watchlist: [], ratedFilms, meta }), uitleg: (k) => k };
+    const zonder = Object.fromEntries(scoorKandidaten(basis).recs.map((r) => [r.title, r]));
+    expect(zonder.Tandenfee).toMatchObject({ onbetrouwbaar: true, weinig: true });
+    expect(zonder.Tandenfee.redenen).toContain('verken.weinigUitleg');
+    expect(zonder['Kleine Parel'].onbetrouwbaar).toBe(true);
+    expect(zonder.Gewoon.onbetrouwbaar).toBeUndefined();
+    // Met IMDb: de parel telt weer volledig, de tandenfee met zijn IMDb-cijfer
+    const det = (extra) => ({ v: 3, regio: 'NL', at: Date.now(), runtime: 90, flat: [], lijsten: 21, bios: true, ...extra });
+    const met = Object.fromEntries(scoorKandidaten({ ...basis, details: { 20: det({ imdb: 5.2 }), 21: det({ imdb: 7.6 }) } }).recs.map((r) => [r.title, r]));
+    expect(met.Tandenfee).toMatchObject({ opgeblazen: 'weinig', vote: 5.2, tmdbVote: 8.5 });
+    expect(met['Kleine Parel'].onbetrouwbaar).toBeUndefined();
+    expect(met['Kleine Parel'].vote).toBe(8.1);
+    expect(met['Kleine Parel'].match).toBeGreaterThan(zonder['Kleine Parel'].match);
+  });
+
   it('opgeblazen cijfers: Voor jou rekent met IMDb en critici, en een filmkaart zegt het eerlijk', async () => {
     const { scoorKandidaten, bepaalSeeds } = await import('../src/lib/kandidaten.js');
     const { buildTaste } = await import('../src/lib/taste.js');

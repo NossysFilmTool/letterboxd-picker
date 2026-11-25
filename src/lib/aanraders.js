@@ -18,8 +18,9 @@
 //
 // Wat eruit gaat: alles wat de gastheer al kent (ook met een net andere
 // titel), wat in Voor jou is afgewezen, films zonder poster, en elk
-// opgeblazen cijfer (fans of bots, lib/opgeblazen.js) zonder tweede mening
-// die het tegenspreekt.
+// verdacht cijfer (fans of bots, of een 8 van een handvol stemmen;
+// lib/opgeblazen.js) zonder tweede mening. Heeft de gastheer OMDb-sleutels,
+// dan vraagt de zaal die tweede mening zelf: een echte parel blijft dan.
 //
 // De score, met de volledige filmdata erbij:
 //   cijfer       gedempt naar het aantal stemmen: een groep wil zekerheid
@@ -259,6 +260,8 @@ const afwijzingen = (afgewezen) => {
 //   smaak: buildTaste-profiel; afgewezen, bewaard: uit Verken en Voor jou
 //   getoond: { id: tijdstip } eerder in de zaal; details: de detailcache van
 //   Voor jou (daar staat soms het IMDb-cijfer in, als tweede mening)
+//   tweedeMening: (filmdata) => { imdb, mc } via OMDb, voor een verdacht
+//   cijfer dat nog niet in de cache staat (lib/omdb.js vraagTweedeMening)
 //   haalDetail, ontdek: de TMDB-aanroepen (te vervangen in tests)
 //   zaal: de gasten met Letterboxd (lib/zaalgasten.js): { oordeel(kandidaten)
 //   geeft een zaalOordeel, gezienWeg, smaakMee }
@@ -267,6 +270,7 @@ export async function zoekAanraders({
   sleutel, meta, genre, filters, diensten = [], dienstIds = [], uit, smaak = null, aantal = 3,
   stemmen = null, tafel = [], lijst = null, sterren = {}, afgewezen = [], bewaard = [], getoond = {}, details = {},
   nu = Date.now(), rnd = Math.random, haalDetail = fetchDetailById, ontdek = discover, zaal = null,
+  tweedeMening = null,
 }) {
   const namen = genre?.wijze === 'alles' ? [] : (genre?.namen || []);
   const ids = genreIds(namen);
@@ -335,22 +339,28 @@ export async function zoekAanraders({
 
   // De volledige score, met de filmdata
   const mijn = new Set(diensten);
-  const beoordeel = ({ k, m }) => {
+  // De tweede mening (IMDb): uit de cache, of voor een verdacht cijfer
+  // gevraagd als dat kan
+  const meningVoor = async (m) => {
+    if (!m?.id) return null;
+    const d = details?.[m.id];
+    if (d?.imdb != null) return { imdb: d.imdb, mc: d.mc ?? null };
+    if (!tweedeMening || !m.imdbId || !opgeblazenReden(m)) return null;
+    try { return (await tweedeMening(m)) || null; } catch { return null; }
+  };
+  const beoordeel = ({ k, m, mening }) => {
     if (!m?.id || !m.poster) return null;
     if (isBekend({ id: m.id, title: m.title, year: m.year })) return null;
     const genres = genreIds(m.genres);
     if (genres.length ? !pastGenre(genres) : ids.length) return null;
     if (m.collectie && weg.reeksen.has(m.collectie)) return null;
     // Een verdacht cijfer telt alleen met een tweede mening (IMDb) die het
-    // tegenspreekt of een lager cijfer geeft om mee te rekenen
-    let cijfer = m.vote ?? 0;
-    if (opgeblazenReden(m)) {
-      const d = details?.[m.id];
-      if (d?.imdb == null) return null;
-      const oordeel = beoordeelCijfer({ ...m, imdb: d.imdb, mc: d.mc });
-      if (oordeel.cijfer == null) return null;
-      cijfer = oordeel.cijfer;
-    }
+    // bevestigt of een lager cijfer geeft om mee te rekenen. En ligt IMDb
+    // ver onder TMDB, dan telt IMDb (ook zonder signaal)
+    if (opgeblazenReden(m) && mening?.imdb == null) return null;
+    const oordeel = beoordeelCijfer({ ...m, imdb: mening?.imdb ?? null, mc: mening?.mc ?? null });
+    if (oordeel.cijfer == null) return null;
+    const cijfer = oordeel.cijfer;
     if (cijfer < MIN_CIJFER) return null;
     if (filterPot([{ key: 'k', year: m.year }], { k: m }, filters, appScore, { diensten }).length !== 1) return null;
     const looptijd = !m.runtime ? 0 : m.runtime < 80 ? -0.3 : m.runtime > 150 ? -0.5 : m.runtime > 135 ? -0.2 : 0;
@@ -368,7 +378,10 @@ export async function zoekAanraders({
       parel: (m.votes || 0) < PAREL_TOT, genres, s,
     };
   };
-  const haal = async (lijstje) => (await haalAlle(lijstje, async (k) => ({ k, m: await haalDetail(k.id, sleutel) })))
+  const haal = async (lijstje) => (await haalAlle(lijstje, async (k) => {
+    const m = await haalDetail(k.id, sleutel);
+    return { k, m, mening: await meningVoor(m) };
+  }))
     .map((d) => (d ? beoordeel(d) : null))
     .filter(Boolean);
 

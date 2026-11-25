@@ -178,10 +178,13 @@ export function scoorKandidaten({
   const recs = samengevoegd.filter(({ r }) => !(r.collectie && afgewezenReeksen.has(r.collectie))).map(({ r: r0, seedSet }) => {
     const oordeel = beoordeelCijfer(r0, { reeksVerdacht: !!(r0.collectie && verdachteReeksen.has(r0.collectie)) });
     const { opgeblazen } = oordeel;
-    // Met een tweede mening telt het IMDb-cijfer; zonder is het onbetrouwbaar
-    const r = !opgeblazen ? r0 : oordeel.cijfer != null
-      ? { ...r0, opgeblazen, vote: oordeel.cijfer, tmdbVote: r0.vote }
-      : { ...r0, opgeblazen, onbetrouwbaar: true };
+    // Met een tweede mening telt het IMDb-cijfer; zonder is het onbetrouwbaar.
+    // Een hoog cijfer van nog maar een handvol stemmen (weinig) dat niemand
+    // kon toetsen: de film blijft, maar het cijfer geeft geen voorsprong
+    const r = oordeel.ongetoetst ? { ...r0, onbetrouwbaar: true, weinig: true }
+      : !opgeblazen ? r0 : oordeel.cijfer != null
+        ? { ...r0, opgeblazen, vote: oordeel.cijfer, tmdbVote: r0.vote }
+        : { ...r0, opgeblazen, onbetrouwbaar: true };
     // Kruisbevestiging: het aantal onafhankelijke routes naar deze film
     // (elke favoriet telt apart, plus oeuvre, profiel, thema en dienst).
     // Eén lijst is ruis; de overlap tussen lijsten is signaal.
@@ -193,7 +196,7 @@ export function scoorKandidaten({
     // Een onbetrouwbaar cijfer telt neutraal: geen voorsprong door fans of bots
     const m = matchScore(r.onbetrouwbaar ? { ...r, vote: NEUTRAAL_CIJFER } : r, taste);
     let redenen = m.redenen;
-    if (r.onbetrouwbaar) redenen = [...redenen, uitleg('verken.opgeblazenUitleg')];
+    if (r.onbetrouwbaar) redenen = [...redenen, r.weinig ? uitleg('verken.weinigUitleg', { n: r.votes }) : uitleg('verken.opgeblazenUitleg')];
     else if (opgeblazen) redenen = [...redenen, uitleg(opgeblazen === 'publiek' ? 'verken.opgeblazenPubliek' : 'verken.opgeblazenImdb', { cijfer: getLang() === 'nl' ? String(r.vote).replace('.', ',') : String(r.vote) })];
     // Via de thema-jacht gevonden en de score gaf zelf geen thema-reden
     // (light-object zonder keywords): leg het alsnog uit.

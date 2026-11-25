@@ -9,6 +9,7 @@ import {
   genreOpties, genreBasis, uitslagGenre, kiesFilms, uitslagFilm, filmVoorZaal, voordrachtenPerFilm, kiesVoordrachten,
 } from '../lib/zaalstemming.js';
 import { zoekAanraders, onthoudGetoond, dienstIdsVoor } from '../lib/aanraders.js';
+import { vraagTweedeMening } from '../lib/omdb.js';
 import { vraagUitPot, zaalOordeel, zaalSturing, MAX_VRAAG } from '../lib/zaalgasten.js';
 import { genreKop, genreZin, uitslagZin, lijstje, ZaalFilmInhoud, QrCode, StemKnoppen } from './ZaalDelen.jsx';
 import { Chip } from './AvondFilters.jsx';
@@ -244,6 +245,8 @@ export default function ZaalScherm({ app, pool, meta, zaal, filters, diensten = 
       bewaard: app.shortlist || [],
       afgewezen: app.skipped || [],
       details: leesOpslag('kandDetails', {}),
+      // Een verdacht cijfer laten toetsen aan IMDb, als de gastheer OMDb heeft
+      tweedeMening: app.omdbKeys?.length ? (m) => vraagTweedeMening(m, app.omdbKeys) : null,
       dienstIds: dienstIdsVoor(diensten, leesOpslag('dienstenLijst', null), getRegion()),
     };
   };

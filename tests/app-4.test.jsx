@@ -219,7 +219,8 @@ describe('V2 smoke (4/4)', () => {
       expect(moment.textContent).toContain('Kaartje 1 in de doos');
       // we zitten nog steeds in Setup
       expect(document.body.textContent).toContain('Letterboxd live');
-      expect(JSON.parse(localStorage.getItem('picker.kaartjesGemeld'))).toContain('k1');
+      // het bewaren loopt net achter het tekenen aan
+      await waitFor(() => expect(JSON.parse(localStorage.getItem('picker.kaartjesGemeld'))).toContain('k1'));
       // tik: weg
       fireEvent.click(moment);
       expect(document.querySelector('.kaartje-ontdekt')).toBeNull();

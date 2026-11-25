@@ -18,11 +18,29 @@
 //               Me, Midnight Sun, Love Rosie, If I Stay), geen goede film.
 // Dit is een vermoeden, geen bewijs: het telt alleen met een tweede mening
 // (zie beoordeelCijfer), anders verandert er niets.
+//
+// Een vijfde signaal (november 2026, na A Tooth Fairy Tale in de zaal: 8,5
+// bij TMDB, 5,2 bij IMDb):
+//   weinig      een 8 of hoger bij minder dan 100 stemmen. Zo vroeg stemmen
+//               vooral fans: in een steekproef van 60 van zulke films waren
+//               het bijna allemaal vervolgen van anime, concertfilms en
+//               fanfilms. Lijsten helpen hier niet (A Tooth Fairy Tale: 21
+//               lijsten, een normale verhouding, in de bioscoop).
+// Ook een vermoeden: met IMDb erbij telt IMDb (ligt die minder dan een punt
+// lager, dan klopt het TMDB-cijfer gewoon). Zonder IMDb blijft het cijfer
+// op je eigen lijst staan, maar krijgt een aanrader van buiten je lijst er
+// geen voorsprong door (ongetoetst; lib/kandidaten.js, lib/aanraders.js).
+//
+// En los van de signalen: weet de tool het IMDb-cijfer al, en ligt TMDB
+// daar anderhalve punt of meer boven bij minder dan 1000 stemmen, dan telt
+// IMDb (oneens). Bij grote aantallen niet: dan is TMDB zelf betrouwbaar, en
+// is een laag IMDb-cijfer eerder een actie tegen de film (review bombing).
 
 export function opgeblazenReden(f) {
   const vote = f?.vote ?? 0;
   const votes = f?.votes ?? 0;
   if (vote >= 9 && votes > 0 && votes < 2000) return 'onmogelijk';
+  if (vote >= WEINIG.cijfer && votes > 0 && votes < WEINIG.stemmen) return 'weinig';
   if (f?.lijsten == null || votes < 100) return null;
   const verhouding = Math.log10(Math.max(1, f.lijsten)) / Math.log10(votes);
   if (vote >= 7.8 && verhouding < 0.6) return 'lijsten';
@@ -31,6 +49,8 @@ export function opgeblazenReden(f) {
   return null;
 }
 export const PUBLIEK = { cijfer: 7.2, stemmen: 1000, verhouding: 0.66, marge: 0.5 };
+export const WEINIG = { cijfer: 8, stemmen: 100 };
+export const ONEENS = { marge: 1.5, stemmen: 1000 };
 
 // Het cijfer waarmee een verdachte film meetelt als er geen tweede mening
 // is: het neutrale vertrekpunt van de match (zelfde als de prior in taste.js)
@@ -51,11 +71,23 @@ export const IMDB_MARGE = 1;
 //   f: { vote, votes, lijsten, bios, imdb?, mc? } (ook in f.ext.imdb / f.ext.mc)
 //   reeksVerdacht: een ander deel van dezelfde reeks is opgeblazen
 // Geeft { opgeblazen: reden | null, cijfer: het cijfer om mee te rekenen
-// (null = onbetrouwbaar), bevestigd: IMDb bevestigde een verdacht cijfer }
+// (null = onbetrouwbaar), bevestigd: IMDb bevestigde een verdacht cijfer,
+// ongetoetst: een vermoeden (weinig) zonder tweede mening }
 export function beoordeelCijfer(f, { reeksVerdacht = false } = {}) {
   const reden = opgeblazenReden(f) || (reeksVerdacht ? 'reeks' : null);
-  if (!reden) return { opgeblazen: null, cijfer: f?.vote ?? null, bevestigd: false };
-  const imdb = f.imdb ?? f.ext?.imdb ?? null;
+  const imdb = f?.imdb ?? f?.ext?.imdb ?? null;
+  if (!reden) {
+    // Geen signaal, maar IMDb is het er duidelijk niet mee eens
+    if (imdb != null && (f.votes ?? 0) > 0 && f.votes < ONEENS.stemmen && (f.vote ?? 0) - imdb >= ONEENS.marge) {
+      return { opgeblazen: 'oneens', cijfer: imdb, bevestigd: false };
+    }
+    return { opgeblazen: null, cijfer: f?.vote ?? null, bevestigd: false };
+  }
+  if (reden === 'weinig') {
+    if (imdb == null) return { opgeblazen: null, cijfer: f.vote ?? null, bevestigd: false, ongetoetst: true };
+    if ((f.vote ?? 0) - imdb < IMDB_MARGE) return { opgeblazen: null, cijfer: f.vote, bevestigd: true };
+    return { opgeblazen: reden, cijfer: imdb, bevestigd: false };
+  }
   if (reden === 'publiek') {
     if (imdb == null) {
       return reeksVerdacht

@@ -53,7 +53,7 @@ export default function RecTile({ film: r, i = 0, voorkeur = [], reden = null, u
             <span>{r.year || ''}</span>
             {score ? (
               r.onbetrouwbaar
-                ? <span className="verdacht" title={tr('verken.opgeblazenKort')}>{score}?</span>
+                ? <span className="verdacht" title={r.weinig ? tr('verken.weinigKort', { n: r.votes }) : tr('verken.opgeblazenKort')}>{score}?</span>
                 : r.opgeblazen
                   // IMDb zette het opgeblazen TMDB-cijfer recht: dit is het IMDb-cijfer
                   ? <span className="verdacht" title={tr(r.opgeblazen === 'publiek' ? 'verken.opgeblazenPubliekKort' : 'verken.opgeblazenImdbKort', { tmdb: lang === 'nl' ? String(r.tmdbVote).replace('.', ',') : String(r.tmdbVote) })}>{score}</span>
