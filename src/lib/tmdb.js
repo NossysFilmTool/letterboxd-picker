@@ -200,21 +200,27 @@ export async function resolveFilm(film, key) {
 
   if (!hit) return null;
   const meta = await fetchDetail(hit.id, key);
-  // Markeer twijfelgevallen met een TYPE, zodat Setup ze gescheiden kan tonen:
-  //  - 'year': jaar wijkt meer dan 1 af van de watchlist. Waarschijnlijk fout
-  //    (remake, gelijknamige film). Dit is het betrouwbare signaal.
-  //  - 'short': looptijd < 45 min terwijl je een speelfilm verwacht. Vaak een
-  //    miniserie of een film zonder looptijd-data: véél vals alarm, dus dit
-  //    tonen we alleen als de gebruiker er expliciet om vraagt.
-  // Een titelvergelijking doen we bewust NIET: TMDB levert vaak een net andere
-  // schrijfwijze voor dezelfde film, wat massa's valse twijfelgevallen geeft.
-  if (meta) {
-    const jaarAf = want && meta.year && Math.abs(meta.year - want) > 1;
-    const kort = meta.runtime != null && meta.runtime > 0 && meta.runtime < 45;
-    if (jaarAf) { meta.yearMismatch = want || meta.year || true; meta.mismatchType = 'year'; }
-    else if (kort) { meta.yearMismatch = want || meta.year || true; meta.mismatchType = 'short'; }
+  // Een twijfelgeval: het jaar wijkt meer dan 1 af van wat Letterboxd zegt.
+  // Letterboxd haalt zijn filmdata zelf uit TMDB, dus dan is het bijna altijd
+  // de verkeerde film (een remake, een naamgenoot). Een korte looptijd is geen
+  // signaal: Letterboxd heeft alleen films, en een korte film is gewoon een
+  // korte film. Een titelvergelijking doen we bewust NIET: TMDB levert vaak
+  // een net andere schrijfwijze voor dezelfde film.
+  if (meta && want && meta.year && Math.abs(meta.year - want) > 1) {
+    meta.yearMismatch = want;
+    meta.mismatchType = 'year';
   }
   return meta;
+}
+
+// Twijfelt de tool aan deze koppeling? Oude filmdata kan nog het vervallen
+// vlaggetje voor korte films ('short') hebben: dat telt niet meer.
+export const jaarTwijfel = (m) => !!m?.yearMismatch && m.mismatchType !== 'short';
+
+// De regisseur(s) van een film, om naamgenoten uit elkaar te houden
+export async function fetchRegisseurs(id, key) {
+  const d = await get(`/movie/${id}/credits`, key);
+  return (d.crew || []).filter((c) => c.job === 'Director').map((c) => c.name).slice(0, 2);
 }
 
 export async function fetchDetailById(id, key) {
@@ -273,9 +279,16 @@ const lightMovie = (r) => ({
   ...(r.original_title && r.original_title !== r.title ? { orig: r.original_title } : {}),
 });
 
-export async function searchMovies(key, query) {
-  const d = await get('/search/movie', key, { query, include_adult: 'false' });
-  return (d.results || []).slice(0, 12).map(lightMovie);
+// jaar: eerst de films uit (de buurt van) dat jaar, daarna de rest
+export async function searchMovies(key, query, { jaar = null } = {}) {
+  const [metJaar, breed] = await Promise.all([
+    jaar ? get('/search/movie', key, { query, year: jaar, include_adult: 'false' }) : { results: [] },
+    get('/search/movie', key, { query, include_adult: 'false' }),
+  ]);
+  const gezien = new Set();
+  return [...(metJaar.results || []), ...(breed.results || [])]
+    .filter((r) => !gezien.has(r.id) && gezien.add(r.id))
+    .slice(0, 12).map(lightMovie);
 }
 
 // Similar: TMDB's metadata-algoritme (genres/keywords) — belicht een andere
@@ -412,7 +425,8 @@ export async function discoverByKeywords(key, keywordIds, { minVotes = 40, page 
 }
 
 // Verrijkt een lijst films met beperkte parallelliteit; roept onProgress({done,total,errors}) aan
-export async function enrichAll(films, key, onProgress, onResult, shouldStop) {
+// resolve(film): hoe een film gevonden wordt (standaard op titel en jaar)
+export async function enrichAll(films, key, onProgress, onResult, shouldStop, resolve = (film) => resolveFilm(film, key)) {
   const total = films.length;
   let done = 0;
   let errors = 0;
@@ -422,7 +436,7 @@ export async function enrichAll(films, key, onProgress, onResult, shouldStop) {
       if (shouldStop && shouldStop()) return;
       const film = queue.shift();
       try {
-        const meta = await resolveFilm(film, key);
+        const meta = await resolve(film);
         onResult(film.key, meta); // meta kan null zijn (niet gevonden)
       } catch (e) {
         if (e.message === 'KEY_INVALID') throw e;

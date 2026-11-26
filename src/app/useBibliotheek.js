@@ -27,6 +27,8 @@ export function useBibliotheek() {
   // je eigen thematische lijsten
   const [diary, setDiary] = useLS('diary', []);
   const [lbLists, setLbLists] = useLS('lbLists', []);
+  // Van welke export je watchlist komt: { naam, datum, films } (lib/csv.js)
+  const [lbExport, setLbExport] = useLS('lbExport', null);
   // Antwoorden op "gekeken?"-vragen, per pick-datum: 'rated' | 'seen' | 'no'
   const [followups, setFollowups] = useLS('followups', {});
   // Wanneer je een film als gezien markeerde (bewijs voor een kaartje), en
@@ -109,6 +111,7 @@ export function useBibliotheek() {
     setGezienWeg({});
     setDiary([]);
     setLbLists([]);
+    setLbExport(null);
     setSeen([]);
     setHistory([]);
     setShortlist([]);
@@ -124,7 +127,7 @@ export function useBibliotheek() {
     ownRatings, setOwnRatings,
     seen, setSeen, seenSet, gezienOp, setGezienOp, gezienWeg, setGezienWeg,
     meta, setMeta, metaReady, metaRef,
-    history, setHistory, diary, setDiary, lbLists, setLbLists, followups, setFollowups,
+    history, setHistory, diary, setDiary, lbLists, setLbLists, lbExport, setLbExport, followups, setFollowups,
     shortlist, setShortlist, skipped, setSkipped,
     smaakModel, setSmaakModel, ignored, setIgnored, ignoredSet,
     smart, setSmart, demoMode, setDemoMode,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Play, RefreshCw, Eye, EyeOff, Share2, Clapperboard, Plus, Check, X } from 'lucide-react';
-import { IMG } from '../lib/tmdb.js';
+import { IMG, jaarTwijfel } from '../lib/tmdb.js';
 import { imdbLink, jwLink } from '../lib/links.js';
 import { appScore, fmtScore, aantalBronnen, scoreVoorlopig } from '../lib/pick.js';
 import { renderShareCard, shareOrDownload } from '../lib/extra.js';
@@ -86,7 +86,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
         <>
           {!zonderContext && <p className="wcontext">{context || tr('winner.eyebrow')}</p>}
           <Kaartje film={film} meta={meta} personen={kaartje} namen={namen} kleur={kleur} />
-          {meta?.yearMismatch && (
+          {jaarTwijfel(meta) && (
             <p className="wwaarschuwing">{tr('winner.yearMismatch', { want: meta.yearMismatch, got: meta.year })}</p>
           )}
           {cijfers}
@@ -114,7 +114,7 @@ export default function Winner({ film, meta, context, seen, onToggleSeen, onSimi
               {meta?.cast?.length ? <span>{tr('kaartje.aftitelingCast', { namen: meta.cast.slice(0, 2).join(', ') })}</span> : null}
               {meta?.genres?.length ? <span>{meta.genres.slice(0, 3).join(', ')}</span> : null}
             </p>
-            {meta?.yearMismatch && (
+            {jaarTwijfel(meta) && (
               <p className="wwaarschuwing">{tr('winner.yearMismatch', { want: meta.yearMismatch, got: meta.year })}</p>
             )}
           </div>

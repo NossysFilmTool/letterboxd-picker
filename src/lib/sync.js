@@ -60,8 +60,25 @@ export function voegGezienSamen(a = {}, b = {}) {
   return { seen, gezienOp: op, gezienWeg: weg };
 }
 
+// Wat je zag en je sterren van Letterboxd: een export op het ene apparaat en
+// Letterboxd live op het andere veranderen dit allebei. Samen: alles wat
+// gezien is, en bij sterren die verschillen wint de kant die het laatst
+// veranderde (aAt, bAt: wanneer).
+export function voegLetterboxdSamen(a = {}, b = {}, { aAt = 0, bAt = 0 } = {}) {
+  const [oud, nieuw] = aAt > bAt ? [b || {}, a || {}] : [a || {}, b || {}];
+  const perFilm = (x, y) => [...new Map([...(x || []), ...(y || [])].map((f) => [f.key, f])).values()];
+  return {
+    watchedLb: [...new Set([...(oud.watchedLb || []), ...(nieuw.watchedLb || [])])],
+    watchedFilms: perFilm(oud.watchedFilms, nieuw.watchedFilms),
+    ratings: { ...(oud.ratings || {}), ...(nieuw.ratings || {}) },
+    ratedFilms: perFilm(oud.ratedFilms, nieuw.ratedFilms),
+  };
+}
+
 // Elke kolom: een of meer opslagsleutels, en hoe samen te voegen (zonder
-// samenvoeg-regel wint de laatste wijziging)
+// samenvoeg-regel wint de laatste wijziging). De watchlist staat los van wat
+// je zag: een nieuwe export op de laptop botst zo niet met een log die
+// Letterboxd live intussen op je telefoon vond.
 export const KOLOMMEN = [
   { naam: 'kaartjes', sleutels: ['kaartjes'], samen: (a, b) => ({ kaartjes: voegKaartjesSamen(a.kaartjes, b.kaartjes) }) },
   { naam: 'sterren', sleutels: ['ownRatings'], samen: (a, b) => ({ ownRatings: voegSterrenSamen(a.ownRatings, b.ownRatings) }) },
@@ -69,7 +86,8 @@ export const KOLOMMEN = [
   { naam: 'geschiedenis', sleutels: ['history'], samen: (a, b) => ({ history: lijst((h) => `${h.date}|${h.key}`, (x, y) => Date.parse(y.date) - Date.parse(x.date), 80)(a.history, b.history) }) },
   { naam: 'vondsten', sleutels: ['vondsten'], samen: (a, b) => ({ vondsten: voegVondstenSamen(a.vondsten, b.vondsten) }) },
   { naam: 'dagboek', sleutels: ['diary'], samen: (a, b) => ({ diary: lijst((d) => `${d.key}|${d.watchedDate}`)(a.diary, b.diary) }) },
-  { naam: 'letterboxd', sleutels: ['watchlist', 'watchedLb', 'watchedFilms', 'ratings', 'ratedFilms', 'lbLists'] },
+  { naam: 'watchlist', sleutels: ['watchlist', 'lbLists', 'lbExport'] },
+  { naam: 'letterboxd', sleutels: ['watchedLb', 'watchedFilms', 'ratings', 'ratedFilms'], samen: voegLetterboxdSamen },
   { naam: 'instellingen', sleutels: ['settings', 'mijnDiensten', 'samenNaam', 'smart', 'verbergGezien', 'dienstKiezerWeg'] },
   { naam: 'voorjou', sleutels: ['shortlist', 'skipped', 'ignored', 'eigenRijen'] },
   { naam: 'smaakmodel', sleutels: ['smaakModel'] },
@@ -209,7 +227,7 @@ export async function synchroniseer(code, { opslag = echteOpslag, staat = {}, se
     else if (!remoteAnders) { uit = lokaal; at = lokaalAnders ? (gewijzigd[kol.naam] || nu) : r.at; }
     else if (!lokaalAnders) { uit = r.data; at = r.at; }
     else if (kol.samen) {
-      uit = kol.samen(lokaal, r.data);
+      uit = kol.samen(lokaal, r.data, { aAt: gewijzigd[kol.naam] || 0, bAt: r.at });
       at = nu;
     } else {
       // Op beide gewijzigd, geen samenvoeg-regel: de laatste wijziging wint.

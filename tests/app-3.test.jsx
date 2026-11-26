@@ -313,7 +313,7 @@ describe('V2 smoke (3/4)', () => {
     delete global.fetch;
   });
 
-  it('matchcontrole: een korte film waar een speelfilm werd verwacht wordt gevlagd', async () => {
+  it('matchcontrole: een korte film is gewoon een korte film, geen twijfelgeval', async () => {
     global.fetch = async (url) => {
       const u = String(url);
       if (u.includes('/search/movie')) return { ok: true, status: 200, json: async () => ({ results: [{ id: 601, title: 'Piper', release_date: '2016-06-16', vote_count: 500 }] }) };
@@ -321,7 +321,9 @@ describe('V2 smoke (3/4)', () => {
     };
     const { resolveFilm } = await import('../src/lib/tmdb.js');
     const meta = await resolveFilm({ name: 'Piper', year: 2016, key: 'piper|2016' }, 'k');
-    expect(meta.yearMismatch).toBeTruthy(); // 6 minuten = verdacht kort
+    // Letterboxd heeft alleen films: 6 minuten is een korte film, niet verdacht
+    expect(meta.yearMismatch).toBeUndefined();
+    expect(meta.mismatchType).toBeUndefined();
     delete global.fetch;
   });
 
@@ -519,7 +521,7 @@ describe('V2 smoke (3/4)', () => {
     delete global.fetch;
   });
 
-  it('matchcontrole: korte film met kloppend jaar krijgt type short (opt-in), jaarafwijking type year', async () => {
+  it('matchcontrole: alleen een afwijkend jaar is een twijfelgeval', async () => {
     const basis = (id, title, jaar, runtime) => ({ id, title, release_date: `${jaar}-01-01`, runtime, genres: [], vote_average: 7, vote_count: 900, credits: { crew: [] }, videos: { results: [] }, recommendations: { results: [] }, 'watch/providers': { results: {} } });
     // scenario 1: miniserie met kloppend jaar (Godless 2017, 0 min looptijd)
     global.fetch = async (url) => {
@@ -532,14 +534,14 @@ describe('V2 smoke (3/4)', () => {
     let meta = await resolveFilm({ name: 'Godless', year: 2017, key: 'godless|2017' }, 'k');
     expect(meta.yearMismatch).toBeUndefined();
 
-    // scenario 2: echte korte film (6 min) met kloppend jaar -> type 'short'
+    // scenario 2: echte korte film (6 min) met kloppend jaar: geen vlag
     global.fetch = async (url) => {
       const u = String(url);
       if (u.includes('/search/movie')) return { ok: true, status: 200, json: async () => ({ results: [{ id: 702, title: 'Piper', release_date: '2016-06-16', vote_count: 500 }] }) };
       return { ok: true, status: 200, json: async () => basis(702, 'Piper', 2016, 6) };
     };
     meta = await resolveFilm({ name: 'Piper', year: 2016, key: 'piper|2016' }, 'k');
-    expect(meta.mismatchType).toBe('short');
+    expect(meta.mismatchType).toBeUndefined();
 
     // scenario 3: verkeerd jaar -> type 'year'
     global.fetch = async (url) => {

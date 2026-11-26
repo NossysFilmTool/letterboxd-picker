@@ -6,6 +6,17 @@ import { extTeHalen } from '../lib/pick.js';
 import { meld } from '../lib/melding.js';
 import { logFout } from '../lib/foutlog.js';
 
+// Nieuwe filmdata voor een film die er misschien al was. Niet gevonden: wat
+// er stond, blijft staan. Dezelfde film: het nieuwe erover, maar de scores
+// (OMDb) en je eigen keuze blijven. Een andere film: alleen het nieuwe, want
+// de oude scores horen bij de oude film.
+export function naOphalen(oud, nieuw) {
+  if (!nieuw) return oud ?? null;
+  if (!oud || oud.id !== nieuw.id) return nieuw;
+  const { yearMismatch, mismatchType, ...rest } = oud;
+  return { ...rest, ...nieuw };
+}
+
 // De filmdata: ophalen bij TMDB (posters, cijfers, streaming), de scores van
 // OMDb (IMDb, Rotten Tomatoes, Metacritic), en rustig verversen op de
 // achtergrond.
@@ -102,8 +113,16 @@ export function useVerrijking({ settings, bieb, tmdbKey, tr }) {
       await enrichAll(
         todo, key,
         (p) => setEnrich((e) => ({ ...e, ...p })),
-        (filmKey, m) => setMeta((prev) => ({ ...prev, [filmKey]: m })),
+        (filmKey, m) => setMeta((prev) => ({ ...prev, [filmKey]: naOphalen(prev[filmKey], m) })),
         () => stopRef.current,
+        // Wat je zelf koppelde, haalt de tool op zijn TMDB-nummer op, niet
+        // opnieuw op titel: anders kwam dezelfde verkeerde film terug
+        (film) => {
+          const oud = metaRef.current[film.key];
+          return oud?.handmatig && oud.id
+            ? fetchDetailById(oud.id, key).then((d) => (d?.id ? { ...d, handmatig: true } : null))
+            : resolveFilm(film, key);
+        },
       );
     } catch (e) {
       logFout('filmdata', e);
@@ -214,6 +233,17 @@ export function useVerrijking({ settings, bieb, tmdbKey, tr }) {
     } catch (e) { logFout('koppelen', e); }
   };
 
+  // "Deze klopt": de huidige koppeling is goed. De twijfel gaat eraf, en
+  // opnieuw ophalen laat hem voortaan staan.
+  const bevestigMatch = (filmKey) => setMeta((prev) => {
+    if (!prev[filmKey]) return prev;
+    const { yearMismatch, mismatchType, ...rest } = prev[filmKey];
+    return { ...prev, [filmKey]: { ...rest, handmatig: true } };
+  });
+  // Geen film (bijv. een beoordeelde titel die nergens op TMDB staat): de
+  // koppeling eraf, zodat hij je smaakprofiel niet scheeftrekt
+  const wisKoppeling = (filmKey) => setMeta((prev) => ({ ...prev, [filmKey]: null }));
+
   // Eenmalig herstel van koppelingen aan een obscure naamgenoot door het
   // festivaljaar (Mud 2012 met 1 stem in plaats van Mud 2013). Alleen films
   // met weinig stemmen, rustig op de achtergrond; een netwerkfout stelt het
@@ -280,7 +310,7 @@ export function useVerrijking({ settings, bieb, tmdbKey, tr }) {
   return {
     enrich, extEnrich, omdbKeys,
     startEnrich, startEnrichRef, startExtEnrich, stopEnrich,
-    freshenProviders, ensureDetail, pickMatch,
+    freshenProviders, ensureDetail, pickMatch, bevestigMatch, wisKoppeling,
     wis,
   };
 }

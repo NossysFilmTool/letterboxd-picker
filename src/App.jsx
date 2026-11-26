@@ -135,7 +135,7 @@ export default function App() {
   const setters = {
     kaartjes: kaartjes.setKaartjes, ownRatings: bieb.setOwnRatings, seen: bieb.setSeen, gezienOp: bieb.setGezienOp, gezienWeg: bieb.setGezienWeg,
     history: bieb.setHistory, diary: bieb.setDiary, watchlist: bieb.setWatchlist, watchedLb: bieb.setWatchedLb, watchedFilms: bieb.setWatchedFilms,
-    ratings: bieb.setRatings, ratedFilms: bieb.setRatedFilms, lbLists: bieb.setLbLists, settings: setSettings, smart: bieb.setSmart,
+    ratings: bieb.setRatings, ratedFilms: bieb.setRatedFilms, lbLists: bieb.setLbLists, lbExport: bieb.setLbExport, settings: setSettings, smart: bieb.setSmart,
     shortlist: bieb.setShortlist, skipped: bieb.setSkipped, ignored: bieb.setIgnored, smaakModel: bieb.setSmaakModel, vondsten: kaartjes.setVondsten,
   };
   const sync = useSync({
@@ -183,6 +183,7 @@ export default function App() {
     vondst: kaartjes.vondst, gevondenToevoegen: kaartjes.gevondenToevoegen, pakBiebStart: kaartjes.pakBiebStart,
     lbLive: lb.lbLive, lbBezig: lb.lbBezig, syncLetterboxd: lb.syncLetterboxd,
     diary: bieb.diary, setDiary: bieb.setDiary, lbLists: bieb.lbLists, setLbLists: bieb.setLbLists,
+    lbExport: bieb.lbExport, setLbExport: bieb.setLbExport,
     seen: bieb.seen, seenSet: bieb.seenSet, toggleSeen: bieb.toggleSeen, markeerGezien: bieb.markeerGezien,
     smaakModel: bieb.smaakModel, setSmaakModel: bieb.setSmaakModel,
     meta: bieb.meta, setMeta: bieb.setMeta,
@@ -199,7 +200,7 @@ export default function App() {
     extEnrich: verrijking.extEnrich, startExtEnrich: verrijking.startExtEnrich,
     freshenProviders: verrijking.freshenProviders,
     ensureDetail: verrijking.ensureDetail,
-    pickMatch: verrijking.pickMatch,
+    pickMatch: verrijking.pickMatch, bevestigMatch: verrijking.bevestigMatch, wisKoppeling: verrijking.wisKoppeling,
     naarZaal,
     stopEnrich: verrijking.stopEnrich,
   };

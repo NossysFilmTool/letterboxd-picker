@@ -4,7 +4,7 @@ import { testKey } from '../lib/tmdb.js';
 import { checkOmdbKey } from '../lib/omdb.js';
 import { SLUG } from '../lib/merk.js';
 import { DEFAULT_THEME_EMPHASIS } from '../lib/taste.js';
-import { REGIONS, DEFAULT_REGION, PROXY_URL } from '../lib/tmdb.js';
+import { REGIONS, DEFAULT_REGION, PROXY_URL, jaarTwijfel } from '../lib/tmdb.js';
 import { useT } from '../lib/i18n.js';
 import { exportAll, importAll, controleerBackup, clearAll, storageUsage, currentProfile, listProfiles, addProfile, switchProfile, deleteProfile } from '../lib/storage.js';
 import Foutlogboek from '../components/Foutlogboek.jsx';
@@ -71,6 +71,12 @@ export default function Instellingen({ app }) {
     deleteProfile(naam);
     if (currentProfile() !== naam) location.reload();
   };
+  // Films die de tool misschien aan de verkeerde film koppelde: van je
+  // watchlist, en ook wat je zag en beoordeelde (dat voedt je smaakprofiel)
+  const twijfel = [...new Map([...app.watchlist, ...(app.ratedFilms || []), ...(app.watchedFilms || [])]
+    .filter((f) => f?.key && f.name && !app.ignoredSet?.has(f.key) && jaarTwijfel(app.meta[f.key]))
+    .map((f) => [f.key, f])).values()];
+
   const terugNaarStart = async () => {
     if (await bevestig(tr('setup.confirmClearData'), { ja: tr('setup.wisBieb'), gevaar: true })) app.resetLibrary();
   };
@@ -250,29 +256,13 @@ export default function Instellingen({ app }) {
                 {app.enrich.running ? tr('setup.fetching') : tr('setup.fetchData')}
               </button>
             )}
-            {app.tmdbKey && (() => {
-              const jaarGevallen = app.watchlist.filter((f) => {
-                const m = app.meta[f.key];
-                return m?.yearMismatch && m.mismatchType !== 'short';
-              });
-              if (!jaarGevallen.length) return null;
-              return (
-                <button className="btn" style={{ borderColor: 'var(--dot-o)' }} onClick={() => setPicker(jaarGevallen)} disabled={app.enrich.running} data-uitleg="setup-match">
-                  {tr('setup.wrongFilms', { count: jaarGevallen.length })}
-                </button>
-              );
-            })()}
-            {app.tmdbKey && (() => {
-              const korteGevallen = app.watchlist.filter((f) => app.meta[f.key]?.mismatchType === 'short');
-              if (!korteGevallen.length) return null;
-              return (
-                <button className="btn ghost" style={{ fontSize: 12.5 }} onClick={() => setPicker(korteGevallen)} disabled={app.enrich.running}>
-                  {tr('setup.shortFilms', { count: korteGevallen.length })}
-                </button>
-              );
-            })()}
+            {app.tmdbKey && twijfel.length > 0 && (
+              <button className="btn" style={{ borderColor: 'var(--dot-o)' }} onClick={() => setPicker(twijfel)} disabled={app.enrich.running} data-uitleg="setup-match">
+                {tr('setup.wrongFilms', { count: twijfel.length })}
+              </button>
+            )}
           </div>
-          {app.tmdbKey && app.watchlist.length > 0 && !app.watchlist.some((f) => app.meta[f.key]?.yearMismatch && app.meta[f.key]?.mismatchType !== 'short') && !app.enrich.running && (
+          {app.tmdbKey && app.watchlist.length > 0 && !twijfel.length && !app.enrich.running && (
             <p style={{ fontSize: 12.5, color: 'var(--fog-dim)', marginTop: 8 }}>{tr('setup.recheckHint')}</p>
           )}
           {picker && <MatchPicker films={picker} app={app} onClose={() => setPicker(null)} />}

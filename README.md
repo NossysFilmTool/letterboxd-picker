@@ -91,6 +91,16 @@ Version 6 gets the tool ready to be hosted for everyone.
   score out of a hundred. The score is the same for everyone (the adjustable
   recipe is gone), and with fewer than a thousand votes behind it, it says
   "provisional".
+- **Reliable reloads** (6.2): a new Letterboxd export now also brings your
+  diary along, whether you load the ZIP or the loose files. Setup shows how
+  old your watchlist is and asks first when an export is older, or from
+  another account. Films that Letterboxd live found since then stay, and
+  sync keeps a new export on one device and a fresh log on another.
+- **A better wrong-film finder** (6.2): it searches in the year Letterboxd
+  gives, shows the director and the original title, and lets you search
+  for another title. "This one is right" is remembered, short films are no
+  longer suspect, films you only rated are checked too, and fetching the
+  film data again keeps what you linked yourself and your scores.
 
 ## New in version 5
 
@@ -215,6 +225,18 @@ export blijft op je telefoon. Tijdens de trailers zie je op je telefoon
 welke er draait en kun je alvast stemmen, en na afloop gaat iedereen naar
 huis met het kaartje: te bewaren in de eigen kaartjesdoos of te delen als
 plaatje.
+
+Nieuw in 6.2: je Letterboxd-export opnieuw laden werkt nu zoals het hoort.
+Je dagboek komt mee, of je nu de ZIP laadt of de losse bestanden. Setup
+laat zien van wanneer je watchlist is, en vraagt het eerst als een export
+ouder is of van een ander account. Wat Letterboxd live sindsdien vond,
+blijft staan, en sync houdt een nieuwe export op het ene apparaat en een
+nieuwe log op het andere allebei vast. Verkeerde films opsporen zoekt in
+het jaar dat Letterboxd noemt, met de regisseur en de originele titel
+erbij, en je kunt zelf op een andere titel zoeken. Deze klopt onthoudt de
+tool, korte films zijn niet langer verdacht, ook films die je alleen
+beoordeelde komen langs, en de filmdata opnieuw ophalen laat staan wat je
+zelf koppelde en je scores.
 
 Nieuw in 6.1: een eerlijkere ShutterScore. Metacritic rekent de tool eerst
 om naar dezelfde schaal als IMDb en TMDB, zodat een film niet meer zakt
